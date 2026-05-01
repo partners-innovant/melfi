@@ -12,6 +12,7 @@ import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, D
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
+import ResponseFeedbackBar from "@/components/ResponseFeedbackBar";
 
 interface Citation {
   chunk_id: string;
