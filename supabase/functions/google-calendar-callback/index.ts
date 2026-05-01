@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
         u.searchParams.delete("reason");
         back = `${origin}${u.pathname}${u.search ? u.search + "&" : "?"}`;
         // back already ends with ? or &; downstream code appends "gcal=..."
-        // Convert format so downstream `${back}?gcal=...` works uniformly:
+        // Convert format so downstream `${back}${sep}gcal=...` works uniformly:
         // Trim trailing ? or & and let the caller re-add via ?
         if (back.endsWith("?") || back.endsWith("&")) back = back.slice(0, -1);
       } catch {
@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
 
   const sep = back.includes("?") ? "&" : "?";
 
-  if (errorParam) return htmlRedirect(`${back}?gcal=error&reason=${encodeURIComponent(errorParam)}`, "Conexión cancelada.");
-  if (!code || !userId) return htmlRedirect(`${back}?gcal=error&reason=missing_code`, "Faltan parámetros.");
+  if (errorParam) return htmlRedirect(`${back}${sep}gcal=error&reason=${encodeURIComponent(errorParam)}`, "Conexión cancelada.");
+  if (!code || !userId) return htmlRedirect(`${back}${sep}gcal=error&reason=missing_code`, "Faltan parámetros.");
 
   try {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
     });
     const tokenJson = await tokenRes.json();
     if (!tokenRes.ok) {
-      return htmlRedirect(`${back}?gcal=error&reason=${encodeURIComponent(tokenJson.error || "token_exchange_failed")}`, "Error al obtener tokens.");
+      return htmlRedirect(`${back}${sep}gcal=error&reason=${encodeURIComponent(tokenJson.error || "token_exchange_failed")}`, "Error al obtener tokens.");
     }
 
     // Fetch primary calendar id
@@ -117,10 +117,10 @@ Deno.serve(async (req) => {
       google_calendar_id: calendarId,
     }).eq("id", userId);
 
-    if (updErr) return htmlRedirect(`${back}?gcal=error&reason=${encodeURIComponent(updErr.message)}`, "Error guardando credenciales.");
+    if (updErr) return htmlRedirect(`${back}${sep}gcal=error&reason=${encodeURIComponent(updErr.message)}`, "Error guardando credenciales.");
 
-    return htmlRedirect(`${back}?gcal=connected`, "¡Conectado! Redirigiendo…");
+    return htmlRedirect(`${back}${sep}gcal=connected`, "¡Conectado! Redirigiendo…");
   } catch (e) {
-    return htmlRedirect(`${back}?gcal=error&reason=${encodeURIComponent(String(e))}`, "Error inesperado.");
+    return htmlRedirect(`${back}${sep}gcal=error&reason=${encodeURIComponent(String(e))}`, "Error inesperado.");
   }
 });
