@@ -169,13 +169,13 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       if (docErr) { console.error("[upload] insert document error:", docErr); throw docErr; }
       console.log("[upload] document created:", doc.id);
 
-      // Embed in batches of 8
+      // Embed in batches of 8. Voyage free tier = 3 RPM, so pace ~22s between batches.
       const batchSize = 8;
+      const totalBatches = Math.ceil(chunks.length / batchSize);
       for (let i = 0; i < chunks.length; i += batchSize) {
         const batch = chunks.slice(i, i + batchSize);
         const batchNum = Math.floor(i / batchSize) + 1;
-        const totalBatches = Math.ceil(chunks.length / batchSize);
-        setStatus(`Procesando chunk ${Math.min(i + batchSize, chunks.length)} de ${chunks.length}...`);
+        setStatus(`Procesando lote ${batchNum} de ${totalBatches} (${chunks.length} fragmentos)...`);
         setProgress(Math.round((i / chunks.length) * 95) + 2);
 
         console.log(`[upload] embedding batch ${batchNum}/${totalBatches} (${batch.length} chunks) → voyage-embed`);
@@ -201,6 +201,12 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         const { error: insErr } = await supabase.from("document_chunks").insert(rows);
         if (insErr) { console.error(`[upload] insert chunks error (batch ${batchNum}):`, insErr); throw insErr; }
         console.log(`[upload] saved batch ${batchNum}/${totalBatches}`);
+
+        // Pace requests to stay under Voyage free-tier limit (3 RPM)
+        if (batchNum < totalBatches) {
+          setStatus(`Esperando límite de tasa de Voyage (lote ${batchNum}/${totalBatches} listo)...`);
+          await new Promise((r) => setTimeout(r, 22000));
+        }
       }
 
       setProgress(100);
