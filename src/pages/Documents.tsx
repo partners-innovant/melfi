@@ -221,62 +221,95 @@ function DocList({
   selected: Set<string>;
   onToggle: (id: string) => void;
 }) {
-  if (loading) return <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-16 bg-card rounded-xl animate-pulse" />)}</div>;
+  if (loading) return <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-12 bg-card rounded-xl animate-pulse" />)}</div>;
   if (docs.length === 0) return <Card className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</Card>;
   return (
-    <div className="grid gap-2">
-      {docs.map((d) => {
-        const canDelete = canDeleteDoc(d);
-        const isSelected = selected.has(d.id);
-        return (
-          <Card
-            key={d.id}
-            className={`p-4 flex items-center gap-3 transition-colors ${isSelected ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
-          >
-            {canDelete ? (
-              <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => onToggle(d.id)}
-                aria-label={`Seleccionar ${d.title}`}
-              />
-            ) : (
-              <div className="w-4" aria-hidden />
-            )}
-            <button
-              type="button"
-              onClick={() => onView(d)}
-              className="h-10 w-10 rounded-lg bg-primary-soft text-primary flex items-center justify-center flex-shrink-0 hover:opacity-80 transition"
-              aria-label="Ver documento"
-            >
-              <FileText className="h-5 w-5" />
-            </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => onView(d)}
-                  className="font-medium truncate text-left hover:underline focus:outline-none focus:underline"
+    <Card className="w-full overflow-hidden">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col className="w-10" />
+            <col />
+            <col className="w-[18%]" />
+            <col className="w-[70px]" />
+            <col className="w-[140px]" />
+            <col className="w-[110px]" />
+            <col className="w-[90px]" />
+          </colgroup>
+          <thead className="bg-muted/40 text-xs text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left"></th>
+              <th className="px-3 py-2 text-left font-medium">Nombre</th>
+              <th className="px-3 py-2 text-left font-medium">Autor</th>
+              <th className="px-3 py-2 text-left font-medium">Año</th>
+              <th className="px-3 py-2 text-left font-medium">Tipo</th>
+              <th className="px-3 py-2 text-left font-medium">Visibilidad</th>
+              <th className="px-3 py-2 text-right font-medium">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {docs.map((d) => {
+              const canDelete = canDeleteDoc(d);
+              const isSelected = selected.has(d.id);
+              return (
+                <tr
+                  key={d.id}
+                  className={`border-t hover:bg-muted/30 transition-colors ${isSelected ? "bg-primary/5" : ""}`}
                 >
-                  {d.title}
-                </button>
-                <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[d.document_type]}</Badge>
-              </div>
-              <div className="text-sm text-muted-foreground truncate">
-                {d.author ?? "Autor desconocido"}{d.year ? ` · ${d.year}` : ""}
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => onView(d)} aria-label="Ver">
-              <Eye className="h-4 w-4" />
-            </Button>
-            {canDelete && (
-              <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)} aria-label="Eliminar">
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            )}
-          </Card>
-        );
-      })}
-    </div>
+                  <td className="px-3 py-2 align-middle">
+                    {canDelete ? (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => onToggle(d.id)}
+                        aria-label={`Seleccionar ${d.title}`}
+                      />
+                    ) : null}
+                  </td>
+                  <td className="px-3 py-2 align-middle min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => onView(d)}
+                      className="flex items-center gap-2 min-w-0 w-full text-left hover:underline focus:outline-none focus:underline"
+                    >
+                      <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                      <span className="font-medium truncate">{d.title}</span>
+                    </button>
+                  </td>
+                  <td className="px-3 py-2 align-middle text-muted-foreground truncate">
+                    {d.author ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 align-middle text-muted-foreground">
+                    {d.year ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+                      {DOC_TYPE_LABELS[d.document_type]}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <Badge variant={d.is_global ? "default" : "outline"} className="text-[10px] gap-1 whitespace-nowrap">
+                      {d.is_global ? <><Globe2 className="h-3 w-3" />Global</> : "Privado"}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <div className="flex items-center justify-end gap-0.5">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(d)} aria-label="Ver">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      {canDelete && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(d.id)} aria-label="Eliminar">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
