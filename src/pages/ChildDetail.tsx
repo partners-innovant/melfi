@@ -17,7 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Sparkles, Plus, Phone, Mail, Users, Calendar,
-  ChevronDown, ChevronRight, Upload, FileText, Filter, MessageCircle,
+  ChevronDown, ChevronRight, FileText, Filter, MessageCircle,
 } from "lucide-react";
 import {
   calcAge, ageRangeColor, GOAL_STATUSES, GOAL_STATUS_LABELS,
