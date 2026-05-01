@@ -455,7 +455,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
     setItems((prev) => prev.filter((it) => it.id !== id));
   }
 
-  async function processOne(item: QueueItem, userId: string) {
+  async function processOne(item: QueueItem, userId: string): Promise<boolean> {
     update(item.id, { status: "uploading", progress: 2, statusText: "Subiendo archivo..." });
     try {
       const text = item.cachedText ?? "";
@@ -527,10 +527,12 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         }
       }
       update(item.id, { status: "done", progress: 100, statusText: `${chunks.length} fragmentos indexados` });
+      return true;
     } catch (e: any) {
       console.error("[upload] failed:", e);
       const msg = e?.message ?? e?.error_description ?? JSON.stringify(e) ?? "Error";
       update(item.id, { status: "error", error: msg, statusText: "Error" });
+      return false;
     }
   }
 
@@ -546,23 +548,29 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       return;
     }
     setBusy(true);
+    let success = 0;
+    let failed = 0;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
-      // Sequential to respect Voyage rate limits
+      // Sequential to respect Voyage rate limits. Continue on individual failures.
       for (const it of ready) {
         // Re-read latest state for this item (user may have edited fields)
-        const latest = (prev: QueueItem[]) => prev.find((x) => x.id === it.id) ?? it;
-        await new Promise<void>((resolve) => {
+        const live = await new Promise<QueueItem>((resolve) => {
           setItems((prev) => {
-            const live = latest(prev);
-            processOne(live, user.id).then(resolve);
+            resolve(prev.find((x) => x.id === it.id) ?? it);
             return prev;
           });
         });
+        try {
+          const ok = await processOne(live, user.id);
+          if (ok) success++; else failed++;
+        } catch (e) {
+          failed++;
+          console.error("[upload] unexpected:", e);
+        }
       }
-      const successCount = items.filter((it) => it.status === "done").length;
-      toast.success(`Procesado ${successCount} de ${ready.length} documentos`);
+      toast.success(`${success} documento${success === 1 ? "" : "s"} procesado${success === 1 ? "" : "s"} correctamente, ${failed} con error${failed === 1 ? "" : "es"}.`);
     } catch (e: any) {
       toast.error(e?.message ?? "Error general");
     } finally {
