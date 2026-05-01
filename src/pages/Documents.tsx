@@ -29,6 +29,8 @@ import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
 import UrlImportDialog from "@/components/UrlImportDialog";
 
+type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search';
+
 interface Doc {
   id: string;
   title: string;
@@ -39,7 +41,16 @@ interface Doc {
   psychologist_id: string;
   storage_path: string | null;
   created_at: string;
+  import_source?: ImportSource | null;
+  source_url?: string | null;
 }
+
+const IMPORT_SOURCE_META: Record<ImportSource, { icon: string; label: string }> = {
+  upload: { icon: '📁', label: 'Subida manual' },
+  google_drive: { icon: '🔗', label: 'Google Drive' },
+  url: { icon: '🌐', label: 'URL' },
+  web_search: { icon: '🔍', label: 'Búsqueda web' },
+};
 
 export default function Documents() {
   const { user, profile } = useAuth();
@@ -262,6 +273,7 @@ function DocList({
               <th className="px-3 py-2 text-left font-medium">Año</th>
               <th className="px-3 py-2 text-left font-medium">Tipo</th>
               <th className="px-3 py-2 text-left font-medium">Visibilidad</th>
+              <th className="px-3 py-2 text-left font-medium">Origen</th>
               <th className="px-3 py-2 text-right font-medium">Acciones</th>
             </tr>
           </thead>
@@ -308,6 +320,16 @@ function DocList({
                     <Badge variant={d.is_global ? "default" : "outline"} className="text-[10px] gap-1 whitespace-nowrap">
                       {d.is_global ? <><Globe2 className="h-3 w-3" />Global</> : "Privado"}
                     </Badge>
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    {(() => {
+                      const meta = IMPORT_SOURCE_META[(d.import_source ?? 'upload') as ImportSource];
+                      return (
+                        <Badge variant="outline" className="text-[10px] gap-1 whitespace-nowrap">
+                          <span aria-hidden>{meta.icon}</span> {meta.label}
+                        </Badge>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex items-center justify-end gap-0.5">
@@ -554,7 +576,8 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
-        })
+          import_source: 'upload',
+        } as any)
         .select()
         .single();
       if (docErr) {
