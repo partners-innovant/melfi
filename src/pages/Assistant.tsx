@@ -1035,9 +1035,10 @@ function ImportSourceButton({ url }: { url: string }) {
           author: data.author || null,
           year: data.year || null,
           document_type: data.document_type || "articulo_cientifico",
-          is_global: false,
+          is_global: true,
           storage_path: null,
           source_url: data.source_url || url,
+          import_source: 'web_search',
         } as any)
         .select()
         .single();
