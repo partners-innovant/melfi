@@ -14,13 +14,218 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      consultations: {
+        Row: {
+          answer: string
+          citations: Json
+          created_at: string
+          document_type_filter: string | null
+          id: string
+          patient_id: string | null
+          psychologist_id: string
+          question: string
+        }
+        Insert: {
+          answer: string
+          citations?: Json
+          created_at?: string
+          document_type_filter?: string | null
+          id?: string
+          patient_id?: string | null
+          psychologist_id: string
+          question: string
+        }
+        Update: {
+          answer?: string
+          citations?: Json
+          created_at?: string
+          document_type_filter?: string | null
+          id?: string
+          patient_id?: string | null
+          psychologist_id?: string
+          question?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string
+          document_id: string
+          embedding: string | null
+          id: string
+          page_number: number | null
+          psychologist_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          created_at?: string
+          document_id: string
+          embedding?: string | null
+          id?: string
+          page_number?: number | null
+          psychologist_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          document_id?: string
+          embedding?: string | null
+          id?: string
+          page_number?: number | null
+          psychologist_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          author: string | null
+          created_at: string
+          document_type: string
+          id: string
+          is_global: boolean
+          psychologist_id: string
+          title: string
+          year: string | null
+        }
+        Insert: {
+          author?: string | null
+          created_at?: string
+          document_type: string
+          id?: string
+          is_global?: boolean
+          psychologist_id: string
+          title: string
+          year?: string | null
+        }
+        Update: {
+          author?: string | null
+          created_at?: string
+          document_type?: string
+          id?: string
+          is_global?: boolean
+          psychologist_id?: string
+          title?: string
+          year?: string | null
+        }
+        Relationships: []
+      }
+      patients: {
+        Row: {
+          birth_date: string | null
+          created_at: string
+          diagnosis: string | null
+          first_name: string
+          id: string
+          last_name: string
+          marital_status: string | null
+          notes: string | null
+          occupation: string | null
+          psychologist_id: string
+          sex: string | null
+          start_date: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          marital_status?: string | null
+          notes?: string | null
+          occupation?: string | null
+          psychologist_id: string
+          sex?: string | null
+          start_date?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          created_at?: string
+          diagnosis?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          marital_status?: string | null
+          notes?: string | null
+          occupation?: string | null
+          psychologist_id?: string
+          sex?: string | null
+          start_date?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          first_name: string
+          id: string
+          is_admin: boolean
+          last_name: string
+          phone: string | null
+          rut: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_name: string
+          id: string
+          is_admin?: boolean
+          last_name: string
+          phone?: string | null
+          rut?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_name?: string
+          id?: string
+          is_admin?: boolean
+          last_name?: string
+          phone?: string | null
+          rut?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      match_chunks: {
+        Args: {
+          match_count?: number
+          p_document_type?: string
+          p_psychologist_id?: string
+          query_embedding: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          document_id: string
+          id: string
+          page_number: number
+          similarity: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
