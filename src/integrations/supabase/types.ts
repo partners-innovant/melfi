@@ -18,6 +18,8 @@ export type Database = {
         Row: {
           answer: string
           citations: Json
+          conversation_id: string | null
+          conversation_title: string | null
           created_at: string
           document_type_filter: string | null
           id: string
@@ -28,6 +30,8 @@ export type Database = {
         Insert: {
           answer: string
           citations?: Json
+          conversation_id?: string | null
+          conversation_title?: string | null
           created_at?: string
           document_type_filter?: string | null
           id?: string
@@ -38,6 +42,8 @@ export type Database = {
         Update: {
           answer?: string
           citations?: Json
+          conversation_id?: string | null
+          conversation_title?: string | null
           created_at?: string
           document_type_filter?: string | null
           id?: string
