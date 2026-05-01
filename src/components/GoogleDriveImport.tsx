@@ -287,7 +287,7 @@ export default function GoogleDriveImport({
           author: author || null,
           year: year || null,
           document_type: "articulo_cientifico",
-          is_global: false,
+          is_global: isGlobal && isAdmin,
           storage_path: storagePath,
         })
         .select()
