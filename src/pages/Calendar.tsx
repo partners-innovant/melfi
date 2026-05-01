@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Link2, AlertTriangle,
+  ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Link2, AlertTriangle, RefreshCw, Unlink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +25,8 @@ type ViewMode = "week" | "month";
 interface SessionRow {
   id: string;
   session_number: number;
-  session_date: string; // YYYY-MM-DD
+  session_date: string;
+  session_time: string | null;
   duration_minutes: number | null;
   status: string;
   patient_id: string | null;
@@ -36,14 +37,20 @@ interface SessionRow {
 interface PatientLite { id: string; first_name: string; last_name: string }
 interface ChildLite { id: string; first_name: string; last_name: string }
 
+interface GEvent {
+  id: string;
+  summary: string;
+  start: string;
+  end: string;
+  htmlLink?: string;
+  allDay?: boolean;
+  source: "google";
+}
+
 // ---------- date helpers ----------
 function startOfWeek(d: Date) {
-  const x = new Date(d);
-  const day = x.getDay(); // 0 Sun..6 Sat
-  const diff = (day + 6) % 7; // make Monday=0
-  x.setDate(x.getDate() - diff);
-  x.setHours(0, 0, 0, 0);
-  return x;
+  const x = new Date(d); const day = x.getDay(); const diff = (day + 6) % 7;
+  x.setDate(x.getDate() - diff); x.setHours(0, 0, 0, 0); return x;
 }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function addMonths(d: Date, n: number) { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
@@ -57,26 +64,44 @@ function startOfMonthGrid(d: Date) {
   return startOfWeek(first);
 }
 
-const HOURS = Array.from({ length: 15 }, (_, i) => 7 + i); // 7..21
+const HOURS = Array.from({ length: 15 }, (_, i) => 7 + i);
 const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 export default function Calendar() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth() as any;
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const [view, setView] = useState<ViewMode>("week");
   const [cursor, setCursor] = useState<Date>(new Date());
   const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [gEvents, setGEvents] = useState<GEvent[]>([]);
   const [patients, setPatients] = useState<Record<string, PatientLite>>({});
   const [children, setChildren] = useState<Record<string, ChildLite>>({});
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [tokenExpired, setTokenExpired] = useState(false);
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
+  const [activeGEvent, setActiveGEvent] = useState<GEvent | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newPrefill, setNewPrefill] = useState<{ date: string; time: string } | null>(null);
 
+  // Handle ?gcal=connected | error in URL after OAuth roundtrip
+  useEffect(() => {
+    const gcal = params.get("gcal");
+    if (!gcal) return;
+    if (gcal === "connected") {
+      toast.success("Google Calendar conectado");
+      refreshProfile?.();
+    } else {
+      toast.error(`No se pudo conectar Google Calendar${params.get("reason") ? `: ${params.get("reason")}` : ""}`);
+    }
+    params.delete("gcal"); params.delete("reason"); setParams(params, { replace: true });
+  }, [params, setParams, refreshProfile]);
+
   const range = useMemo(() => {
     if (view === "week") {
-      const start = startOfWeek(cursor);
-      const end = addDays(start, 7);
+      const start = startOfWeek(cursor); const end = addDays(start, 7);
       return { start, end };
     }
     const gridStart = startOfMonthGrid(cursor);
@@ -84,11 +109,33 @@ export default function Calendar() {
     return { start: gridStart, end: gridEnd };
   }, [view, cursor]);
 
+  const googleConnected = !!profile?.google_calendar_token;
+
+  const loadGoogleEvents = useCallback(async () => {
+    if (!googleConnected) { setGEvents([]); return; }
+    try {
+      const { data, error } = await supabase.functions.invoke("calendar-sync", {
+        body: { action: "pull", timeMin: range.start.toISOString(), timeMax: range.end.toISOString() },
+      });
+      if (error) {
+        // 401 token_expired
+        const msg = (error as any)?.message ?? "";
+        if (msg.includes("401") || msg.includes("token_expired")) setTokenExpired(true);
+        setGEvents([]); return;
+      }
+      setTokenExpired(false);
+      const items = ((data as any)?.events ?? []).map((e: any) => ({ ...e, source: "google" as const }));
+      setGEvents(items);
+    } catch {
+      setGEvents([]);
+    }
+  }, [googleConnected, range.start, range.end]);
+
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("sessions")
-      .select("id,session_number,session_date,duration_minutes,status,patient_id,child_patient_id,google_event_id")
+      .select("id,session_number,session_date,session_time,duration_minutes,status,patient_id,child_patient_id,google_event_id")
       .gte("session_date", fmtISODate(range.start))
       .lt("session_date", fmtISODate(range.end))
       .order("session_date", { ascending: true });
@@ -96,7 +143,6 @@ export default function Calendar() {
     const rows = (data as SessionRow[]) ?? [];
     setSessions(rows);
 
-    // fetch patient names
     const pIds = Array.from(new Set(rows.map((r) => r.patient_id).filter(Boolean) as string[]));
     const cIds = Array.from(new Set(rows.map((r) => r.child_patient_id).filter(Boolean) as string[]));
     if (pIds.length) {
@@ -113,11 +159,10 @@ export default function Calendar() {
     } else setChildren({});
 
     setLoading(false);
-  }, [range.start, range.end]);
+    await loadGoogleEvents();
+  }, [range.start, range.end, loadGoogleEvents]);
 
   useEffect(() => { load(); }, [load]);
-
-  const googleConnected = !!profile?.google_calendar_token;
 
   function patientName(s: SessionRow) {
     if (s.patient_id) {
@@ -154,6 +199,37 @@ export default function Calendar() {
     return cursor.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
   }, [view, cursor]);
 
+  async function connectGoogle() {
+    setConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-calendar-connect", {
+        body: { origin: window.location.origin },
+      });
+      if (error) throw error;
+      const url = (data as any)?.url;
+      if (!url) throw new Error("No URL returned");
+      window.location.href = url;
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo iniciar la conexión con Google");
+      setConnecting(false);
+    }
+  }
+
+  async function disconnectGoogle() {
+    const { error } = await supabase.functions.invoke("calendar-sync", { body: { action: "disconnect" } });
+    if (error) return toast.error("Error al desconectar");
+    toast.success("Google Calendar desconectado");
+    refreshProfile?.();
+    setGEvents([]); setTokenExpired(false);
+  }
+
+  async function manualSync() {
+    setSyncing(true);
+    await loadGoogleEvents();
+    setSyncing(false);
+    toast.success("Calendario sincronizado");
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -175,6 +251,11 @@ export default function Calendar() {
           <Button variant="outline" size="icon" onClick={prev} aria-label="Anterior"><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" onClick={goToday}>Hoy</Button>
           <Button variant="outline" size="icon" onClick={next} aria-label="Siguiente"><ChevronRight className="h-4 w-4" /></Button>
+          {googleConnected && !tokenExpired && (
+            <Button variant="outline" onClick={manualSync} disabled={syncing} className="gap-2">
+              <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />Sincronizar
+            </Button>
+          )}
           <Button onClick={() => openNewAt(new Date())} className="gap-2"><Plus className="h-4 w-4" />Nueva sesión</Button>
         </div>
       </div>
@@ -185,19 +266,30 @@ export default function Calendar() {
           <div className="flex-1 min-w-[220px]">
             <div className="font-medium text-sm">Conecta tu Google Calendar para sincronizar eventos</div>
             <div className="text-xs text-muted-foreground">
-              Las sesiones que crees aquí también se publicarán en tu Google Calendar y los eventos de Google se mostrarán en esta vista.
+              Las sesiones que crees aquí se publicarán en tu Google Calendar y los eventos de Google se mostrarán en esta vista.
             </div>
           </div>
-          <Button variant="secondary" disabled title="Próximamente: el administrador debe configurar Google OAuth">
-            Conectar Google
+          <Button onClick={connectGoogle} disabled={connecting}>
+            {connecting ? "Redirigiendo…" : "Conectar Google"}
           </Button>
         </Card>
       )}
 
-      {googleConnected && (
-        <Card className="p-3 border-dashed bg-amber-500/10 border-amber-500/30 flex items-center gap-3 text-sm">
+      {googleConnected && tokenExpired && (
+        <Card className="p-3 border-dashed bg-amber-500/10 border-amber-500/30 flex items-center gap-3 text-sm flex-wrap">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <div className="flex-1">La sincronización bidireccional con Google Calendar se activará cuando el administrador configure las credenciales OAuth en el panel.</div>
+          <div className="flex-1">Tu sesión de Google expiró o fue revocada. Reconecta para continuar sincronizando.</div>
+          <Button size="sm" onClick={connectGoogle} disabled={connecting}>Reconectar Google Calendar</Button>
+        </Card>
+      )}
+
+      {googleConnected && !tokenExpired && (
+        <Card className="p-3 border-dashed bg-teal-500/10 border-teal-500/30 flex items-center gap-3 text-sm flex-wrap">
+          <Link2 className="h-4 w-4 text-teal-700" />
+          <div className="flex-1">Google Calendar conectado. Las nuevas sesiones se publican automáticamente.</div>
+          <Button size="sm" variant="ghost" onClick={disconnectGoogle} className="gap-1">
+            <Unlink className="h-3.5 w-3.5" />Desconectar
+          </Button>
         </Card>
       )}
 
@@ -207,23 +299,27 @@ export default function Calendar() {
           <WeekGrid
             start={startOfWeek(cursor)}
             sessions={sessions}
+            gEvents={gEvents}
             patientName={patientName}
             onSlotClick={openNewAt}
             onSessionClick={setActiveSession}
+            onGEventClick={setActiveGEvent}
             loading={loading}
           />
         ) : (
           <MonthGrid
             cursorMonth={cursor}
             sessions={sessions}
+            gEvents={gEvents}
             patientName={patientName}
             onDayClick={(d) => openNewAt(d)}
             onSessionClick={setActiveSession}
+            onGEventClick={setActiveGEvent}
           />
         )}
       </Card>
 
-      {/* Session detail popup */}
+      {/* Session detail */}
       <Dialog open={!!activeSession} onOpenChange={(o) => !o && setActiveSession(null)}>
         <DialogContent className="max-w-md">
           {activeSession && (
@@ -232,12 +328,16 @@ export default function Calendar() {
                 <DialogTitle>Sesión #{activeSession.session_number} — {patientName(activeSession)}</DialogTitle>
                 <DialogDescription>
                   {new Date(activeSession.session_date + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  {activeSession.session_time ? ` · ${activeSession.session_time.slice(0, 5)}` : ""}
                   {" · "}{activeSession.duration_minutes ?? 50} min
                 </DialogDescription>
               </DialogHeader>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline">{activeSession.status}</Badge>
                 <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-300 border-0">Psicoasist</Badge>
+                {activeSession.google_event_id && (
+                  <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0">Google ✓</Badge>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="ghost" onClick={() => setActiveSession(null)}>Cerrar</Button>
@@ -250,10 +350,34 @@ export default function Calendar() {
         </DialogContent>
       </Dialog>
 
+      {/* Google event detail */}
+      <Dialog open={!!activeGEvent} onOpenChange={(o) => !o && setActiveGEvent(null)}>
+        <DialogContent className="max-w-md">
+          {activeGEvent && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{activeGEvent.summary}</DialogTitle>
+                <DialogDescription>
+                  {new Date(activeGEvent.start).toLocaleString("es-CL", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
+                </DialogDescription>
+              </DialogHeader>
+              <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0 w-fit">Google Calendar</Badge>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setActiveGEvent(null)}>Cerrar</Button>
+                {activeGEvent.htmlLink && (
+                  <Button onClick={() => window.open(activeGEvent.htmlLink!, "_blank")}>Abrir en Google</Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <NewSessionModal
         open={newOpen}
         onOpenChange={setNewOpen}
         prefill={newPrefill}
+        googleConnected={googleConnected && !tokenExpired}
         onCreated={() => { setNewOpen(false); load(); }}
       />
     </div>
@@ -262,13 +386,15 @@ export default function Calendar() {
 
 // ----------------- Week grid -----------------
 function WeekGrid({
-  start, sessions, patientName, onSlotClick, onSessionClick, loading,
+  start, sessions, gEvents, patientName, onSlotClick, onSessionClick, onGEventClick, loading,
 }: {
   start: Date;
   sessions: SessionRow[];
+  gEvents: GEvent[];
   patientName: (s: SessionRow) => string;
   onSlotClick: (d: Date, h: number) => void;
   onSessionClick: (s: SessionRow) => void;
+  onGEventClick: (e: GEvent) => void;
   loading: boolean;
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
@@ -277,16 +403,23 @@ function WeekGrid({
   const sessionsByDay = useMemo(() => {
     const map: Record<string, SessionRow[]> = {};
     days.forEach((d) => (map[fmtISODate(d)] = []));
-    sessions.forEach((s) => {
-      if (map[s.session_date]) map[s.session_date].push(s);
-    });
+    sessions.forEach((s) => { if (map[s.session_date]) map[s.session_date].push(s); });
     return map;
   }, [days, sessions]);
+
+  const gEventsByDay = useMemo(() => {
+    const map: Record<string, GEvent[]> = {};
+    days.forEach((d) => (map[fmtISODate(d)] = []));
+    gEvents.forEach((e) => {
+      const d = fmtISODate(new Date(e.start));
+      if (map[d]) map[d].push(e);
+    });
+    return map;
+  }, [days, gEvents]);
 
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[800px]">
-        {/* header row */}
         <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b">
           <div />
           {days.map((d, i) => (
@@ -297,28 +430,25 @@ function WeekGrid({
           ))}
         </div>
 
-        {/* time rows */}
         <div className="relative">
           {HOURS.map((h) => (
             <div key={h} className="grid grid-cols-[60px_repeat(7,1fr)] border-b last:border-b-0 min-h-[56px]">
               <div className="text-[11px] text-muted-foreground text-right pr-2 pt-1 border-r">{h}:00</div>
-              {days.map((d, i) => {
-                return (
-                  <button
-                    key={i}
-                    onClick={() => onSlotClick(d, h)}
-                    className="border-r last:border-r-0 hover:bg-accent/40 transition-colors text-left p-1 relative"
-                  />
-                );
-              })}
+              {days.map((d, i) => (
+                <button
+                  key={i}
+                  onClick={() => onSlotClick(d, h)}
+                  className="border-r last:border-r-0 hover:bg-accent/40 transition-colors text-left p-1 relative"
+                />
+              ))}
             </div>
           ))}
 
-          {/* Overlay sessions in first visible slot per day */}
           <div className="absolute inset-0 pointer-events-none grid grid-cols-[60px_repeat(7,1fr)]">
             <div />
             {days.map((d, i) => {
               const list = sessionsByDay[fmtISODate(d)] ?? [];
+              const gList = gEventsByDay[fmtISODate(d)] ?? [];
               return (
                 <div key={i} className="px-1 pt-1 space-y-1">
                   {list.map((s) => (
@@ -328,8 +458,24 @@ function WeekGrid({
                       className="pointer-events-auto w-full text-left rounded-md px-2 py-1 text-xs bg-teal-500/15 text-teal-800 dark:text-teal-200 border border-teal-500/30 hover:bg-teal-500/25 truncate"
                       title={`${patientName(s)} · #${s.session_number}`}
                     >
+                      {s.session_time && <span className="opacity-70 mr-1">{s.session_time.slice(0, 5)}</span>}
                       <span className="font-medium">#{s.session_number}</span>{" "}
                       <span className="truncate">{patientName(s)}</span>
+                    </button>
+                  ))}
+                  {gList.map((e) => (
+                    <button
+                      key={e.id}
+                      onClick={(ev) => { ev.stopPropagation(); onGEventClick(e); }}
+                      className="pointer-events-auto w-full text-left rounded-md px-2 py-1 text-xs bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-500/30 hover:bg-blue-500/25 truncate"
+                      title={e.summary}
+                    >
+                      {!e.allDay && (
+                        <span className="opacity-70 mr-1">
+                          {new Date(e.start).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      )}
+                      <span className="truncate">{e.summary}</span>
                     </button>
                   ))}
                 </div>
@@ -346,13 +492,15 @@ function WeekGrid({
 
 // ----------------- Month grid -----------------
 function MonthGrid({
-  cursorMonth, sessions, patientName, onDayClick, onSessionClick,
+  cursorMonth, sessions, gEvents, patientName, onDayClick, onSessionClick, onGEventClick,
 }: {
   cursorMonth: Date;
   sessions: SessionRow[];
+  gEvents: GEvent[];
   patientName: (s: SessionRow) => string;
   onDayClick: (d: Date) => void;
   onSessionClick: (s: SessionRow) => void;
+  onGEventClick: (e: GEvent) => void;
 }) {
   const start = startOfMonthGrid(cursorMonth);
   const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
@@ -361,6 +509,11 @@ function MonthGrid({
 
   const byDay: Record<string, SessionRow[]> = {};
   sessions.forEach((s) => { (byDay[s.session_date] ??= []).push(s); });
+  const gByDay: Record<string, GEvent[]> = {};
+  gEvents.forEach((e) => {
+    const d = fmtISODate(new Date(e.start));
+    (gByDay[d] ??= []).push(e);
+  });
 
   return (
     <div>
@@ -373,6 +526,10 @@ function MonthGrid({
         {days.map((d, i) => {
           const inMonth = d.getMonth() === month;
           const list = byDay[fmtISODate(d)] ?? [];
+          const gList = gByDay[fmtISODate(d)] ?? [];
+          const total = list.length + gList.length;
+          const visibleSess = list.slice(0, 2);
+          const visibleG = gList.slice(0, Math.max(0, 3 - visibleSess.length));
           return (
             <button
               key={i}
@@ -387,7 +544,7 @@ function MonthGrid({
                 sameDay(d, today) && "bg-primary text-primary-foreground"
               )}>{d.getDate()}</div>
               <div className="space-y-0.5">
-                {list.slice(0, 3).map((s) => (
+                {visibleSess.map((s) => (
                   <div
                     key={s.id}
                     onClick={(e) => { e.stopPropagation(); onSessionClick(s); }}
@@ -397,7 +554,19 @@ function MonthGrid({
                     #{s.session_number} {patientName(s)}
                   </div>
                 ))}
-                {list.length > 3 && <div className="text-[10px] text-muted-foreground">+{list.length - 3} más</div>}
+                {visibleG.map((e) => (
+                  <div
+                    key={e.id}
+                    onClick={(ev) => { ev.stopPropagation(); onGEventClick(e); }}
+                    className="text-[11px] rounded px-1.5 py-0.5 bg-blue-500/15 text-blue-800 dark:text-blue-200 border border-blue-500/30 truncate"
+                    title={e.summary}
+                  >
+                    {e.summary}
+                  </div>
+                ))}
+                {total > visibleSess.length + visibleG.length && (
+                  <div className="text-[10px] text-muted-foreground">+{total - visibleSess.length - visibleG.length} más</div>
+                )}
               </div>
             </button>
           );
@@ -409,11 +578,12 @@ function MonthGrid({
 
 // ----------------- New session modal -----------------
 function NewSessionModal({
-  open, onOpenChange, prefill, onCreated,
+  open, onOpenChange, prefill, googleConnected, onCreated,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   prefill: { date: string; time: string } | null;
+  googleConnected: boolean;
   onCreated: () => void;
 }) {
   const [kind, setKind] = useState<"adult" | "child">("adult");
@@ -451,6 +621,7 @@ function NewSessionModal({
     const payload: any = {
       psychologist_id: user!.id,
       session_date: date,
+      session_time: time || null,
       duration_minutes: duration,
       status: "programada",
       pre_session_notes: notes || null,
@@ -459,9 +630,20 @@ function NewSessionModal({
     else payload.child_patient_id = patientId;
 
     const { data, error } = await supabase.from("sessions").insert(payload).select().single();
+    if (error) { setSaving(false); return toast.error(error.message); }
+
+    // Push to Google if connected
+    if (googleConnected) {
+      const { error: pushErr } = await supabase.functions.invoke("calendar-sync", {
+        body: { action: "push_session", sessionId: data.id },
+      });
+      if (pushErr) toast.warning("Sesión guardada, pero no se pudo publicar en Google Calendar");
+      else toast.success(`Sesión #${data.session_number} programada y sincronizada`);
+    } else {
+      toast.success(`Sesión #${data.session_number} programada`);
+    }
+
     setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success(`Sesión #${data.session_number} programada para ${date} ${time}`);
     onCreated();
   }
 
@@ -470,7 +652,10 @@ function NewSessionModal({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Nueva sesión</DialogTitle>
-          <DialogDescription>Programa una sesión y enlázala al paciente correspondiente.</DialogDescription>
+          <DialogDescription>
+            Programa una sesión y enlázala al paciente correspondiente.
+            {googleConnected && " Se publicará automáticamente en Google Calendar."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
