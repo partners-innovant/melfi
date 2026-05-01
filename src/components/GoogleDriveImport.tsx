@@ -422,6 +422,25 @@ export default function GoogleDriveImport({
           </DialogHeader>
 
           <div className="space-y-2">
+            {isAdmin && (
+              <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="drive-bulk-global" className="text-sm font-medium flex items-center gap-2">
+                    <Globe2 className="h-4 w-4" />
+                    Documentos globales — visibles para todos los psicólogos
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Aplica a todos los archivos importados desde Drive.
+                  </p>
+                </div>
+                <Switch
+                  id="drive-bulk-global"
+                  checked={isGlobal}
+                  onCheckedChange={setIsGlobal}
+                  disabled={busy}
+                />
+              </div>
+            )}
             <div className="text-sm text-muted-foreground">
               {items.length} archivo{items.length === 1 ? "" : "s"} seleccionado{items.length === 1 ? "" : "s"}
             </div>
