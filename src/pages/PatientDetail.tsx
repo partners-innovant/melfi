@@ -12,6 +12,7 @@ import { ArrowLeft, Pencil, Sparkles } from "lucide-react";
 import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { PatientForm } from "./Patients";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
+import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -123,13 +124,14 @@ export default function PatientDetail() {
           <TabsTrigger value="history">Consultas</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="mt-4">
+        <TabsContent value="profile" className="mt-4 space-y-4">
           <LastSessionCard
             key={refreshKey}
             kind="adult"
             patientId={patient.id}
             onClick={() => setTab("sessions")}
           />
+          <ExtendedNotesEditor table="patients" rowId={patient.id} initialValue={patient.extended_notes ?? null} />
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-4">
