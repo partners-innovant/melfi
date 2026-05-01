@@ -622,6 +622,7 @@ export type Database = {
           psychologist_id: string
           session_date: string
           session_number: number | null
+          session_time: string | null
           status: string | null
           what_happened: string | null
         }
@@ -643,6 +644,7 @@ export type Database = {
           psychologist_id: string
           session_date: string
           session_number?: number | null
+          session_time?: string | null
           status?: string | null
           what_happened?: string | null
         }
@@ -664,6 +666,7 @@ export type Database = {
           psychologist_id?: string
           session_date?: string
           session_number?: number | null
+          session_time?: string | null
           status?: string | null
           what_happened?: string | null
         }
