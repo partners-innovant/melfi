@@ -61,20 +61,10 @@ function extractHtmlTitle(html: string): string {
 }
 
 async function extractPdfText(bytes: Uint8Array): Promise<string> {
-  // Use pdfjs-dist via esm.sh (Deno-compatible build).
-  const pdfjs: any = await import("https://esm.sh/pdfjs-dist@4.7.76/legacy/build/pdf.mjs");
-  // Disable worker — run in main thread on Deno.
-  if (pdfjs.GlobalWorkerOptions) pdfjs.GlobalWorkerOptions.workerSrc = "";
-  const loadingTask = pdfjs.getDocument({ data: bytes, disableWorker: true, useSystemFonts: false });
-  const doc = await loadingTask.promise;
-  let text = "";
-  const maxPages = Math.min(doc.numPages, 200);
-  for (let i = 1; i <= maxPages; i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map((it: any) => it.str).join(" ") + "\n\n";
-  }
-  return text;
+  // unpdf is Deno-compatible (no native canvas dependency).
+  const { extractText } = await import("https://esm.sh/unpdf@0.12.1");
+  const { text } = await extractText(bytes, { mergePages: true });
+  return Array.isArray(text) ? text.join("\n\n") : text;
 }
 
 async function aiMetadata(snippet: string): Promise<{ title: string; author: string; year: string; document_type: string }> {
