@@ -1,0 +1,1 @@
+alter table public.consultations add column if not exists is_general_knowledge boolean not null default false;
