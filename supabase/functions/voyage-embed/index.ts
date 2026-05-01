@@ -32,32 +32,40 @@ Deno.serve(async (req) => {
     console.log(`[voyage-embed:${reqId}] calling Voyage API: ${inputs.length} inputs, ${totalChars} chars, type=${inputType}`);
 
     const t0 = Date.now();
-    const resp = await fetch("https://api.voyageai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${VOYAGE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "voyage-3",
-        input: inputs,
-        input_type: inputType,
-        output_dimension: 1024,
-      }),
-    });
+    let resp: Response | null = null;
+    const maxAttempts = 4;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      resp = await fetch("https://api.voyageai.com/v1/embeddings", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${VOYAGE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "voyage-3",
+          input: inputs,
+          input_type: inputType,
+          output_dimension: 1024,
+        }),
+      });
+      if (resp.status !== 429) break;
+      const wait = Math.min(25000, 5000 * attempt); // 5s,10s,15s,20s
+      console.warn(`[voyage-embed:${reqId}] 429 rate-limited, attempt ${attempt}/${maxAttempts}, waiting ${wait}ms`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
     const dt = Date.now() - t0;
-    console.log(`[voyage-embed:${reqId}] Voyage responded ${resp.status} in ${dt}ms`);
+    console.log(`[voyage-embed:${reqId}] Voyage responded ${resp!.status} in ${dt}ms`);
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      console.error(`[voyage-embed:${reqId}] Voyage error ${resp.status}:`, txt);
-      return new Response(JSON.stringify({ error: `Voyage error ${resp.status}: ${txt}` }), {
+    if (!resp!.ok) {
+      const txt = await resp!.text();
+      console.error(`[voyage-embed:${reqId}] Voyage error ${resp!.status}:`, txt);
+      return new Response(JSON.stringify({ error: `Voyage error ${resp!.status}: ${txt}` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await resp.json();
+    const data = await resp!.json();
     const embeddings = data.data.map((d: any) => d.embedding);
     console.log(`[voyage-embed:${reqId}] returning ${embeddings.length} embeddings (dim=${embeddings[0]?.length ?? 0})`);
     return new Response(JSON.stringify({ embeddings }), {
