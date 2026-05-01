@@ -37,6 +37,7 @@ export default function Documents() {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [viewing, setViewing] = useState<Doc | null>(null);
 
   async function load() {
     const { data } = await supabase
@@ -50,6 +51,10 @@ export default function Documents() {
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este documento y todos sus fragmentos?")) return;
+    const doc = docs.find((d) => d.id === id);
+    if (doc?.storage_path) {
+      await supabase.storage.from("documents").remove([doc.storage_path]);
+    }
     const { error } = await supabase.from("documents").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Documento eliminado");
@@ -80,7 +85,7 @@ export default function Documents() {
           <h2 className="font-semibold">Documentos globales</h2>
           <span className="text-xs text-muted-foreground">({global.length})</span>
         </div>
-        <DocList docs={global} loading={loading} ownUserId={user?.id} onDelete={handleDelete} canDelete={false} />
+        <DocList docs={global} loading={loading} ownUserId={user?.id} onDelete={handleDelete} onView={setViewing} canDelete={false} />
       </section>
 
       <section>
@@ -89,8 +94,10 @@ export default function Documents() {
           <h2 className="font-semibold">Mis documentos</h2>
           <span className="text-xs text-muted-foreground">({own.length})</span>
         </div>
-        <DocList docs={own} loading={loading} ownUserId={user?.id} onDelete={handleDelete} canDelete />
+        <DocList docs={own} loading={loading} ownUserId={user?.id} onDelete={handleDelete} onView={setViewing} canDelete />
       </section>
+
+      <ViewerSheet doc={viewing} onClose={() => setViewing(null)} />
     </div>
   );
 }
