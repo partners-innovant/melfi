@@ -91,11 +91,12 @@ export default function Assistant() {
 
   useEffect(() => {
     (async () => {
+      const table = patientKind === "child" ? "child_patients" : "patients";
       const { data } = await supabase
-        .from("patients").select("id, first_name, last_name").order("first_name");
+        .from(table).select("id, first_name, last_name").order("first_name");
       setPatients((data as Patient[]) ?? []);
     })();
-  }, []);
+  }, [patientKind]);
 
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
