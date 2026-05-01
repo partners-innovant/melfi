@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Pencil, Sparkles } from "lucide-react";
 import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { PatientForm } from "./Patients";
+import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -20,6 +22,8 @@ export default function PatientDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState("profile");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   async function load() {
     if (!id) return;
@@ -112,21 +116,44 @@ export default function PatientDetail() {
         </div>
       </Card>
 
-      <Card className="p-6">
-        <h2 className="font-semibold mb-3">Historial de consultas</h2>
-        {consults.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">Sin consultas previas para este paciente.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {consults.map((c) => (
-              <li key={c.id} className="py-3">
-                <p className="text-sm">{c.question}</p>
-                <p className="text-xs text-muted-foreground mt-1">{new Date(c.created_at).toLocaleString("es-CL")}</p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="grid grid-cols-3 w-full max-w-md">
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="sessions">Sesiones</TabsTrigger>
+          <TabsTrigger value="history">Consultas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="mt-4">
+          <LastSessionCard
+            key={refreshKey}
+            kind="adult"
+            patientId={patient.id}
+            onClick={() => setTab("sessions")}
+          />
+        </TabsContent>
+
+        <TabsContent value="sessions" className="mt-4">
+          <SessionsTab kind="adult" patientId={patient.id} onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }} />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <Card className="p-6">
+            <h2 className="font-semibold mb-3">Historial de consultas</h2>
+            {consults.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Sin consultas previas para este paciente.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {consults.map((c) => (
+                  <li key={c.id} className="py-3">
+                    <p className="text-sm">{c.question}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{new Date(c.created_at).toLocaleString("es-CL")}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
