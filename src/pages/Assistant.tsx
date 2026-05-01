@@ -601,16 +601,18 @@ function Message({
   }, [message.citations]);
 
   const parts = useMemo(() => {
-    const re = /\[cita:([^\]]+)\]/g;
+    const re = /\s*\[cita:([^\]]+)\]/g;
     const out: Array<{ type: "text" | "cite"; value: string; cite?: Citation; idx?: number }> = [];
     let last = 0;
     let match: RegExpExecArray | null;
     while ((match = re.exec(message.content)) !== null) {
       if (match.index > last) out.push({ type: "text", value: message.content.slice(last, match.index) });
-      const id = match[1];
+      const id = match[1].trim();
       const found = citationsMap.get(id);
-      if (found) out.push({ type: "cite", value: id, cite: found.cite, idx: found.idx });
-      else out.push({ type: "text", value: match[0] });
+      if (found) {
+        out.push({ type: "cite", value: id, cite: found.cite, idx: found.idx });
+      }
+      // Unknown chunk_id: drop silently — never expose raw markers to the user.
       last = match.index + match[0].length;
     }
     if (last < message.content.length) out.push({ type: "text", value: message.content.slice(last) });
