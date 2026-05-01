@@ -5,12 +5,12 @@ import { cn } from "@/lib/utils";
 import ProfileCompletionModal from "@/components/ProfileCompletionModal";
 
 const items = [
+  { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/calendar", label: "Calendario", icon: Calendar },
   { to: "/documents", label: "Documentos", icon: FileText },
-  { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
