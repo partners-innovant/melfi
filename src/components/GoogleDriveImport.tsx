@@ -412,7 +412,7 @@ export default function GoogleDriveImport({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={open} onOpenChange={(o) => { if (!busy) setOpen(o); }}>
+      <Dialog open={open} onOpenChange={(o) => { if (!o) handleCancel(); else setOpen(o); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Importar desde Google Drive</DialogTitle>
