@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const origin = (body?.origin as string) || req.headers.get("origin") || "";
+    const returnTo = (body?.return_to as string) || "";
     if (!origin) {
       return new Response(JSON.stringify({ error: "Missing origin" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
     const redirectUri = `https://${projectId}.functions.supabase.co/google-calendar-callback`;
 
     // state = userId|origin (base64 url-safe)
-    const state = btoa(JSON.stringify({ uid: userId, origin }))
+    const state = btoa(JSON.stringify({ uid: userId, origin, return_to: returnTo }))
       .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
     const params = new URLSearchParams({

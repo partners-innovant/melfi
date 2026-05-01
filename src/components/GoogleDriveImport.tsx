@@ -7,7 +7,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2 } from "lucide-react";
+import { DialogDescription } from "@/components/ui/dialog";
 import { chunkText } from "@/lib/pdf";
 import * as pdfjs from "pdfjs-dist";
 // @ts-ignore
@@ -79,6 +80,8 @@ export default function GoogleDriveImport({
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [opening, setOpening] = useState(false);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const accessTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -94,6 +97,42 @@ export default function GoogleDriveImport({
     })();
   }, []);
 
+  // After returning from Google OAuth (?gcal=connected), auto-open the picker.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const gcal = url.searchParams.get("gcal");
+    if (gcal === "connected" && url.searchParams.get("from") === "drive") {
+      url.searchParams.delete("gcal");
+      url.searchParams.delete("from");
+      url.searchParams.delete("reason");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      setConnected(true);
+      // Small delay to let auth/profile settle
+      setTimeout(() => { void openPicker(); }, 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function startConnect() {
+    setConnecting(true);
+    try {
+      const origin = window.location.origin;
+      const returnTo = `${window.location.pathname}?gcal=connected&from=drive`;
+      // Stash return target so callback can redirect back to Documents.
+      sessionStorage.setItem("gcal_return_to", returnTo);
+      const { data, error } = await supabase.functions.invoke("google-calendar-connect", {
+        body: { origin, return_to: returnTo },
+      });
+      if (error) throw error;
+      const u = (data as any)?.url;
+      if (!u) throw new Error("No URL");
+      window.location.href = u;
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo iniciar la conexión con Google");
+      setConnecting(false);
+    }
+  }
+
   function update(driveId: string, patch: Partial<QueueItem>) {
     setItems((prev) => prev.map((it) => (it.driveId === driveId ? { ...it, ...patch } : it)));
   }
@@ -108,7 +147,9 @@ export default function GoogleDriveImport({
       if (error || !data || data.error) {
         const code = data?.error;
         if (code === "not_connected" || code === "token_expired") {
-          toast.error("Conecta tu cuenta de Google primero (Calendario → Conectar Google).");
+          setConnected(false);
+          setConnectModalOpen(true);
+          return;
         } else {
           toast.error(data?.error ?? error?.message ?? "Error obteniendo token");
         }
@@ -317,28 +358,47 @@ export default function GoogleDriveImport({
     setItems((prev) => prev.filter((it) => it.driveId !== id));
   }
 
-  if (connected === false) {
-    return (
-      <Button
-        variant="outline"
-        className="gap-2"
-        onClick={() => toast.info("Conecta tu cuenta de Google desde Calendario para importar desde Drive.")}
-      >
-        <FolderOpen className="h-4 w-4" />
-        Importar desde Google Drive
-      </Button>
-    );
-  }
-
   const pendingCount = items.filter((it) => it.status === "pending").length;
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
+  const handleMainClick = () => {
+    if (connected === false) {
+      setConnectModalOpen(true);
+      return;
+    }
+    void openPicker();
+  };
+
   return (
     <>
-      <Button variant="outline" className="gap-2" onClick={openPicker} disabled={opening || connected === null}>
+      <Button variant="outline" className="gap-2" onClick={handleMainClick} disabled={opening || connected === null}>
         <FolderOpen className="h-4 w-4" />
         {opening ? "Abriendo..." : "Importar desde Google Drive"}
       </Button>
+
+      {/* Connect Google modal */}
+      <Dialog open={connectModalOpen} onOpenChange={(o) => { if (!connecting) setConnectModalOpen(o); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" />
+              Conecta tu Google Drive
+            </DialogTitle>
+            <DialogDescription>
+              Para importar documentos directamente desde Google Drive, necesitas conectar tu cuenta de Google.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConnectModalOpen(false)} disabled={connecting}>
+              Cancelar
+            </Button>
+            <Button onClick={startConnect} disabled={connecting} className="gap-2">
+              {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              {connecting ? "Redirigiendo…" : "Conectar Google"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={(o) => { if (!busy) setOpen(o); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
