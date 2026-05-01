@@ -322,6 +322,16 @@ function DocList({
                     </Badge>
                   </td>
                   <td className="px-3 py-2 align-middle">
+                    {(() => {
+                      const meta = IMPORT_SOURCE_META[(d.import_source ?? 'upload') as ImportSource];
+                      return (
+                        <Badge variant="outline" className="text-[10px] gap-1 whitespace-nowrap">
+                          <span aria-hidden>{meta.icon}</span> {meta.label}
+                        </Badge>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-3 py-2 align-middle">
                     <div className="flex items-center justify-end gap-0.5">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(d)} aria-label="Ver">
                         <Eye className="h-4 w-4" />
