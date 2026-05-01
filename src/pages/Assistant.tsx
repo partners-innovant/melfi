@@ -197,6 +197,7 @@ export default function Assistant() {
           question: q,
           query_embedding,
           patient_id: patientId !== NONE ? patientId : null,
+          patient_kind: patientKind,
           document_type: docType !== ALL ? docType : null,
           conversation_id: conversationId,
         }),
