@@ -29,7 +29,11 @@ interface ChatMessage {
   content: string;
   citations?: Citation[];
   streaming?: boolean;
+  general?: boolean;
+  generalLoading?: boolean;
 }
+
+const NO_INFO_PHRASE = "No tengo información suficiente en los documentos cargados";
 
 interface Patient { id: string; first_name: string; last_name: string; }
 
