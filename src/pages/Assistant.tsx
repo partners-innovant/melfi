@@ -747,6 +747,46 @@ function Message({
 
 
 function CitationPanel({ citation }: { citation: Citation }) {
+  const [opening, setOpening] = useState(false);
+
+  async function openFullDocument() {
+    setOpening(true);
+    try {
+      const { data: chunk, error: chunkErr } = await supabase
+        .from("document_chunks")
+        .select("document_id")
+        .eq("id", citation.chunk_id)
+        .maybeSingle();
+      if (chunkErr || !chunk) throw new Error("No se encontró el documento");
+
+      const { data: doc, error: docErr } = await supabase
+        .from("documents")
+        .select("source_url, storage_path")
+        .eq("id", chunk.document_id)
+        .maybeSingle();
+      if (docErr || !doc) throw new Error("No se encontró el documento");
+
+      const d = doc as { source_url: string | null; storage_path: string | null };
+      if (d.source_url) {
+        window.open(d.source_url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (d.storage_path) {
+        const { data: signed, error: sErr } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(d.storage_path, 60 * 60);
+        if (sErr || !signed?.signedUrl) throw new Error("No se pudo generar el enlace");
+        window.open(signed.signedUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      toast.error("Este documento no tiene archivo ni URL de origen.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo abrir el documento");
+    } finally {
+      setOpening(false);
+    }
+  }
+
   return (
     <>
       <SheetHeader>
@@ -772,6 +812,15 @@ function CitationPanel({ citation }: { citation: Citation }) {
             <span className="citation-highlight">{citation.excerpt}</span>
           </p>
         </Card>
+        <Button
+          variant="outline"
+          className="w-full gap-2 border-teal-500/60 text-teal-700 hover:bg-teal-50 hover:text-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/40 dark:hover:text-teal-300"
+          onClick={openFullDocument}
+          disabled={opening}
+        >
+          📄 Ver documento completo
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Button>
       </div>
     </>
   );
