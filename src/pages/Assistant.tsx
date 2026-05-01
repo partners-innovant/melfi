@@ -909,7 +909,7 @@ function WebSourcesButton({ question }: { question: string }) {
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<WebSource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  
 
   async function search() {
     if (sources && !error) {
