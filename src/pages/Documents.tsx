@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye } from "lucide-react";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { extractPdfTextAndMeta, extractTxtText, chunkText } from "@/lib/pdf";
+import GoogleDriveImport from "@/components/GoogleDriveImport";
 
 interface Doc {
   id: string;
@@ -123,12 +124,15 @@ export default function Documents() {
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Documentos</h1>
           <p className="text-muted-foreground text-sm mt-1">Base de conocimiento clínica</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Upload className="h-4 w-4" />Subir documentos</Button>
-          </DialogTrigger>
-          <UploadDialog onClose={() => { setOpen(false); load(); }} isAdmin={isAdmin} />
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <GoogleDriveImport isAdmin={isAdmin} onImported={load} />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2"><Upload className="h-4 w-4" />Subir documentos</Button>
+            </DialogTrigger>
+            <UploadDialog onClose={() => { setOpen(false); load(); }} isAdmin={isAdmin} />
+          </Dialog>
+        </div>
       </header>
 
       {selectedCount > 0 && (
