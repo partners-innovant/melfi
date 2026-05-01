@@ -1,0 +1,529 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Link2, AlertTriangle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type ViewMode = "week" | "month";
+
+interface SessionRow {
+  id: string;
+  session_number: number;
+  session_date: string; // YYYY-MM-DD
+  duration_minutes: number | null;
+  status: string;
+  patient_id: string | null;
+  child_patient_id: string | null;
+  google_event_id?: string | null;
+}
+
+interface PatientLite { id: string; first_name: string; last_name: string }
+interface ChildLite { id: string; first_name: string; last_name: string }
+
+// ---------- date helpers ----------
+function startOfWeek(d: Date) {
+  const x = new Date(d);
+  const day = x.getDay(); // 0 Sun..6 Sat
+  const diff = (day + 6) % 7; // make Monday=0
+  x.setDate(x.getDate() - diff);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function addMonths(d: Date, n: number) { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
+function fmtISODate(d: Date) {
+  const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, "0"); const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function sameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
+function startOfMonthGrid(d: Date) {
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  return startOfWeek(first);
+}
+
+const HOURS = Array.from({ length: 15 }, (_, i) => 7 + i); // 7..21
+const DAY_LABELS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+export default function Calendar() {
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const [view, setView] = useState<ViewMode>("week");
+  const [cursor, setCursor] = useState<Date>(new Date());
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
+  const [patients, setPatients] = useState<Record<string, PatientLite>>({});
+  const [children, setChildren] = useState<Record<string, ChildLite>>({});
+  const [loading, setLoading] = useState(true);
+  const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
+  const [newPrefill, setNewPrefill] = useState<{ date: string; time: string } | null>(null);
+
+  const range = useMemo(() => {
+    if (view === "week") {
+      const start = startOfWeek(cursor);
+      const end = addDays(start, 7);
+      return { start, end };
+    }
+    const gridStart = startOfMonthGrid(cursor);
+    const gridEnd = addDays(gridStart, 42);
+    return { start: gridStart, end: gridEnd };
+  }, [view, cursor]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("sessions")
+      .select("id,session_number,session_date,duration_minutes,status,patient_id,child_patient_id,google_event_id")
+      .gte("session_date", fmtISODate(range.start))
+      .lt("session_date", fmtISODate(range.end))
+      .order("session_date", { ascending: true });
+    if (error) toast.error(error.message);
+    const rows = (data as SessionRow[]) ?? [];
+    setSessions(rows);
+
+    // fetch patient names
+    const pIds = Array.from(new Set(rows.map((r) => r.patient_id).filter(Boolean) as string[]));
+    const cIds = Array.from(new Set(rows.map((r) => r.child_patient_id).filter(Boolean) as string[]));
+    if (pIds.length) {
+      const { data: ps } = await supabase.from("patients").select("id,first_name,last_name").in("id", pIds);
+      const map: Record<string, PatientLite> = {};
+      (ps ?? []).forEach((p: any) => (map[p.id] = p));
+      setPatients(map);
+    } else setPatients({});
+    if (cIds.length) {
+      const { data: cs } = await supabase.from("child_patients").select("id,first_name,last_name").in("id", cIds);
+      const map: Record<string, ChildLite> = {};
+      (cs ?? []).forEach((c: any) => (map[c.id] = c));
+      setChildren(map);
+    } else setChildren({});
+
+    setLoading(false);
+  }, [range.start, range.end]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const googleConnected = !!profile?.google_calendar_token;
+
+  function patientName(s: SessionRow) {
+    if (s.patient_id) {
+      const p = patients[s.patient_id]; return p ? `${p.first_name} ${p.last_name}` : "Paciente";
+    }
+    if (s.child_patient_id) {
+      const c = children[s.child_patient_id]; return c ? `${c.first_name} ${c.last_name}` : "Menor";
+    }
+    return "—";
+  }
+  function patientLink(s: SessionRow) {
+    if (s.patient_id) return `/patients/${s.patient_id}`;
+    if (s.child_patient_id) return `/children/${s.child_patient_id}`;
+    return "#";
+  }
+
+  function openNewAt(date: Date, hour?: number) {
+    setNewPrefill({
+      date: fmtISODate(date),
+      time: hour != null ? `${String(hour).padStart(2, "0")}:00` : "10:00",
+    });
+    setNewOpen(true);
+  }
+
+  function goToday() { setCursor(new Date()); }
+  function prev() { setCursor(view === "week" ? addDays(cursor, -7) : addMonths(cursor, -1)); }
+  function next() { setCursor(view === "week" ? addDays(cursor, 7) : addMonths(cursor, 1)); }
+
+  const headerLabel = useMemo(() => {
+    if (view === "week") {
+      const start = startOfWeek(cursor); const end = addDays(start, 6);
+      return `${start.toLocaleDateString("es-CL", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })}`;
+    }
+    return cursor.toLocaleDateString("es-CL", { month: "long", year: "numeric" });
+  }, [view, cursor]);
+
+  return (
+    <div className="p-4 md:p-6 space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+            <CalendarIcon className="h-6 w-6" />Calendario
+          </h1>
+          <p className="text-sm text-muted-foreground">Agenda tus sesiones y sincronízalas con Google Calendar.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border bg-card p-0.5">
+            <button
+              className={cn("px-3 py-1.5 text-sm rounded-md", view === "week" ? "bg-secondary font-medium" : "text-muted-foreground")}
+              onClick={() => setView("week")}>Semana</button>
+            <button
+              className={cn("px-3 py-1.5 text-sm rounded-md", view === "month" ? "bg-secondary font-medium" : "text-muted-foreground")}
+              onClick={() => setView("month")}>Mes</button>
+          </div>
+          <Button variant="outline" size="icon" onClick={prev} aria-label="Anterior"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" onClick={goToday}>Hoy</Button>
+          <Button variant="outline" size="icon" onClick={next} aria-label="Siguiente"><ChevronRight className="h-4 w-4" /></Button>
+          <Button onClick={() => openNewAt(new Date())} className="gap-2"><Plus className="h-4 w-4" />Nueva sesión</Button>
+        </div>
+      </div>
+
+      {!googleConnected && (
+        <Card className="p-4 border-dashed bg-muted/30 flex items-center gap-3 flex-wrap">
+          <Link2 className="h-5 w-5 text-muted-foreground" />
+          <div className="flex-1 min-w-[220px]">
+            <div className="font-medium text-sm">Conecta tu Google Calendar para sincronizar eventos</div>
+            <div className="text-xs text-muted-foreground">
+              Las sesiones que crees aquí también se publicarán en tu Google Calendar y los eventos de Google se mostrarán en esta vista.
+            </div>
+          </div>
+          <Button variant="secondary" disabled title="Próximamente: el administrador debe configurar Google OAuth">
+            Conectar Google
+          </Button>
+        </Card>
+      )}
+
+      {googleConnected && (
+        <Card className="p-3 border-dashed bg-amber-500/10 border-amber-500/30 flex items-center gap-3 text-sm">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <div className="flex-1">La sincronización bidireccional con Google Calendar se activará cuando el administrador configure las credenciales OAuth en el panel.</div>
+        </Card>
+      )}
+
+      <Card className="p-3">
+        <div className="text-sm font-medium px-2 pb-2 capitalize">{headerLabel}</div>
+        {view === "week" ? (
+          <WeekGrid
+            start={startOfWeek(cursor)}
+            sessions={sessions}
+            patientName={patientName}
+            onSlotClick={openNewAt}
+            onSessionClick={setActiveSession}
+            loading={loading}
+          />
+        ) : (
+          <MonthGrid
+            cursorMonth={cursor}
+            sessions={sessions}
+            patientName={patientName}
+            onDayClick={(d) => openNewAt(d)}
+            onSessionClick={setActiveSession}
+          />
+        )}
+      </Card>
+
+      {/* Session detail popup */}
+      <Dialog open={!!activeSession} onOpenChange={(o) => !o && setActiveSession(null)}>
+        <DialogContent className="max-w-md">
+          {activeSession && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Sesión #{activeSession.session_number} — {patientName(activeSession)}</DialogTitle>
+                <DialogDescription>
+                  {new Date(activeSession.session_date + "T00:00:00").toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                  {" · "}{activeSession.duration_minutes ?? 50} min
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{activeSession.status}</Badge>
+                <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-300 border-0">Psicoasist</Badge>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setActiveSession(null)}>Cerrar</Button>
+                <Button onClick={() => { const link = patientLink(activeSession); setActiveSession(null); navigate(link); }}>
+                  Ir al paciente
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <NewSessionModal
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        prefill={newPrefill}
+        onCreated={() => { setNewOpen(false); load(); }}
+      />
+    </div>
+  );
+}
+
+// ----------------- Week grid -----------------
+function WeekGrid({
+  start, sessions, patientName, onSlotClick, onSessionClick, loading,
+}: {
+  start: Date;
+  sessions: SessionRow[];
+  patientName: (s: SessionRow) => string;
+  onSlotClick: (d: Date, h: number) => void;
+  onSessionClick: (s: SessionRow) => void;
+  loading: boolean;
+}) {
+  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const today = new Date();
+
+  const sessionsByDay = useMemo(() => {
+    const map: Record<string, SessionRow[]> = {};
+    days.forEach((d) => (map[fmtISODate(d)] = []));
+    sessions.forEach((s) => {
+      if (map[s.session_date]) map[s.session_date].push(s);
+    });
+    return map;
+  }, [days, sessions]);
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="min-w-[800px]">
+        {/* header row */}
+        <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b">
+          <div />
+          {days.map((d, i) => (
+            <div key={i} className={cn("text-center py-2 text-xs", sameDay(d, today) && "text-primary font-semibold")}>
+              <div className="uppercase tracking-wide">{DAY_LABELS[i]}</div>
+              <div className={cn("text-base font-medium", sameDay(d, today) && "text-primary")}>{d.getDate()}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* time rows */}
+        <div className="relative">
+          {HOURS.map((h) => (
+            <div key={h} className="grid grid-cols-[60px_repeat(7,1fr)] border-b last:border-b-0 min-h-[56px]">
+              <div className="text-[11px] text-muted-foreground text-right pr-2 pt-1 border-r">{h}:00</div>
+              {days.map((d, i) => {
+                return (
+                  <button
+                    key={i}
+                    onClick={() => onSlotClick(d, h)}
+                    className="border-r last:border-r-0 hover:bg-accent/40 transition-colors text-left p-1 relative"
+                  />
+                );
+              })}
+            </div>
+          ))}
+
+          {/* Overlay sessions in first visible slot per day */}
+          <div className="absolute inset-0 pointer-events-none grid grid-cols-[60px_repeat(7,1fr)]">
+            <div />
+            {days.map((d, i) => {
+              const list = sessionsByDay[fmtISODate(d)] ?? [];
+              return (
+                <div key={i} className="px-1 pt-1 space-y-1">
+                  {list.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={(e) => { e.stopPropagation(); onSessionClick(s); }}
+                      className="pointer-events-auto w-full text-left rounded-md px-2 py-1 text-xs bg-teal-500/15 text-teal-800 dark:text-teal-200 border border-teal-500/30 hover:bg-teal-500/25 truncate"
+                      title={`${patientName(s)} · #${s.session_number}`}
+                    >
+                      <span className="font-medium">#{s.session_number}</span>{" "}
+                      <span className="truncate">{patientName(s)}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {loading && <div className="text-xs text-muted-foreground text-center py-3">Cargando…</div>}
+      </div>
+    </div>
+  );
+}
+
+// ----------------- Month grid -----------------
+function MonthGrid({
+  cursorMonth, sessions, patientName, onDayClick, onSessionClick,
+}: {
+  cursorMonth: Date;
+  sessions: SessionRow[];
+  patientName: (s: SessionRow) => string;
+  onDayClick: (d: Date) => void;
+  onSessionClick: (s: SessionRow) => void;
+}) {
+  const start = startOfMonthGrid(cursorMonth);
+  const days = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+  const today = new Date();
+  const month = cursorMonth.getMonth();
+
+  const byDay: Record<string, SessionRow[]> = {};
+  sessions.forEach((s) => { (byDay[s.session_date] ??= []).push(s); });
+
+  return (
+    <div>
+      <div className="grid grid-cols-7 border-b">
+        {DAY_LABELS.map((l) => (
+          <div key={l} className="text-center py-2 text-xs uppercase tracking-wide text-muted-foreground">{l}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 grid-rows-6">
+        {days.map((d, i) => {
+          const inMonth = d.getMonth() === month;
+          const list = byDay[fmtISODate(d)] ?? [];
+          return (
+            <button
+              key={i}
+              onClick={() => onDayClick(d)}
+              className={cn(
+                "min-h-[96px] border-r border-b last:border-r-0 p-1.5 text-left hover:bg-accent/40 transition-colors flex flex-col gap-1",
+                !inMonth && "bg-muted/30 text-muted-foreground",
+              )}
+            >
+              <div className={cn(
+                "text-xs font-medium self-end px-1.5 rounded",
+                sameDay(d, today) && "bg-primary text-primary-foreground"
+              )}>{d.getDate()}</div>
+              <div className="space-y-0.5">
+                {list.slice(0, 3).map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={(e) => { e.stopPropagation(); onSessionClick(s); }}
+                    className="text-[11px] rounded px-1.5 py-0.5 bg-teal-500/15 text-teal-800 dark:text-teal-200 border border-teal-500/30 truncate"
+                    title={patientName(s)}
+                  >
+                    #{s.session_number} {patientName(s)}
+                  </div>
+                ))}
+                {list.length > 3 && <div className="text-[10px] text-muted-foreground">+{list.length - 3} más</div>}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ----------------- New session modal -----------------
+function NewSessionModal({
+  open, onOpenChange, prefill, onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  prefill: { date: string; time: string } | null;
+  onCreated: () => void;
+}) {
+  const [kind, setKind] = useState<"adult" | "child">("adult");
+  const [patientId, setPatientId] = useState<string>("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("10:00");
+  const [duration, setDuration] = useState(50);
+  const [notes, setNotes] = useState("");
+  const [adults, setAdults] = useState<PatientLite[]>([]);
+  const [kids, setKids] = useState<ChildLite[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setDate(prefill?.date ?? fmtISODate(new Date()));
+    setTime(prefill?.time ?? "10:00");
+    setDuration(50);
+    setNotes("");
+    setPatientId("");
+    (async () => {
+      const [{ data: a }, { data: c }] = await Promise.all([
+        supabase.from("patients").select("id,first_name,last_name").order("first_name"),
+        supabase.from("child_patients").select("id,first_name,last_name").order("first_name"),
+      ]);
+      setAdults((a as PatientLite[]) ?? []);
+      setKids((c as ChildLite[]) ?? []);
+    })();
+  }, [open, prefill]);
+
+  async function save() {
+    if (!patientId) return toast.error("Selecciona un paciente");
+    if (!date) return toast.error("Fecha obligatoria");
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const payload: any = {
+      psychologist_id: user!.id,
+      session_date: date,
+      duration_minutes: duration,
+      status: "programada",
+      pre_session_notes: notes || null,
+    };
+    if (kind === "adult") payload.patient_id = patientId;
+    else payload.child_patient_id = patientId;
+
+    const { data, error } = await supabase.from("sessions").insert(payload).select().single();
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success(`Sesión #${data.session_number} programada para ${date} ${time}`);
+    onCreated();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Nueva sesión</DialogTitle>
+          <DialogDescription>Programa una sesión y enlázala al paciente correspondiente.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Tipo</Label>
+              <Select value={kind} onValueChange={(v: "adult" | "child") => { setKind(v); setPatientId(""); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="adult">Adulto</SelectItem>
+                  <SelectItem value="child">Infanto-Juvenil</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Paciente *</Label>
+              <Select value={patientId} onValueChange={setPatientId}>
+                <SelectTrigger><SelectValue placeholder="Selecciona…" /></SelectTrigger>
+                <SelectContent>
+                  {(kind === "adult" ? adults : kids).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label>Fecha *</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Hora</Label>
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </div>
+            <div>
+              <Label>Duración (min)</Label>
+              <Input type="number" value={duration} onChange={(e) => setDuration(parseInt(e.target.value) || 50)} />
+            </div>
+          </div>
+
+          <div>
+            <Label>Notas previas</Label>
+            <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={save} disabled={saving}>{saving ? "Guardando…" : "Crear sesión"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
