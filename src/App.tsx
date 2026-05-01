@@ -10,6 +10,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import PatientDetail from "./pages/PatientDetail";
+import Children from "./pages/Children";
+import ChildDetail from "./pages/ChildDetail";
 import Documents from "./pages/Documents";
 import Assistant from "./pages/Assistant";
 import NotFound from "./pages/NotFound.tsx";
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/" element={<Shell><Dashboard /></Shell>} />
             <Route path="/patients" element={<Shell><Patients /></Shell>} />
             <Route path="/patients/:id" element={<Shell><PatientDetail /></Shell>} />
+            <Route path="/children" element={<Shell><Children /></Shell>} />
+            <Route path="/children/:id" element={<Shell><ChildDetail /></Shell>} />
             <Route path="/documents" element={<Shell><Documents /></Shell>} />
             <Route path="/assistant" element={<Shell><Assistant /></Shell>} />
             <Route path="*" element={<NotFound />} />
