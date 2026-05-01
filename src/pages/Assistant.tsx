@@ -933,9 +933,7 @@ function WebSourcesButton({ question }: { question: string }) {
     }
   }
 
-  function importToLibrary(url: string) {
-    navigate(`/documents?import_url=${encodeURIComponent(url)}`);
-  }
+  // importToLibrary removed — replaced by inline ImportSourceButton
 
   return (
     <>
