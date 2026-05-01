@@ -102,25 +102,39 @@ export default function Documents() {
   );
 }
 
-function DocList({ docs, loading, onDelete, canDelete }: { docs: Doc[]; loading: boolean; ownUserId?: string; onDelete: (id: string) => void; canDelete: boolean }) {
+function DocList({ docs, loading, onDelete, onView, canDelete }: { docs: Doc[]; loading: boolean; ownUserId?: string; onDelete: (id: string) => void; onView: (d: Doc) => void; canDelete: boolean }) {
   if (loading) return <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-16 bg-card rounded-xl animate-pulse" />)}</div>;
   if (docs.length === 0) return <Card className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</Card>;
   return (
     <div className="grid gap-2">
       {docs.map((d) => (
         <Card key={d.id} className="p-4 flex items-center gap-4">
-          <div className="h-10 w-10 rounded-lg bg-primary-soft text-primary flex items-center justify-center flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => onView(d)}
+            className="h-10 w-10 rounded-lg bg-primary-soft text-primary flex items-center justify-center flex-shrink-0 hover:opacity-80 transition"
+            aria-label="Ver documento"
+          >
             <FileText className="h-5 w-5" />
-          </div>
+          </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-medium truncate">{d.title}</span>
+              <button
+                type="button"
+                onClick={() => onView(d)}
+                className="font-medium truncate text-left hover:underline focus:outline-none focus:underline"
+              >
+                {d.title}
+              </button>
               <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[d.document_type]}</Badge>
             </div>
             <div className="text-sm text-muted-foreground truncate">
               {d.author ?? "Autor desconocido"}{d.year ? ` · ${d.year}` : ""}
             </div>
           </div>
+          <Button variant="ghost" size="icon" onClick={() => onView(d)} aria-label="Ver">
+            <Eye className="h-4 w-4" />
+          </Button>
           {canDelete && (
             <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)} aria-label="Eliminar">
               <Trash2 className="h-4 w-4 text-destructive" />
@@ -129,6 +143,96 @@ function DocList({ docs, loading, onDelete, canDelete }: { docs: Doc[]; loading:
         </Card>
       ))}
     </div>
+  );
+}
+
+function ViewerSheet({ doc, onClose }: { doc: Doc | null; onClose: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!doc) { setUrl(null); setError(null); return; }
+    if (!doc.storage_path) {
+      setUrl(null);
+      setError("Este documento no tiene archivo original almacenado (subido antes de habilitar el visor).");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      const { data, error } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(doc.storage_path!, 60 * 60);
+      if (cancelled) return;
+      if (error || !data) {
+        setError(error?.message ?? "No se pudo cargar el archivo");
+        setUrl(null);
+      } else {
+        setUrl(data.signedUrl);
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [doc]);
+
+  const isPdf = doc?.storage_path?.toLowerCase().endsWith(".pdf");
+
+  return (
+    <Sheet open={!!doc} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent side="right" className="w-full sm:max-w-3xl flex flex-col p-0">
+        {doc && (
+          <>
+            <SheetHeader className="p-6 pb-3 border-b">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <SheetTitle className="truncate">{doc.title}</SheetTitle>
+                  <SheetDescription className="mt-1">
+                    {doc.author ?? "Autor desconocido"}{doc.year ? ` · ${doc.year}` : ""}
+                  </SheetDescription>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[doc.document_type]}</Badge>
+                    <Badge variant={doc.is_global ? "default" : "outline"} className="text-[10px] gap-1">
+                      {doc.is_global ? <><Globe2 className="h-3 w-3" />Global</> : "Privado"}
+                    </Badge>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={onClose}>Cerrar</Button>
+              </div>
+            </SheetHeader>
+            <div className="flex-1 min-h-0 bg-muted">
+              {loading && (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando archivo...
+                </div>
+              )}
+              {error && !loading && (
+                <div className="h-full flex items-center justify-center p-6 text-sm text-muted-foreground text-center">
+                  {error}
+                </div>
+              )}
+              {url && !loading && !error && (
+                isPdf ? (
+                  <iframe
+                    src={url}
+                    title={doc.title}
+                    className="w-full h-full border-0"
+                  />
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 p-6">
+                    <p className="text-sm text-muted-foreground">Vista previa no disponible para este formato.</p>
+                    <a href={url} target="_blank" rel="noreferrer" className="text-primary underline text-sm">
+                      Abrir archivo en pestaña nueva
+                    </a>
+                  </div>
+                )
+              )}
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }
 
