@@ -456,6 +456,7 @@ export default function Assistant() {
                     conversationId={conversationId}
                     onCite={setActiveCitation}
                     onExportPdf={() => exportConversationPdf(messages, i, activePatientName)}
+                    onSearchGeneral={() => searchGeneral(findPrevQuestion(messages, i))}
                   />
                 ))}
               </div>
