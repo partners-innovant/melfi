@@ -226,7 +226,7 @@ Notas clínicas: ${p.notes ?? "ninguna"}
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: SYSTEM_PROMPT + childSystemAddition,
         stream: true,
         messages: [{ role: "user", content: userMessage }],
       }),
