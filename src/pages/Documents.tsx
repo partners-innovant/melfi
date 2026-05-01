@@ -618,6 +618,25 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
 
         {items.length > 0 && (
           <div className="space-y-2">
+            {isAdmin && (
+              <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="bulk-global" className="text-sm font-medium flex items-center gap-2">
+                    <Globe2 className="h-4 w-4" />
+                    Documentos globales — visibles para todos los psicólogos
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Aplica a todos los archivos de esta cola.
+                  </p>
+                </div>
+                <Switch
+                  id="bulk-global"
+                  checked={items.every((it) => it.isGlobal)}
+                  onCheckedChange={(v) => setItems((prev) => prev.map((it) => ({ ...it, isGlobal: v })))}
+                  disabled={busy}
+                />
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">Cola ({items.length})</span>
               <span className="text-muted-foreground text-xs">

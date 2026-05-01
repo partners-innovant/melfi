@@ -3,11 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2, Globe2 } from "lucide-react";
 import { DialogDescription } from "@/components/ui/dialog";
 import { chunkText } from "@/lib/pdf";
 import * as pdfjs from "pdfjs-dist";
@@ -69,7 +71,7 @@ async function ensurePicker(): Promise<void> {
 }
 
 export default function GoogleDriveImport({
-  isAdmin: _isAdmin,
+  isAdmin,
   onImported,
 }: {
   isAdmin: boolean;
@@ -82,6 +84,7 @@ export default function GoogleDriveImport({
   const [opening, setOpening] = useState(false);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [isGlobal, setIsGlobal] = useState(false);
   const accessTokenRef = useRef<string | null>(null);
   const cancelRef = useRef<boolean>(false);
 
@@ -284,7 +287,7 @@ export default function GoogleDriveImport({
           author: author || null,
           year: year || null,
           document_type: "articulo_cientifico",
-          is_global: false,
+          is_global: isGlobal && isAdmin,
           storage_path: storagePath,
         })
         .select()
@@ -419,6 +422,25 @@ export default function GoogleDriveImport({
           </DialogHeader>
 
           <div className="space-y-2">
+            {isAdmin && (
+              <div className="flex items-center justify-between rounded-md border bg-muted/40 p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="drive-bulk-global" className="text-sm font-medium flex items-center gap-2">
+                    <Globe2 className="h-4 w-4" />
+                    Documentos globales — visibles para todos los psicólogos
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Aplica a todos los archivos importados desde Drive.
+                  </p>
+                </div>
+                <Switch
+                  id="drive-bulk-global"
+                  checked={isGlobal}
+                  onCheckedChange={setIsGlobal}
+                  disabled={busy}
+                />
+              </div>
+            )}
             <div className="text-sm text-muted-foreground">
               {items.length} archivo{items.length === 1 ? "" : "s"} seleccionado{items.length === 1 ? "" : "s"}
             </div>
