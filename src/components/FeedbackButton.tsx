@@ -17,7 +17,7 @@ const TYPES: { value: FType; label: string; icon: any; emoji: string }[] = [
   { value: "error", label: "Reportar error", icon: Bug, emoji: "🐛" },
 ];
 
-export default function FeedbackButton() {
+export default function FeedbackButton({ collapsed = false }: { collapsed?: boolean }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<FType>("sugerencia");
