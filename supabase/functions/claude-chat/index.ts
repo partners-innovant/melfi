@@ -174,6 +174,8 @@ Notas clínicas: ${p.notes ?? "ninguna"}
     const userMessage = `${patientCtx}${chunksCtx}\nPREGUNTA DEL PSICÓLOGO:\n${question}`;
 
     // Call Claude
+    console.log(`[claude-chat:${reqId}] calling Claude API...`);
+    const tClaude = Date.now();
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -188,12 +190,13 @@ Notas clínicas: ${p.notes ?? "ninguna"}
         messages: [{ role: "user", content: userMessage }],
       }),
     });
+    console.log(`[claude-chat:${reqId}] Claude responded ${claudeResp.status} in ${Date.now() - tClaude}ms`);
 
     if (!claudeResp.ok) {
       const txt = await claudeResp.text();
-      console.error("Claude error:", claudeResp.status, txt);
+      console.error(`[claude-chat:${reqId}] Claude error ${claudeResp.status}:`, txt);
       return new Response(
-        JSON.stringify({ error: `Error del modelo (${claudeResp.status}): ${txt}` }),
+        JSON.stringify({ error: `Claude API ${claudeResp.status}: ${txt}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
