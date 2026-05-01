@@ -394,6 +394,8 @@ export default function Assistant() {
                   <Message
                     key={i}
                     message={m}
+                    question={m.role === "assistant" ? findPrevQuestion(messages, i) : ""}
+                    conversationId={conversationId}
                     onCite={setActiveCitation}
                     onExportPdf={() => exportConversationPdf(messages, i, activePatientName)}
                   />
