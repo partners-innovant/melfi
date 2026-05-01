@@ -1,0 +1,136 @@
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { supabase } from "@/integrations/supabase/client";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { FileText, Eye, Pencil, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+interface Props {
+  table: "patients" | "child_patients";
+  rowId: string;
+  initialValue: string | null;
+}
+
+export default function ExtendedNotesEditor({ table, rowId, initialValue }: Props) {
+  const [value, setValue] = useState(initialValue ?? "");
+  const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const lastSavedRef = useRef<string>(initialValue ?? "");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setValue(initialValue ?? "");
+    lastSavedRef.current = initialValue ?? "";
+  }, [initialValue, rowId]);
+
+  useEffect(() => {
+    if (value === lastSavedRef.current) return;
+    setStatus("saving");
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from(table)
+        .update({ extended_notes: value || null })
+        .eq("id", rowId);
+      if (error) {
+        setStatus("error");
+        toast.error("No se pudo guardar las notas extendidas");
+      } else {
+        lastSavedRef.current = value;
+        setStatus("saved");
+      }
+    }, 2000);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [value, table, rowId]);
+
+  const charCount = value.length;
+  const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <h2 className="font-semibold flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" />
+          Notas clínicas extendidas
+        </h2>
+        <div className="flex items-center gap-2">
+          <SaveIndicator status={status} />
+          <div className="flex border border-border rounded-md overflow-hidden">
+            <Button
+              type="button"
+              variant={mode === "edit" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5 h-8"
+              onClick={() => setMode("edit")}
+            >
+              <Pencil className="h-3.5 w-3.5" />Editar
+            </Button>
+            <Button
+              type="button"
+              variant={mode === "preview" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-none gap-1.5 h-8"
+              onClick={() => setMode("preview")}
+            >
+              <Eye className="h-3.5 w-3.5" />Vista previa
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {mode === "edit" ? (
+        <Textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Escribe notas clínicas extensas. Soporta **markdown**: encabezados, listas, *énfasis*, [enlaces](https://...), etc."
+          className="min-h-[280px] font-mono text-sm leading-relaxed resize-y"
+        />
+      ) : (
+        <div className="min-h-[280px] border border-border rounded-md p-4 bg-muted/20">
+          {value.trim() ? (
+            <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-a:text-primary">
+              <ReactMarkdown>{value}</ReactMarkdown>
+            </article>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Sin contenido aún.</p>
+          )}
+        </div>
+      )}
+
+      <div className="mt-2 flex justify-between items-center text-xs text-muted-foreground">
+        <span>Soporta markdown · auto-guardado tras 2s sin escribir</span>
+        <span>
+          {wordCount.toLocaleString("es-CL")} {wordCount === 1 ? "palabra" : "palabras"} ·{" "}
+          {charCount.toLocaleString("es-CL")} {charCount === 1 ? "carácter" : "caracteres"}
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function SaveIndicator({ status }: { status: SaveStatus }) {
+  if (status === "saving") {
+    return (
+      <span className="text-xs text-muted-foreground flex items-center gap-1">
+        <Loader2 className="h-3 w-3 animate-spin" />Guardando...
+      </span>
+    );
+  }
+  if (status === "saved") {
+    return (
+      <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+        <Check className="h-3 w-3" />Guardado
+      </span>
+    );
+  }
+  if (status === "error") {
+    return <span className="text-xs text-destructive">Error al guardar</span>;
+  }
+  return null;
+}
