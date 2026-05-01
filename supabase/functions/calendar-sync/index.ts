@@ -88,6 +88,36 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action: string = body.action;
 
+    if (action === "get_picker_config") {
+      // Return a fresh access token + the public Picker API key + OAuth client ID
+      // so the frontend can open the Google Picker and download Drive files.
+      const { data: profile } = await admin.from("profiles")
+        .select("google_calendar_token")
+        .eq("id", userId).maybeSingle();
+      if (!profile?.google_calendar_token) {
+        return new Response(JSON.stringify({ error: "not_connected" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      let tok: TokenRecord;
+      try {
+        tok = await refreshIfNeeded(profile.google_calendar_token as TokenRecord);
+      } catch (e) {
+        return new Response(JSON.stringify({ error: "token_expired", detail: String(e) }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (tok !== profile.google_calendar_token) {
+        await admin.from("profiles").update({ google_calendar_token: tok }).eq("id", userId);
+      }
+      return new Response(JSON.stringify({
+        access_token: tok.access_token,
+        api_key: Deno.env.get("GOOGLE_PICKER_API_KEY") ?? "",
+        client_id: Deno.env.get("GOOGLE_CLIENT_ID") ?? "",
+        scopes: (tok.scope ?? "").split(" "),
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (action === "disconnect") {
       await admin.from("profiles").update({
         google_calendar_token: null, google_calendar_id: null,
