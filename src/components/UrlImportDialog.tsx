@@ -71,7 +71,8 @@ export default function UrlImportDialog({ isAdmin, onImported }: { isAdmin: bool
           document_type: data.document_type || "articulo_cientifico",
           is_global: isGlobal && isAdmin,
           storage_path: null,
-        })
+          source_url: data.source_url || it.url,
+        } as any)
         .select()
         .single();
       if (docErr) throw docErr;
