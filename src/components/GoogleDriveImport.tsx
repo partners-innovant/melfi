@@ -3,11 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2, Globe2 } from "lucide-react";
 import { DialogDescription } from "@/components/ui/dialog";
 import { chunkText } from "@/lib/pdf";
 import * as pdfjs from "pdfjs-dist";
