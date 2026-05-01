@@ -248,9 +248,8 @@ export default function Calendar() {
 
   async function manualSync() {
     setSyncing(true);
-    await loadGoogleEvents();
+    await loadGoogleEvents({ showToast: true });
     setSyncing(false);
-    toast.success("Calendario sincronizado");
   }
 
   return (
