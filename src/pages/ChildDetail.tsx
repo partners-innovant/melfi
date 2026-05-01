@@ -24,6 +24,7 @@ import {
   TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH,
 } from "@/lib/clinical";
 import { ChildForm } from "./Children";
+import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, ReferenceLine,
