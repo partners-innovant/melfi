@@ -17,7 +17,7 @@ const TYPES: { value: FType; label: string; icon: any; emoji: string }[] = [
   { value: "error", label: "Reportar error", icon: Bug, emoji: "🐛" },
 ];
 
-export default function FeedbackButton() {
+export default function FeedbackButton({ collapsed = false }: { collapsed?: boolean }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<FType>("sugerencia");
@@ -52,11 +52,16 @@ export default function FeedbackButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="hidden md:flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+        className={
+          collapsed
+            ? "hidden md:flex w-full items-center justify-center px-2 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+            : "hidden md:flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+        }
         aria-label="Enviar feedback"
+        title={collapsed ? "Feedback" : undefined}
       >
         <MessageSquarePlus className="h-4 w-4" />
-        Feedback
+        {!collapsed && "Feedback"}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
