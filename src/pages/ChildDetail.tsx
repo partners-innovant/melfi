@@ -113,9 +113,10 @@ export default function ChildDetail() {
         </div>
       </Card>
 
-      <Tabs defaultValue="profile">
-        <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full">
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="sessions">Sesiones</TabsTrigger>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
           <TabsTrigger value="behavior">Conductual</TabsTrigger>
           <TabsTrigger value="evals">Evaluaciones</TabsTrigger>
@@ -124,6 +125,12 @@ export default function ChildDetail() {
         </TabsList>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
+          <LastSessionCard
+            key={refreshKey}
+            kind="child"
+            patientId={child.id}
+            onClick={() => setTab("sessions")}
+          />
           <Card className="p-6">
             <div className="flex items-start justify-between mb-4">
               <h2 className="font-semibold">Información del paciente</h2>
