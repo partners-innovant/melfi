@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
@@ -49,6 +50,8 @@ export default function Documents() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const importUrlParam = searchParams.get("import_url") ?? undefined;
 
   const isAdmin = !!profile?.is_admin;
 
@@ -128,7 +131,18 @@ export default function Documents() {
         </div>
         <div className="flex items-center gap-2">
           <RecommendDocumentsButton />
-          <UrlImportDialog isAdmin={isAdmin} onImported={load} />
+          <UrlImportDialog
+            isAdmin={isAdmin}
+            onImported={load}
+            initialUrl={importUrlParam}
+            forceOpen={!!importUrlParam}
+            onOpenChange={(o) => {
+              if (!o && importUrlParam) {
+                searchParams.delete("import_url");
+                setSearchParams(searchParams, { replace: true });
+              }
+            }}
+          />
           <GoogleDriveImport isAdmin={isAdmin} onImported={load} />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
