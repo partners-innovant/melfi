@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,12 +24,32 @@ function truncate(s: string, n = 60) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
-export default function UrlImportDialog({ isAdmin, onImported }: { isAdmin: boolean; onImported: () => void }) {
+export default function UrlImportDialog({
+  isAdmin,
+  onImported,
+  initialUrl,
+  forceOpen,
+  onOpenChange,
+}: {
+  isAdmin: boolean;
+  onImported: () => void;
+  initialUrl?: string;
+  forceOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [isGlobal, setIsGlobal] = useState(false);
   const [items, setItems] = useState<QItem[]>([]);
   const [busy, setBusy] = useState(false);
+
+  // Open + prefill when an external URL is requested
+  useEffect(() => {
+    if (forceOpen && initialUrl) {
+      setText((prev) => (prev.trim() ? prev : initialUrl));
+      setOpen(true);
+    }
+  }, [forceOpen, initialUrl]);
 
   function update(id: string, patch: Partial<QItem>) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
