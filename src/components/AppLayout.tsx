@@ -1,12 +1,15 @@
-import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { NavLink } from "react-router-dom";
+import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import ProfileCompletionModal from "@/components/ProfileCompletionModal";
+import FeedbackButton from "@/components/FeedbackButton";
 
-const items = [
-  { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
+const baseItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/calendar", label: "Calendario", icon: Calendar },
@@ -18,6 +21,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const initials = profile
     ? `${profile.first_name[0] ?? ""}${profile.last_name[0] ?? ""}`.toUpperCase()
     : "";
+
+  const [newCount, setNewCount] = useState(0);
+
+  useEffect(() => {
+    if (!profile?.is_admin) return;
+    let cancelled = false;
+    async function refresh() {
+      const { count } = await supabase
+        .from("feedback")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "nuevo");
+      if (!cancelled) setNewCount(count ?? 0);
+    }
+    refresh();
+    const channel = supabase
+      .channel("feedback-count")
+      .on("postgres_changes", { event: "*", schema: "public", table: "feedback" }, refresh)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.is_admin]);
+
+  const items = profile?.is_admin
+    ? [...baseItems, { to: "/feedback", label: "Feedback", icon: Inbox, badge: newCount }]
+    : baseItems;
 
   return (
     <div className="flex min-h-screen w-full bg-surface">
@@ -34,8 +64,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {items.map((it) => (
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {items.map((it: any) => (
             <NavLink
               key={it.to}
               to={it.to}
@@ -50,10 +80,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               }
             >
               <it.icon className="h-4 w-4" />
-              {it.label}
+              <span className="flex-1">{it.label}</span>
+              {typeof it.badge === "number" && it.badge > 0 && (
+                <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold">
+                  {it.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
+
+        <div className="px-3 pb-2 border-t border-sidebar-border pt-2">
+          <FeedbackButton />
+        </div>
 
         <div className="p-3 border-t border-sidebar-border">
           <div className="flex items-center gap-3 px-2 py-2">
@@ -86,20 +125,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border z-30 flex">
-        {items.map((it) => (
+        {items.map((it: any) => (
           <NavLink
             key={it.to}
             to={it.to}
             end={it.end}
             className={({ isActive }) =>
               cn(
-                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-xs",
+                "flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-xs relative",
                 isActive ? "text-primary" : "text-muted-foreground"
               )
             }
           >
             <it.icon className="h-5 w-5" />
             <span className="text-[10px]">{it.label.split(" ")[0]}</span>
+            {typeof it.badge === "number" && it.badge > 0 && (
+              <span className="absolute top-1 right-1/4 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-semibold">
+                {it.badge}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
