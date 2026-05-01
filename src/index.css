@@ -115,4 +115,12 @@
   .clinical-card {
     @apply bg-card border border-border rounded-xl shadow-sm;
   }
+  .streaming-cursor {
+    @apply inline-block ml-0.5 text-primary;
+    animation: blink 1s steps(2, start) infinite;
+  }
+}
+
+@keyframes blink {
+  to { visibility: hidden; }
 }
