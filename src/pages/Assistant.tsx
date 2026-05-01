@@ -631,8 +631,9 @@ function Message({
   const showGeneralFallback =
     !isGeneral &&
     !message.streaming &&
+    !message.generalLoading &&
     !!message.content &&
-    message.content.includes(NO_INFO_PHRASE);
+    !message.content.startsWith("❌");
 
   return (
     <div className="flex gap-3">
@@ -706,24 +707,19 @@ function Message({
         )}
 
         {showGeneralFallback && question && (
-          <Card className="mt-3 p-3 border-dashed bg-muted/30">
-            <div className="flex items-start gap-3">
-              <div className="text-2xl leading-none mt-0.5">🌐</div>
-              <div className="flex-1 min-w-0 space-y-2">
-                <div className="text-sm font-medium">
-                  ¿Quieres buscar en el conocimiento general de Claude?
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  ⚠️ Las respuestas del conocimiento general no están basadas en documentos
-                  verificados y pueden contener inexactitudes. Úsalas como punto de partida, no
-                  como referencia clínica definitiva.
-                </p>
-                <Button size="sm" variant="outline" className="gap-2" onClick={onSearchGeneral}>
-                  <Globe className="h-3.5 w-3.5" /> Buscar igualmente
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <div className="mt-2 space-y-1">
+            <button
+              type="button"
+              onClick={onSearchGeneral}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400 hover:underline transition-colors"
+            >
+              <Globe className="h-3 w-3" />
+              ¿Quieres complementar con el conocimiento general de Claude? →
+            </button>
+            <p className="text-[11px] text-muted-foreground/70 leading-snug">
+              ⚠️ Las respuestas del conocimiento general no están basadas en documentos verificados y pueden contener inexactitudes.
+            </p>
+          </div>
         )}
 
         {!message.streaming && !message.generalLoading && message.content && !message.content.startsWith("❌") && (
