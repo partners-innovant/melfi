@@ -538,10 +538,6 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         const { error: insErr } = await supabase.from("document_chunks").insert(rows);
         if (insErr) throw insErr;
 
-        if (batchNum < totalBatches) {
-          update(item.id, { statusText: `Esperando límite Voyage (${batchNum}/${totalBatches})...` });
-          await new Promise((r) => setTimeout(r, 22000));
-        }
       }
       update(item.id, { status: "done", progress: 100, statusText: `${chunks.length} fragmentos indexados` });
       return true;
