@@ -597,6 +597,91 @@ export type Database = {
         }
         Relationships: []
       }
+      sessions: {
+        Row: {
+          assigned_task: string | null
+          child_patient_id: string | null
+          created_at: string
+          duration_minutes: number | null
+          emotional_state: string | null
+          id: string
+          interventions_used: string | null
+          next_session_plan: string | null
+          patient_id: string | null
+          post_session_notes: string | null
+          pre_session_notes: string | null
+          pre_session_suggestions: string | null
+          profile_update_suggestions: Json | null
+          psychologist_id: string
+          session_date: string
+          session_number: number | null
+          status: string | null
+          what_happened: string | null
+        }
+        Insert: {
+          assigned_task?: string | null
+          child_patient_id?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          emotional_state?: string | null
+          id?: string
+          interventions_used?: string | null
+          next_session_plan?: string | null
+          patient_id?: string | null
+          post_session_notes?: string | null
+          pre_session_notes?: string | null
+          pre_session_suggestions?: string | null
+          profile_update_suggestions?: Json | null
+          psychologist_id: string
+          session_date: string
+          session_number?: number | null
+          status?: string | null
+          what_happened?: string | null
+        }
+        Update: {
+          assigned_task?: string | null
+          child_patient_id?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          emotional_state?: string | null
+          id?: string
+          interventions_used?: string | null
+          next_session_plan?: string | null
+          patient_id?: string | null
+          post_session_notes?: string | null
+          pre_session_notes?: string | null
+          pre_session_suggestions?: string | null
+          profile_update_suggestions?: Json | null
+          psychologist_id?: string
+          session_date?: string
+          session_number?: number | null
+          status?: string | null
+          what_happened?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wisc_evaluations: {
         Row: {
           child_patient_id: string
