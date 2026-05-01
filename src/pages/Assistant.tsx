@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
@@ -723,13 +724,14 @@ function Message({
         )}
 
         {!message.streaming && !message.generalLoading && message.content && !message.content.startsWith("❌") && (
-          <div className="mt-2 flex gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={copyAnswer}>
               <Copy className="h-3.5 w-3.5" /> Copiar
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={onExportPdf}>
               <Download className="h-3.5 w-3.5" /> Exportar como PDF
             </Button>
+            {question && <WebSourcesButton question={question} />}
           </div>
         )}
 
