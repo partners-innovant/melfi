@@ -339,12 +339,26 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   }
 
   async function processOne(item: QueueItem, userId: string) {
-    update(item.id, { status: "uploading", progress: 2, statusText: "Creando documento..." });
+    update(item.id, { status: "uploading", progress: 2, statusText: "Subiendo archivo..." });
     try {
       const text = item.cachedText ?? "";
       const chunks = chunkText(text);
       if (chunks.length === 0) throw new Error("No se pudo extraer texto del archivo");
 
+      // Upload original file to storage (path: <userId>/<uuid>.<ext>)
+      const ext = item.file.name.toLowerCase().endsWith(".pdf") ? "pdf"
+        : item.file.name.toLowerCase().endsWith(".txt") ? "txt"
+        : (item.file.name.split(".").pop() ?? "bin").toLowerCase();
+      const storagePath = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("documents")
+        .upload(storagePath, item.file, {
+          contentType: item.file.type || (ext === "pdf" ? "application/pdf" : "text/plain"),
+          upsert: false,
+        });
+      if (upErr) throw new Error(`Storage: ${upErr.message}`);
+
+      update(item.id, { progress: 5, statusText: "Creando documento..." });
       const { data: doc, error: docErr } = await supabase
         .from("documents")
         .insert({
@@ -354,10 +368,15 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
           year: item.year || null,
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
+          storage_path: storagePath,
         })
         .select()
         .single();
-      if (docErr) throw docErr;
+      if (docErr) {
+        // rollback uploaded file
+        await supabase.storage.from("documents").remove([storagePath]);
+        throw docErr;
+      }
 
       const batchSize = 8;
       const totalBatches = Math.ceil(chunks.length / batchSize);
