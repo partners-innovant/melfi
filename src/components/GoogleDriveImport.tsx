@@ -83,6 +83,7 @@ export default function GoogleDriveImport({
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const accessTokenRef = useRef<string | null>(null);
+  const cancelRef = useRef<boolean>(false);
 
   useEffect(() => {
     (async () => {
@@ -332,22 +333,37 @@ export default function GoogleDriveImport({
   async function processAll() {
     const pending = items.filter((it) => it.status === "pending");
     if (pending.length === 0) return;
+    cancelRef.current = false;
     setBusy(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
       let success = 0, failed = 0;
       for (const it of pending) {
+        if (cancelRef.current) break;
         const ok = await processOne(it, user.id);
         if (ok) success++; else failed++;
       }
-      toast.success(`${success} importado${success === 1 ? "" : "s"}, ${failed} con error${failed === 1 ? "" : "es"}.`);
+      if (cancelRef.current) {
+        toast.info(`Importación cancelada. ${success} completado${success === 1 ? "" : "s"}.`);
+      } else {
+        toast.success(`${success} importado${success === 1 ? "" : "s"}, ${failed} con error${failed === 1 ? "" : "es"}.`);
+      }
       onImported();
     } catch (e: any) {
       toast.error(e?.message ?? "Error");
     } finally {
       setBusy(false);
+      cancelRef.current = false;
     }
+  }
+
+  function handleCancel() {
+    if (busy) {
+      cancelRef.current = true;
+      toast.info("Cancelando… se detendrá tras el archivo actual.");
+    }
+    setOpen(false);
   }
 
   function removeItem(id: string) {
@@ -414,8 +430,8 @@ export default function GoogleDriveImport({
                     <div className="font-medium text-sm truncate">{it.name}</div>
                     <div className="text-xs text-muted-foreground">{it.statusText}</div>
                   </div>
-                  {it.status === "pending" && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(it.driveId)} disabled={busy}>
+                  {(it.status === "pending" || it.status === "done" || it.status === "error") && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeItem(it.driveId)}>
                       <X className="h-4 w-4" />
                     </Button>
                   )}
@@ -433,7 +449,7 @@ export default function GoogleDriveImport({
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+            <Button variant="ghost" onClick={handleCancel}>
               {allDone ? "Cerrar" : "Cancelar"}
             </Button>
             <Button onClick={processAll} disabled={busy || pendingCount === 0}>
