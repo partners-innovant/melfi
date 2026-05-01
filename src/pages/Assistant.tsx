@@ -515,9 +515,11 @@ function InputBox({
 }
 
 function Message({
-  message, onCite, onExportPdf,
+  message, question, conversationId, onCite, onExportPdf,
 }: {
   message: ChatMessage;
+  question?: string;
+  conversationId?: string | null;
   onCite: (c: Citation) => void;
   onExportPdf: () => void;
 }) {
