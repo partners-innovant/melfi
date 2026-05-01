@@ -307,6 +307,46 @@ export default function Assistant() {
     }
   }
 
+  async function searchGeneral(question: string) {
+    if (!question.trim()) return;
+    // Append a placeholder loading "general" assistant message
+    setMessages((m) => [...m, { role: "assistant", content: "", general: true, generalLoading: true }]);
+    try {
+      const { data, error } = await supabase.functions.invoke("claude-general", {
+        body: {
+          question,
+          patient_id: patientId !== NONE ? patientId : null,
+          conversation_id: conversationId,
+        },
+      });
+      if (error) throw new Error(error.message ?? "Error");
+      if (data?.error) throw new Error(data.error);
+      const answer = data?.answer ?? "";
+      const newConvId = data?.conversation_id ?? conversationId;
+      setMessages((m) => {
+        const copy = [...m];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant" && last.generalLoading) {
+          copy[copy.length - 1] = { role: "assistant", content: answer, general: true, citations: [] };
+        }
+        return copy;
+      });
+      if (newConvId && newConvId !== conversationId) setConversationId(newConvId);
+      void loadHistory();
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      toast.error(msg);
+      setMessages((m) => {
+        const copy = [...m];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant" && last.generalLoading) {
+          copy[copy.length - 1] = { role: "assistant", content: `❌ Error: ${msg}`, general: true, citations: [] };
+        }
+        return copy;
+      });
+    }
+  }
+
   const isEmpty = messages.length === 0;
 
   return (
