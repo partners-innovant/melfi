@@ -67,6 +67,7 @@ export type Database = {
           birth_date: string
           created_at: string
           current_medication: string | null
+          extended_notes: string | null
           first_name: string
           grade: string | null
           homeroom_teacher: string | null
@@ -86,6 +87,7 @@ export type Database = {
           birth_date: string
           created_at?: string
           current_medication?: string | null
+          extended_notes?: string | null
           first_name: string
           grade?: string | null
           homeroom_teacher?: string | null
@@ -105,6 +107,7 @@ export type Database = {
           birth_date?: string
           created_at?: string
           current_medication?: string | null
+          extended_notes?: string | null
           first_name?: string
           grade?: string | null
           homeroom_teacher?: string | null
@@ -574,6 +577,7 @@ export type Database = {
           birth_date: string | null
           created_at: string
           diagnosis: string | null
+          extended_notes: string | null
           first_name: string
           id: string
           last_name: string
@@ -588,6 +592,7 @@ export type Database = {
           birth_date?: string | null
           created_at?: string
           diagnosis?: string | null
+          extended_notes?: string | null
           first_name: string
           id?: string
           last_name: string
@@ -602,6 +607,7 @@ export type Database = {
           birth_date?: string | null
           created_at?: string
           diagnosis?: string | null
+          extended_notes?: string | null
           first_name?: string
           id?: string
           last_name?: string
