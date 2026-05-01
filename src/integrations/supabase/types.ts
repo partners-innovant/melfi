@@ -62,6 +62,66 @@ export type Database = {
           },
         ]
       }
+      child_patient_medications: {
+        Row: {
+          child_patient_id: string
+          created_at: string
+          dose: string | null
+          end_date: string | null
+          frequency: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          prescribed_by: string | null
+          psychologist_id: string
+          start_date: string | null
+        }
+        Insert: {
+          child_patient_id: string
+          created_at?: string
+          dose?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          prescribed_by?: string | null
+          psychologist_id: string
+          start_date?: string | null
+        }
+        Update: {
+          child_patient_id?: string
+          created_at?: string
+          dose?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          prescribed_by?: string | null
+          psychologist_id?: string
+          start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_patient_medications_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "child_patient_medications_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       child_patients: {
         Row: {
           birth_date: string
@@ -565,6 +625,66 @@ export type Database = {
           },
           {
             foreignKeyName: "other_evaluations_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_medications: {
+        Row: {
+          created_at: string
+          dose: string | null
+          end_date: string | null
+          frequency: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          patient_id: string
+          prescribed_by: string | null
+          psychologist_id: string
+          start_date: string | null
+        }
+        Insert: {
+          created_at?: string
+          dose?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          patient_id: string
+          prescribed_by?: string | null
+          psychologist_id: string
+          start_date?: string | null
+        }
+        Update: {
+          created_at?: string
+          dose?: string | null
+          end_date?: string | null
+          frequency?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          patient_id?: string
+          prescribed_by?: string | null
+          psychologist_id?: string
+          start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_medications_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_medications_psychologist_id_fkey"
             columns: ["psychologist_id"]
             isOneToOne: false
             referencedRelation: "profiles"

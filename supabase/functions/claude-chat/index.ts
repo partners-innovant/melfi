@@ -153,20 +153,24 @@ Deno.serve(async (req) => {
         .from("child_patients").select("*")
         .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
       if (c) {
-        const [{ data: goals }, { data: behaviors }, { data: wisc }, { data: comms }] = await Promise.all([
+        const [{ data: goals }, { data: behaviors }, { data: wisc }, { data: comms }, { data: meds }] = await Promise.all([
           supabase.from("intervention_goals").select("title, status, estimated_date").eq("child_patient_id", patient_id).order("created_at", { ascending: false }).limit(10),
           supabase.from("behavioral_tracking").select("behavior_name, score, tracking_date").eq("child_patient_id", patient_id).order("tracking_date", { ascending: false }).limit(20),
           supabase.from("wisc_evaluations").select("version, evaluation_date, cit, icv, irp, imt, ivp, irf").eq("child_patient_id", patient_id).order("evaluation_date", { ascending: false }).limit(1),
           supabase.from("communication_log").select("contact_date, contact_type, contact_with, summary").eq("child_patient_id", patient_id).order("contact_date", { ascending: false }).limit(5),
+          supabase.from("child_patient_medications").select("name, dose, frequency, prescribed_by").eq("child_patient_id", patient_id).eq("is_active", true).order("created_at", { ascending: false }),
         ]);
         const latestWisc = wisc?.[0];
+        const medsLine = (meds && meds.length > 0)
+          ? (meds as any[]).map((m) => `Medicación actual: ${m.name}${m.dose ? ` ${m.dose}` : ""}${m.frequency ? ` ${m.frequency}` : ""}${m.prescribed_by ? `, prescrito por ${m.prescribed_by}` : ""}`).join("\n")
+          : "Medicación actual: ninguna registrada";
         patientCtx = `CONTEXTO DEL PACIENTE INFANTO-JUVENIL:
 Nombre: ${c.first_name} ${c.last_name}
 Edad: ${calcAge(c.birth_date)}
 Sexo: ${c.sex ?? "no especificado"}
 Colegio: ${c.school ?? "no especificado"} — Curso: ${c.grade ?? "—"} — Modalidad: ${c.modality ?? "—"}
 Diagnóstico médico: ${c.medical_diagnosis ?? "no registrado"}
-Medicación: ${c.current_medication ?? "ninguna"}
+${medsLine}
 Motivo derivación: ${c.referral_reason ?? "—"}
 Notas: ${c.notes ?? "ninguna"}
 
@@ -189,6 +193,15 @@ ${(comms ?? []).map((m: any) => `- ${m.contact_date} ${m.contact_type ?? ""} con
         .from("patients").select("*")
         .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
       if (p) {
+        const { data: meds } = await supabase
+          .from("patient_medications")
+          .select("name, dose, frequency, prescribed_by")
+          .eq("patient_id", patient_id)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false });
+        const medsLine = (meds && meds.length > 0)
+          ? (meds as any[]).map((m) => `Medicación actual: ${m.name}${m.dose ? ` ${m.dose}` : ""}${m.frequency ? ` ${m.frequency}` : ""}${m.prescribed_by ? `, prescrito por ${m.prescribed_by}` : ""}`).join("\n")
+          : "Medicación actual: ninguna registrada";
         patientCtx = `CONTEXTO DEL PACIENTE:
 Nombre: ${p.first_name} ${p.last_name}
 Edad: ${calcAge(p.birth_date)}
@@ -197,6 +210,7 @@ Estado civil: ${p.marital_status ?? "no especificado"}
 Ocupación: ${p.occupation ?? "no especificada"}
 Diagnóstico: ${p.diagnosis ?? "no registrado"}
 Tiempo en terapia: ${timeInTherapy(p.start_date)}
+${medsLine}
 Notas clínicas: ${p.notes ?? "ninguna"}
 
 `;
