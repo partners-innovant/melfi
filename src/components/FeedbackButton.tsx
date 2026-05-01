@@ -52,11 +52,16 @@ export default function FeedbackButton({ collapsed = false }: { collapsed?: bool
     <>
       <button
         onClick={() => setOpen(true)}
-        className="hidden md:flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+        className={
+          collapsed
+            ? "hidden md:flex w-full items-center justify-center px-2 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+            : "hidden md:flex w-full items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/60 transition-colors"
+        }
         aria-label="Enviar feedback"
+        title={collapsed ? "Feedback" : undefined}
       >
         <MessageSquarePlus className="h-4 w-4" />
-        Feedback
+        {!collapsed && "Feedback"}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
