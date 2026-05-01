@@ -318,10 +318,6 @@ export default function GoogleDriveImport({
         }));
         const { error: insErr } = await supabase.from("document_chunks").insert(rows);
         if (insErr) throw insErr;
-        if (batchNum < totalBatches) {
-          update(item.driveId, { statusText: `Esperando límite Voyage (${batchNum}/${totalBatches})...` });
-          await new Promise((r) => setTimeout(r, 22000));
-        }
       }
 
       update(item.driveId, { status: "done", progress: 100, statusText: `${chunks.length} fragmentos indexados` });
