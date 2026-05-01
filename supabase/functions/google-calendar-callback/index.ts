@@ -26,16 +26,41 @@ Deno.serve(async (req) => {
 
   let origin = "";
   let userId = "";
+  let returnTo = "";
   try {
     if (stateRaw) {
       const padded = stateRaw.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((stateRaw.length + 3) % 4);
       const decoded = JSON.parse(atob(padded));
       origin = decoded.origin || "";
       userId = decoded.uid || "";
+      returnTo = decoded.return_to || "";
     }
   } catch (_) { /* ignore */ }
 
-  const back = origin ? `${origin}/calendar` : "/";
+  // Build base URL: origin + (returnTo path or default /calendar)
+  // returnTo is a path like "/documents?gcal=connected&from=drive"
+  let back = "/";
+  if (origin) {
+    if (returnTo && returnTo.startsWith("/")) {
+      // Strip any pre-existing gcal/reason params; we'll re-append below.
+      try {
+        const u = new URL(returnTo, origin);
+        u.searchParams.delete("gcal");
+        u.searchParams.delete("reason");
+        back = `${origin}${u.pathname}${u.search ? u.search + "&" : "?"}`;
+        // back already ends with ? or &; downstream code appends "gcal=..."
+        // Convert format so downstream `${back}?gcal=...` works uniformly:
+        // Trim trailing ? or & and let the caller re-add via ?
+        if (back.endsWith("?") || back.endsWith("&")) back = back.slice(0, -1);
+      } catch {
+        back = `${origin}/calendar`;
+      }
+    } else {
+      back = `${origin}/calendar`;
+    }
+  }
+
+  const sep = back.includes("?") ? "&" : "?";
 
   if (errorParam) return htmlRedirect(`${back}?gcal=error&reason=${encodeURIComponent(errorParam)}`, "Conexión cancelada.");
   if (!code || !userId) return htmlRedirect(`${back}?gcal=error&reason=missing_code`, "Faltan parámetros.");
