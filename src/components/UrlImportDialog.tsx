@@ -92,6 +92,7 @@ export default function UrlImportDialog({
           is_global: isGlobal && isAdmin,
           storage_path: null,
           source_url: data.source_url || it.url,
+          import_source: 'url',
         } as any)
         .select()
         .single();
