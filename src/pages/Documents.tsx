@@ -126,6 +126,7 @@ export default function Documents() {
           <p className="text-muted-foreground text-sm mt-1">Base de conocimiento clínica</p>
         </div>
         <div className="flex items-center gap-2">
+          <RecommendDocumentsButton />
           <GoogleDriveImport isAdmin={isAdmin} onImported={load} />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
