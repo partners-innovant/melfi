@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
@@ -723,13 +724,14 @@ function Message({
         )}
 
         {!message.streaming && !message.generalLoading && message.content && !message.content.startsWith("❌") && (
-          <div className="mt-2 flex gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={copyAnswer}>
               <Copy className="h-3.5 w-3.5" /> Copiar
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={onExportPdf}>
               <Download className="h-3.5 w-3.5" /> Exportar como PDF
             </Button>
+            {question && <WebSourcesButton question={question} />}
           </div>
         )}
 
@@ -888,4 +890,121 @@ function exportConversationPdf(messages: ChatMessage[], assistantIdx: number, pa
 
   const fname = `consulta-${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(fname);
+}
+
+interface WebSource {
+  title: string;
+  authors: string;
+  year: string;
+  source: string;
+  url: string;
+  relevance: string;
+}
+
+function WebSourcesButton({ question }: { question: string }) {
+  const [loading, setLoading] = useState(false);
+  const [sources, setSources] = useState<WebSource[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  async function search() {
+    if (sources && !error) {
+      setSources(null);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("web-sources", {
+        body: { question },
+      });
+      if (fnErr) throw new Error(fnErr.message);
+      if (data?.error) throw new Error(data.error);
+      setSources((data?.sources ?? []) as WebSource[]);
+    } catch (e: any) {
+      setError(e?.message ?? "Error al buscar fuentes");
+      toast.error(e?.message ?? "Error al buscar fuentes");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function importToLibrary(url: string) {
+    navigate(`/documents?import_url=${encodeURIComponent(url)}`);
+  }
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs gap-1"
+        onClick={search}
+        disabled={loading}
+      >
+        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+        🌐 Buscar otras fuentes en la web
+      </Button>
+      {sources && (
+        <div className="basis-full mt-3">
+          <Card className="p-3 space-y-3 bg-muted/30">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                ⚠️ Los enlaces son sugeridos por IA y pueden no estar disponibles. Verifica antes de importar.
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 -mr-1 -mt-1"
+                onClick={() => setSources(null)}
+                aria-label="Cerrar"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            {sources.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                No se encontraron fuentes para esta consulta.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {sources.map((s, i) => (
+                  <div key={i} className="rounded-md border bg-background p-2.5 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium leading-snug">{s.title}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {s.authors}{s.year ? ` · ${s.year}` : ""}
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] shrink-0">{s.source}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-snug">{s.relevance}</p>
+                    <div className="flex flex-wrap gap-1 pt-0.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => window.open(s.url, "_blank", "noopener,noreferrer")}
+                      >
+                        <ExternalLink className="h-3 w-3" /> Abrir fuente
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1 border-teal-500/60 text-teal-700 hover:bg-teal-50 hover:text-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/40"
+                        onClick={() => importToLibrary(s.url)}
+                      >
+                        <PlusIcon className="h-3 w-3" /> Importar a Psicoasist
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+    </>
+  );
 }
