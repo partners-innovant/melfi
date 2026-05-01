@@ -99,7 +99,9 @@ Deno.serve(async (req) => {
       });
     }
 
+    const reqId = crypto.randomUUID().slice(0, 8);
     const { question, patient_id, document_type, query_embedding } = await req.json();
+    console.log(`[claude-chat:${reqId}] received question (len=${question?.length ?? 0}), embedding dim=${Array.isArray(query_embedding) ? query_embedding.length : 'n/a'}, patient_id=${patient_id ?? 'none'}, doc_type=${document_type ?? 'all'}`);
 
     if (!question || !query_embedding) {
       return new Response(JSON.stringify({ error: "question y query_embedding requeridos" }), {
@@ -109,6 +111,8 @@ Deno.serve(async (req) => {
     }
 
     // Find chunks
+    console.log(`[claude-chat:${reqId}] calling match_chunks RPC...`);
+    const tMatch = Date.now();
     const { data: chunks, error: matchErr } = await supabase.rpc("match_chunks", {
       query_embedding,
       match_count: 5,
@@ -117,9 +121,13 @@ Deno.serve(async (req) => {
     });
 
     if (matchErr) {
-      console.error("match_chunks error:", matchErr);
-      throw matchErr;
+      console.error(`[claude-chat:${reqId}] match_chunks error:`, JSON.stringify(matchErr));
+      return new Response(
+        JSON.stringify({ error: `match_chunks falló: ${matchErr.message ?? JSON.stringify(matchErr)}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
+    console.log(`[claude-chat:${reqId}] match_chunks returned ${chunks?.length ?? 0} chunks in ${Date.now() - tMatch}ms`);
 
     // Fetch document metadata
     const docIds = [...new Set((chunks ?? []).map((c: any) => c.document_id))];
@@ -166,6 +174,8 @@ Notas clínicas: ${p.notes ?? "ninguna"}
     const userMessage = `${patientCtx}${chunksCtx}\nPREGUNTA DEL PSICÓLOGO:\n${question}`;
 
     // Call Claude
+    console.log(`[claude-chat:${reqId}] calling Claude API...`);
+    const tClaude = Date.now();
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -180,12 +190,13 @@ Notas clínicas: ${p.notes ?? "ninguna"}
         messages: [{ role: "user", content: userMessage }],
       }),
     });
+    console.log(`[claude-chat:${reqId}] Claude responded ${claudeResp.status} in ${Date.now() - tClaude}ms`);
 
     if (!claudeResp.ok) {
       const txt = await claudeResp.text();
-      console.error("Claude error:", claudeResp.status, txt);
+      console.error(`[claude-chat:${reqId}] Claude error ${claudeResp.status}:`, txt);
       return new Response(
-        JSON.stringify({ error: `Error del modelo (${claudeResp.status}): ${txt}` }),
+        JSON.stringify({ error: `Claude API ${claudeResp.status}: ${txt}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }

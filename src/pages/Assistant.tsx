@@ -67,14 +67,18 @@ export default function Assistant() {
       if (!session) throw new Error("Sesión expirada");
 
       // 1. Embed query
+      console.log("[assistant] embedding question via voyage-embed...");
       const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
         body: { input: q, input_type: "query" },
       });
-      if (embErr) throw embErr;
-      if (embData?.error) throw new Error(embData.error);
+      if (embErr) throw new Error(`voyage-embed (invoke): ${embErr.message ?? JSON.stringify(embErr)}`);
+      if (embData?.error) throw new Error(`voyage-embed: ${embData.error}`);
+      if (!embData?.embeddings?.[0]) throw new Error("voyage-embed: no se recibió embedding");
       const query_embedding = embData.embeddings[0];
+      console.log(`[assistant] embedding ok (dim=${query_embedding.length})`);
 
       // 2. Call claude-chat
+      console.log("[assistant] calling claude-chat...");
       const { data, error } = await supabase.functions.invoke("claude-chat", {
         body: {
           question: q,
@@ -83,8 +87,9 @@ export default function Assistant() {
           document_type: docType !== ALL ? docType : null,
         },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) throw new Error(`claude-chat (invoke): ${error.message ?? JSON.stringify(error)}`);
+      if (data?.error) throw new Error(`claude-chat: ${data.error}`);
+      if (!data?.answer) throw new Error("claude-chat: respuesta vacía del modelo");
 
       setMessages((m) => [...m, {
         role: "assistant",
@@ -92,11 +97,12 @@ export default function Assistant() {
         citations: data.citations ?? [],
       }]);
     } catch (e: any) {
-      console.error(e);
-      toast.error(e.message ?? "Error al consultar");
+      const msg = e?.message ?? String(e);
+      console.error("[assistant] error:", e);
+      toast.error(msg);
       setMessages((m) => [...m, {
         role: "assistant",
-        content: "Ocurrió un error al procesar tu consulta. Intenta nuevamente.",
+        content: `❌ Error: ${msg}`,
         citations: [],
       }]);
     } finally {
