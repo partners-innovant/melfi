@@ -80,6 +80,8 @@ export default function GoogleDriveImport({
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [opening, setOpening] = useState(false);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const accessTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -94,6 +96,42 @@ export default function GoogleDriveImport({
       setConnected(!!data?.google_calendar_token);
     })();
   }, []);
+
+  // After returning from Google OAuth (?gcal=connected), auto-open the picker.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const gcal = url.searchParams.get("gcal");
+    if (gcal === "connected" && url.searchParams.get("from") === "drive") {
+      url.searchParams.delete("gcal");
+      url.searchParams.delete("from");
+      url.searchParams.delete("reason");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
+      setConnected(true);
+      // Small delay to let auth/profile settle
+      setTimeout(() => { void openPicker(); }, 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function startConnect() {
+    setConnecting(true);
+    try {
+      const origin = window.location.origin;
+      const returnTo = `${window.location.pathname}?gcal=connected&from=drive`;
+      // Stash return target so callback can redirect back to Documents.
+      sessionStorage.setItem("gcal_return_to", returnTo);
+      const { data, error } = await supabase.functions.invoke("google-calendar-connect", {
+        body: { origin, return_to: returnTo },
+      });
+      if (error) throw error;
+      const u = (data as any)?.url;
+      if (!u) throw new Error("No URL");
+      window.location.href = u;
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo iniciar la conexión con Google");
+      setConnecting(false);
+    }
+  }
 
   function update(driveId: string, patch: Partial<QueueItem>) {
     setItems((prev) => prev.map((it) => (it.driveId === driveId ? { ...it, ...patch } : it)));
