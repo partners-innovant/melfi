@@ -252,6 +252,12 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
             <div className="text-xs text-muted-foreground">{status}</div>
           </div>
         )}
+        {errorMsg && !busy && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="font-medium mb-1">Error al procesar documento</div>
+            <div className="text-xs break-words whitespace-pre-wrap">{errorMsg}</div>
+          </div>
+        )}
       </div>
       <DialogFooter>
         <Button variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
