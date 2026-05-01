@@ -14,6 +14,173 @@ export type Database = {
   }
   public: {
     Tables: {
+      behavioral_tracking: {
+        Row: {
+          behavior_name: string
+          child_patient_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          psychologist_id: string
+          score: number | null
+          tracking_date: string
+        }
+        Insert: {
+          behavior_name: string
+          child_patient_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          psychologist_id: string
+          score?: number | null
+          tracking_date: string
+        }
+        Update: {
+          behavior_name?: string
+          child_patient_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          psychologist_id?: string
+          score?: number | null
+          tracking_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "behavioral_tracking_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "behavioral_tracking_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_patients: {
+        Row: {
+          birth_date: string
+          created_at: string
+          current_medication: string | null
+          first_name: string
+          grade: string | null
+          homeroom_teacher: string | null
+          id: string
+          last_name: string
+          medical_diagnosis: string | null
+          modality: string | null
+          notes: string | null
+          psychologist_id: string
+          referral_reason: string | null
+          referral_source: string | null
+          school: string | null
+          sex: string | null
+          specialist_name: string | null
+        }
+        Insert: {
+          birth_date: string
+          created_at?: string
+          current_medication?: string | null
+          first_name: string
+          grade?: string | null
+          homeroom_teacher?: string | null
+          id?: string
+          last_name: string
+          medical_diagnosis?: string | null
+          modality?: string | null
+          notes?: string | null
+          psychologist_id: string
+          referral_reason?: string | null
+          referral_source?: string | null
+          school?: string | null
+          sex?: string | null
+          specialist_name?: string | null
+        }
+        Update: {
+          birth_date?: string
+          created_at?: string
+          current_medication?: string | null
+          first_name?: string
+          grade?: string | null
+          homeroom_teacher?: string | null
+          id?: string
+          last_name?: string
+          medical_diagnosis?: string | null
+          modality?: string | null
+          notes?: string | null
+          psychologist_id?: string
+          referral_reason?: string | null
+          referral_source?: string | null
+          school?: string | null
+          sex?: string | null
+          specialist_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_patients_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_log: {
+        Row: {
+          agreements: string | null
+          child_patient_id: string
+          contact_date: string
+          contact_type: string | null
+          contact_with: string | null
+          created_at: string
+          id: string
+          psychologist_id: string
+          summary: string
+        }
+        Insert: {
+          agreements?: string | null
+          child_patient_id: string
+          contact_date: string
+          contact_type?: string | null
+          contact_with?: string | null
+          created_at?: string
+          id?: string
+          psychologist_id: string
+          summary: string
+        }
+        Update: {
+          agreements?: string | null
+          child_patient_id?: string
+          contact_date?: string
+          contact_type?: string | null
+          contact_with?: string | null
+          created_at?: string
+          id?: string
+          psychologist_id?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_log_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_log_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultations: {
         Row: {
           answer: string
@@ -138,6 +305,223 @@ export type Database = {
         }
         Relationships: []
       }
+      goal_tasks: {
+        Row: {
+          assigned_date: string | null
+          child_patient_id: string
+          created_at: string
+          description: string | null
+          goal_id: string
+          id: string
+          psychologist_id: string
+          responsible: string | null
+          session_date: string | null
+          status: string | null
+          title: string
+        }
+        Insert: {
+          assigned_date?: string | null
+          child_patient_id: string
+          created_at?: string
+          description?: string | null
+          goal_id: string
+          id?: string
+          psychologist_id: string
+          responsible?: string | null
+          session_date?: string | null
+          status?: string | null
+          title: string
+        }
+        Update: {
+          assigned_date?: string | null
+          child_patient_id?: string
+          created_at?: string
+          description?: string | null
+          goal_id?: string
+          id?: string
+          psychologist_id?: string
+          responsible?: string | null
+          session_date?: string | null
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_tasks_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "intervention_goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_tasks_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardians: {
+        Row: {
+          child_patient_id: string
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          involvement_level: string | null
+          phone: string | null
+          psychologist_id: string
+          relationship: string | null
+        }
+        Insert: {
+          child_patient_id: string
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          involvement_level?: string | null
+          phone?: string | null
+          psychologist_id: string
+          relationship?: string | null
+        }
+        Update: {
+          child_patient_id?: string
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          involvement_level?: string | null
+          phone?: string | null
+          psychologist_id?: string
+          relationship?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardians_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardians_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intervention_goals: {
+        Row: {
+          achieved_date: string | null
+          child_patient_id: string
+          created_at: string
+          description: string | null
+          estimated_date: string | null
+          id: string
+          psychologist_id: string
+          status: string | null
+          title: string
+        }
+        Insert: {
+          achieved_date?: string | null
+          child_patient_id: string
+          created_at?: string
+          description?: string | null
+          estimated_date?: string | null
+          id?: string
+          psychologist_id: string
+          status?: string | null
+          title: string
+        }
+        Update: {
+          achieved_date?: string | null
+          child_patient_id?: string
+          created_at?: string
+          description?: string | null
+          estimated_date?: string | null
+          id?: string
+          psychologist_id?: string
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervention_goals_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervention_goals_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      other_evaluations: {
+        Row: {
+          child_patient_id: string
+          created_at: string
+          evaluation_date: string
+          id: string
+          observations: string | null
+          psychologist_id: string
+          report_path: string | null
+          results: string | null
+          test_name: string
+        }
+        Insert: {
+          child_patient_id: string
+          created_at?: string
+          evaluation_date: string
+          id?: string
+          observations?: string | null
+          psychologist_id: string
+          report_path?: string | null
+          results?: string | null
+          test_name: string
+        }
+        Update: {
+          child_patient_id?: string
+          created_at?: string
+          evaluation_date?: string
+          id?: string
+          observations?: string | null
+          psychologist_id?: string
+          report_path?: string | null
+          results?: string | null
+          test_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "other_evaluations_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "other_evaluations_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           birth_date: string | null
@@ -212,6 +596,72 @@ export type Database = {
           rut?: string | null
         }
         Relationships: []
+      }
+      wisc_evaluations: {
+        Row: {
+          child_patient_id: string
+          cit: number | null
+          created_at: string
+          evaluation_date: string
+          icv: number | null
+          id: string
+          imt: number | null
+          irf: number | null
+          irp: number | null
+          ivp: number | null
+          observations: string | null
+          psychologist_id: string
+          report_path: string | null
+          version: string | null
+        }
+        Insert: {
+          child_patient_id: string
+          cit?: number | null
+          created_at?: string
+          evaluation_date: string
+          icv?: number | null
+          id?: string
+          imt?: number | null
+          irf?: number | null
+          irp?: number | null
+          ivp?: number | null
+          observations?: string | null
+          psychologist_id: string
+          report_path?: string | null
+          version?: string | null
+        }
+        Update: {
+          child_patient_id?: string
+          cit?: number | null
+          created_at?: string
+          evaluation_date?: string
+          icv?: number | null
+          id?: string
+          imt?: number | null
+          irf?: number | null
+          irp?: number | null
+          ivp?: number | null
+          observations?: string | null
+          psychologist_id?: string
+          report_path?: string | null
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wisc_evaluations_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wisc_evaluations_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

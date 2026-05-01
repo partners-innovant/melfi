@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, FileText, MessageSquare, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Baby, FileText, MessageSquare, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/patients", label: "Pacientes", icon: Users },
+  { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/documents", label: "Documentos", icon: FileText },
   { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
 ];

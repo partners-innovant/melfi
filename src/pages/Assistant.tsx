@@ -69,6 +69,7 @@ function formatDateGroup(d: Date): "Hoy" | "Ayer" | "Esta semana" | "Anteriores"
 
 export default function Assistant() {
   const [params] = useSearchParams();
+  const patientKind = params.get("kind") === "child" ? "child" : "adult";
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState<string>(params.get("patient") ?? NONE);
   const [docType, setDocType] = useState<string>(ALL);
@@ -90,11 +91,12 @@ export default function Assistant() {
 
   useEffect(() => {
     (async () => {
+      const table = patientKind === "child" ? "child_patients" : "patients";
       const { data } = await supabase
-        .from("patients").select("id, first_name, last_name").order("first_name");
+        .from(table).select("id, first_name, last_name").order("first_name");
       setPatients((data as Patient[]) ?? []);
     })();
-  }, []);
+  }, [patientKind]);
 
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
@@ -195,6 +197,7 @@ export default function Assistant() {
           question: q,
           query_embedding,
           patient_id: patientId !== NONE ? patientId : null,
+          patient_kind: patientKind,
           document_type: docType !== ALL ? docType : null,
           conversation_id: conversationId,
         }),

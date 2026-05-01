@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
     const {
       question,
       patient_id,
+      patient_kind = "adult",
       document_type,
       query_embedding,
       conversation_id,
@@ -146,7 +147,44 @@ Deno.serve(async (req) => {
 
     // 3. Patient context
     let patientCtx = "";
-    if (patient_id) {
+    let childSystemAddition = "";
+    if (patient_id && patient_kind === "child") {
+      const { data: c } = await supabase
+        .from("child_patients").select("*")
+        .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
+      if (c) {
+        const [{ data: goals }, { data: behaviors }, { data: wisc }, { data: comms }] = await Promise.all([
+          supabase.from("intervention_goals").select("title, status, estimated_date").eq("child_patient_id", patient_id).order("created_at", { ascending: false }).limit(10),
+          supabase.from("behavioral_tracking").select("behavior_name, score, tracking_date").eq("child_patient_id", patient_id).order("tracking_date", { ascending: false }).limit(20),
+          supabase.from("wisc_evaluations").select("version, evaluation_date, cit, icv, irp, imt, ivp, irf").eq("child_patient_id", patient_id).order("evaluation_date", { ascending: false }).limit(1),
+          supabase.from("communication_log").select("contact_date, contact_type, contact_with, summary").eq("child_patient_id", patient_id).order("contact_date", { ascending: false }).limit(5),
+        ]);
+        const latestWisc = wisc?.[0];
+        patientCtx = `CONTEXTO DEL PACIENTE INFANTO-JUVENIL:
+Nombre: ${c.first_name} ${c.last_name}
+Edad: ${calcAge(c.birth_date)}
+Sexo: ${c.sex ?? "no especificado"}
+Colegio: ${c.school ?? "no especificado"} — Curso: ${c.grade ?? "—"} — Modalidad: ${c.modality ?? "—"}
+Diagnóstico médico: ${c.medical_diagnosis ?? "no registrado"}
+Medicación: ${c.current_medication ?? "ninguna"}
+Motivo derivación: ${c.referral_reason ?? "—"}
+Notas: ${c.notes ?? "ninguna"}
+
+Objetivos de intervención (${goals?.length ?? 0}):
+${(goals ?? []).map((g: any) => `- ${g.title} [${g.status}]${g.estimated_date ? ` (estimado ${g.estimated_date})` : ""}`).join("\n") || "- (sin objetivos)"}
+
+Puntuaciones conductuales recientes:
+${(behaviors ?? []).map((b: any) => `- ${b.tracking_date} · ${b.behavior_name}: ${b.score}/5`).join("\n") || "- (sin registros)"}
+
+${latestWisc ? `Última evaluación WISC (${latestWisc.version}, ${latestWisc.evaluation_date}): CIT=${latestWisc.cit ?? "—"}, ICV=${latestWisc.icv ?? "—"}, IRP=${latestWisc.irp ?? "—"}, IMT=${latestWisc.imt ?? "—"}, IVP=${latestWisc.ivp ?? "—"}${latestWisc.irf ? `, IRF=${latestWisc.irf}` : ""}` : "Sin evaluaciones WISC registradas."}
+
+Comunicaciones recientes:
+${(comms ?? []).map((m: any) => `- ${m.contact_date} ${m.contact_type ?? ""} con ${m.contact_with ?? "—"}: ${m.summary.slice(0, 120)}`).join("\n") || "- (ninguna)"}
+
+`;
+        childSystemAddition = "\n\nEste es un paciente infanto-juvenil. Adapta tus recomendaciones a intervenciones apropiadas para la edad, técnicas lúdicas y conductuales, y considera el contexto escolar y familiar.";
+      }
+    } else if (patient_id) {
       const { data: p } = await supabase
         .from("patients").select("*")
         .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
@@ -188,7 +226,7 @@ Notas clínicas: ${p.notes ?? "ninguna"}
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: SYSTEM_PROMPT + childSystemAddition,
         stream: true,
         messages: [{ role: "user", content: userMessage }],
       }),
