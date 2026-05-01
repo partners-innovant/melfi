@@ -131,21 +131,29 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function handleUpload() {
     if (!file || !title) { toast.error("Título y archivo son obligatorios"); return; }
     setBusy(true);
+    setErrorMsg(null);
     setStatus("Extrayendo texto...");
     setProgress(2);
+    console.log("[upload] start", { name: file.name, size: file.size, type: file.type });
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
+      console.log("[upload] authenticated user", user.id);
 
+      console.log("[upload] extracting text...");
       const text = file.type === "application/pdf" || file.name.endsWith(".pdf")
         ? await extractPdfText(file)
         : await extractTxtText(file);
+      console.log("[upload] extracted text length:", text.length);
 
+      console.log("[upload] chunking started");
       const chunks = chunkText(text);
+      console.log("[upload] chunking complete:", chunks.length, "chunks");
       if (chunks.length === 0) throw new Error("No se pudo extraer texto del archivo");
 
       setStatus("Creando documento...");
@@ -158,21 +166,28 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         })
         .select()
         .single();
-      if (docErr) throw docErr;
+      if (docErr) { console.error("[upload] insert document error:", docErr); throw docErr; }
+      console.log("[upload] document created:", doc.id);
 
       // Embed in batches of 8
       const batchSize = 8;
       for (let i = 0; i < chunks.length; i += batchSize) {
         const batch = chunks.slice(i, i + batchSize);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(chunks.length / batchSize);
         setStatus(`Procesando chunk ${Math.min(i + batchSize, chunks.length)} de ${chunks.length}...`);
         setProgress(Math.round((i / chunks.length) * 95) + 2);
 
+        console.log(`[upload] embedding batch ${batchNum}/${totalBatches} (${batch.length} chunks) → voyage-embed`);
+        const t0 = performance.now();
         const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
           body: { input: batch.map((c) => c.content), input_type: "document" },
         });
-        if (embErr) throw embErr;
-        if (embData?.error) throw new Error(embData.error);
+        const dt = Math.round(performance.now() - t0);
+        if (embErr) { console.error(`[upload] voyage-embed invoke error (batch ${batchNum}, ${dt}ms):`, embErr); throw embErr; }
+        if (embData?.error) { console.error(`[upload] voyage-embed returned error (batch ${batchNum}):`, embData.error); throw new Error(embData.error); }
         const embeddings: number[][] = embData.embeddings;
+        console.log(`[upload] received ${embeddings?.length ?? 0} embeddings for batch ${batchNum} in ${dt}ms`);
 
         const rows = batch.map((c, idx) => ({
           document_id: doc.id,
@@ -182,16 +197,21 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
           page_number: c.page_number,
           embedding: embeddings[idx] as any,
         }));
+        console.log(`[upload] saving ${rows.length} chunks to Supabase (batch ${batchNum})`);
         const { error: insErr } = await supabase.from("document_chunks").insert(rows);
-        if (insErr) throw insErr;
+        if (insErr) { console.error(`[upload] insert chunks error (batch ${batchNum}):`, insErr); throw insErr; }
+        console.log(`[upload] saved batch ${batchNum}/${totalBatches}`);
       }
 
       setProgress(100);
+      console.log("[upload] complete:", chunks.length, "chunks indexed");
       toast.success(`Documento procesado: ${chunks.length} fragmentos indexados`);
       onClose();
     } catch (e: any) {
-      console.error(e);
-      toast.error(e.message ?? "Error al procesar documento");
+      console.error("[upload] FAILED:", e);
+      const msg = e?.message ?? e?.error_description ?? JSON.stringify(e) ?? "Error al procesar documento";
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
