@@ -190,6 +190,7 @@ export type Database = {
           created_at: string
           document_type_filter: string | null
           id: string
+          is_general_knowledge: boolean
           patient_id: string | null
           psychologist_id: string
           question: string
@@ -202,6 +203,7 @@ export type Database = {
           created_at?: string
           document_type_filter?: string | null
           id?: string
+          is_general_knowledge?: boolean
           patient_id?: string | null
           psychologist_id: string
           question: string
@@ -214,6 +216,7 @@ export type Database = {
           created_at?: string
           document_type_filter?: string | null
           id?: string
+          is_general_knowledge?: boolean
           patient_id?: string | null
           psychologist_id?: string
           question?: string

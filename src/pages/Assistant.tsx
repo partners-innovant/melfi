@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2 } from "lucide-react";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
@@ -29,7 +29,11 @@ interface ChatMessage {
   content: string;
   citations?: Citation[];
   streaming?: boolean;
+  general?: boolean;
+  generalLoading?: boolean;
 }
+
+const NO_INFO_PHRASE = "No tengo información suficiente en los documentos cargados";
 
 interface Patient { id: string; first_name: string; last_name: string; }
 
@@ -157,14 +161,21 @@ export default function Assistant() {
     setSidebarOpen(false);
     const { data, error } = await supabase
       .from("consultations")
-      .select("question, answer, citations, patient_id, created_at")
+      .select("question, answer, citations, patient_id, created_at, is_general_knowledge")
       .eq("conversation_id", cid)
       .order("created_at", { ascending: true });
     if (error) { toast.error(error.message); return; }
     const msgs: ChatMessage[] = [];
     for (const r of (data ?? []) as any[]) {
-      msgs.push({ role: "user", content: r.question });
-      msgs.push({ role: "assistant", content: r.answer, citations: r.citations ?? [] });
+      if (!r.is_general_knowledge) {
+        msgs.push({ role: "user", content: r.question });
+      }
+      msgs.push({
+        role: "assistant",
+        content: r.answer,
+        citations: r.citations ?? [],
+        general: !!r.is_general_knowledge,
+      });
     }
     setMessages(msgs);
     setConversationId(cid);
@@ -296,6 +307,46 @@ export default function Assistant() {
     }
   }
 
+  async function searchGeneral(question: string) {
+    if (!question.trim()) return;
+    // Append a placeholder loading "general" assistant message
+    setMessages((m) => [...m, { role: "assistant", content: "", general: true, generalLoading: true }]);
+    try {
+      const { data, error } = await supabase.functions.invoke("claude-general", {
+        body: {
+          question,
+          patient_id: patientId !== NONE ? patientId : null,
+          conversation_id: conversationId,
+        },
+      });
+      if (error) throw new Error(error.message ?? "Error");
+      if (data?.error) throw new Error(data.error);
+      const answer = data?.answer ?? "";
+      const newConvId = data?.conversation_id ?? conversationId;
+      setMessages((m) => {
+        const copy = [...m];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant" && last.generalLoading) {
+          copy[copy.length - 1] = { role: "assistant", content: answer, general: true, citations: [] };
+        }
+        return copy;
+      });
+      if (newConvId && newConvId !== conversationId) setConversationId(newConvId);
+      void loadHistory();
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      toast.error(msg);
+      setMessages((m) => {
+        const copy = [...m];
+        const last = copy[copy.length - 1];
+        if (last && last.role === "assistant" && last.generalLoading) {
+          copy[copy.length - 1] = { role: "assistant", content: `❌ Error: ${msg}`, general: true, citations: [] };
+        }
+        return copy;
+      });
+    }
+  }
+
   const isEmpty = messages.length === 0;
 
   return (
@@ -405,6 +456,7 @@ export default function Assistant() {
                     conversationId={conversationId}
                     onCite={setActiveCitation}
                     onExportPdf={() => exportConversationPdf(messages, i, activePatientName)}
+                    onSearchGeneral={() => searchGeneral(findPrevQuestion(messages, i))}
                   />
                 ))}
               </div>
@@ -522,13 +574,14 @@ function InputBox({
 }
 
 function Message({
-  message, question, conversationId, onCite, onExportPdf,
+  message, question, conversationId, onCite, onExportPdf, onSearchGeneral,
 }: {
   message: ChatMessage;
   question?: string;
   conversationId?: string | null;
   onCite: (c: Citation) => void;
   onExportPdf: () => void;
+  onSearchGeneral: () => void;
 }) {
   if (message.role === "user") {
     return (
@@ -573,19 +626,53 @@ function Message({
     }
   }
 
-  const isEmpty = !message.content && message.streaming;
+  const isEmpty = !message.content && (message.streaming || message.generalLoading);
+  const isGeneral = !!message.general;
+  const showGeneralFallback =
+    !isGeneral &&
+    !message.streaming &&
+    !!message.content &&
+    message.content.includes(NO_INFO_PHRASE);
 
   return (
     <div className="flex gap-3">
-      <div className="h-8 w-8 rounded-lg bg-primary-soft text-primary flex items-center justify-center flex-shrink-0">
-        <Sparkles className="h-4 w-4" />
+      <div
+        className={cn(
+          "h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0",
+          isGeneral
+            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+            : "bg-primary-soft text-primary",
+        )}
+      >
+        {isGeneral ? <Globe className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="prose prose-sm max-w-none">
+        {isGeneral && (
+          <div className="text-[11px] uppercase tracking-wide font-semibold text-amber-600 dark:text-amber-400 mb-1">
+            Conocimiento general
+          </div>
+        )}
+
+        <div
+          className={cn(
+            "prose prose-sm max-w-none",
+            isGeneral &&
+              "rounded-lg border-l-4 border-amber-500/60 bg-amber-50/50 dark:bg-amber-900/10 px-3 py-2",
+          )}
+        >
           <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
             {isEmpty ? (
               <span className="inline-flex items-center gap-1 text-muted-foreground">
-                Pensando<span className="streaming-cursor">▍</span>
+                {message.generalLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Buscando en conocimiento general...
+                  </>
+                ) : (
+                  <>
+                    Pensando<span className="streaming-cursor">▍</span>
+                  </>
+                )}
               </span>
             ) : (
               <>
@@ -618,7 +705,28 @@ function Message({
           </div>
         )}
 
-        {!message.streaming && message.content && !message.content.startsWith("❌") && (
+        {showGeneralFallback && question && (
+          <Card className="mt-3 p-3 border-dashed bg-muted/30">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl leading-none mt-0.5">🌐</div>
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="text-sm font-medium">
+                  ¿Quieres buscar en el conocimiento general de Claude?
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ⚠️ Las respuestas del conocimiento general no están basadas en documentos
+                  verificados y pueden contener inexactitudes. Úsalas como punto de partida, no
+                  como referencia clínica definitiva.
+                </p>
+                <Button size="sm" variant="outline" className="gap-2" onClick={onSearchGeneral}>
+                  <Globe className="h-3.5 w-3.5" /> Buscar igualmente
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {!message.streaming && !message.generalLoading && message.content && !message.content.startsWith("❌") && (
           <div className="mt-2 flex gap-1">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={copyAnswer}>
               <Copy className="h-3.5 w-3.5" /> Copiar
@@ -629,7 +737,7 @@ function Message({
           </div>
         )}
 
-        {!message.streaming && message.content && !message.content.startsWith("❌") && question && (
+        {!message.streaming && !message.generalLoading && message.content && !message.content.startsWith("❌") && question && (
           <ResponseFeedbackBar
             question={question}
             answer={stripCitations(message.content)}
@@ -640,6 +748,7 @@ function Message({
     </div>
   );
 }
+
 
 function CitationPanel({ citation }: { citation: Citation }) {
   return (
