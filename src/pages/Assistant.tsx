@@ -12,6 +12,7 @@ import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, D
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
+import ResponseFeedbackBar from "@/components/ResponseFeedbackBar";
 
 interface Citation {
   chunk_id: string;
@@ -65,6 +66,13 @@ function formatDateGroup(d: Date): "Hoy" | "Ayer" | "Esta semana" | "Anteriores"
   if (diff <= 1) return "Ayer";
   if (diff <= 7) return "Esta semana";
   return "Anteriores";
+}
+
+function findPrevQuestion(messages: ChatMessage[], idx: number): string {
+  for (let i = idx - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return messages[i].content;
+  }
+  return "";
 }
 
 export default function Assistant() {
@@ -393,6 +401,8 @@ export default function Assistant() {
                   <Message
                     key={i}
                     message={m}
+                    question={m.role === "assistant" ? findPrevQuestion(messages, i) : ""}
+                    conversationId={conversationId}
                     onCite={setActiveCitation}
                     onExportPdf={() => exportConversationPdf(messages, i, activePatientName)}
                   />
@@ -512,9 +522,11 @@ function InputBox({
 }
 
 function Message({
-  message, onCite, onExportPdf,
+  message, question, conversationId, onCite, onExportPdf,
 }: {
   message: ChatMessage;
+  question?: string;
+  conversationId?: string | null;
   onCite: (c: Citation) => void;
   onExportPdf: () => void;
 }) {
@@ -615,6 +627,14 @@ function Message({
               <Download className="h-3.5 w-3.5" /> Exportar como PDF
             </Button>
           </div>
+        )}
+
+        {!message.streaming && message.content && !message.content.startsWith("❌") && question && (
+          <ResponseFeedbackBar
+            question={question}
+            answer={stripCitations(message.content)}
+            consultationId={conversationId ?? null}
+          />
         )}
       </div>
     </div>

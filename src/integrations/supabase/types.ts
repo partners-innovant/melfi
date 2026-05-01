@@ -641,6 +641,54 @@ export type Database = {
         }
         Relationships: []
       }
+      response_feedback: {
+        Row: {
+          answer: string
+          comment: string | null
+          consultation_id: string | null
+          created_at: string
+          id: string
+          psychologist_id: string
+          question: string
+          rating: string
+        }
+        Insert: {
+          answer: string
+          comment?: string | null
+          consultation_id?: string | null
+          created_at?: string
+          id?: string
+          psychologist_id: string
+          question: string
+          rating: string
+        }
+        Update: {
+          answer?: string
+          comment?: string | null
+          consultation_id?: string | null
+          created_at?: string
+          id?: string
+          psychologist_id?: string
+          question?: string
+          rating?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_feedback_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_feedback_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           assigned_task: string | null
