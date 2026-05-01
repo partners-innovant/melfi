@@ -83,15 +83,28 @@ export default function Documents() {
       if (paths.length > 0) {
         await supabase.storage.from("documents").remove(paths);
       }
-      const { error } = await supabase
+      const targetIds = targets.map((d) => d.id);
+      // Delete chunks first (no FK cascade in DB)
+      const { error: chunksError } = await supabase
+        .from("document_chunks")
+        .delete()
+        .in("document_id", targetIds);
+      if (chunksError) console.warn("[delete] chunks:", chunksError);
+      const { data: deleted, error } = await supabase
         .from("documents")
         .delete()
-        .in("id", targets.map((d) => d.id));
+        .in("id", targetIds)
+        .select("id");
       if (error) throw error;
-      toast.success(`${targets.length} documento${targets.length === 1 ? "" : "s"} eliminado${targets.length === 1 ? "" : "s"}`);
+      const n = deleted?.length ?? 0;
+      if (n === 0) {
+        toast.error("No se eliminó ningún documento. Verifica permisos.");
+      } else {
+        toast.success(`${n} documento${n === 1 ? "" : "s"} eliminado${n === 1 ? "" : "s"}`);
+      }
       clearSelection();
       setConfirmIds(null);
-      load();
+      await load();
     } catch (e: any) {
       toast.error(e?.message ?? "Error al eliminar");
     } finally {
