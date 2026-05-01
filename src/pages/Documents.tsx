@@ -554,7 +554,8 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
-        })
+          import_source: 'upload',
+        } as any)
         .select()
         .single();
       if (docErr) {
