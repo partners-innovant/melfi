@@ -69,7 +69,7 @@ async function ensurePicker(): Promise<void> {
 }
 
 export default function GoogleDriveImport({
-  isAdmin: _isAdmin,
+  isAdmin,
   onImported,
 }: {
   isAdmin: boolean;
@@ -82,6 +82,7 @@ export default function GoogleDriveImport({
   const [opening, setOpening] = useState(false);
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [isGlobal, setIsGlobal] = useState(false);
   const accessTokenRef = useRef<string | null>(null);
   const cancelRef = useRef<boolean>(false);
 
