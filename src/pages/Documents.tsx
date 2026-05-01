@@ -12,8 +12,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye } from "lucide-react";
@@ -38,6 +43,11 @@ export default function Documents() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<Doc | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const isAdmin = !!profile?.is_admin;
 
   async function load() {
     const { data } = await supabase
@@ -49,20 +59,49 @@ export default function Documents() {
   }
   useEffect(() => { load(); }, []);
 
-  async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar este documento y todos sus fragmentos?")) return;
-    const doc = docs.find((d) => d.id === id);
-    if (doc?.storage_path) {
-      await supabase.storage.from("documents").remove([doc.storage_path]);
+  function canDeleteDoc(d: Doc) {
+    if (isAdmin) return true;
+    return !d.is_global && d.psychologist_id === user?.id;
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() { setSelected(new Set()); }
+
+  async function performDelete(ids: string[]) {
+    if (ids.length === 0) return;
+    setDeleting(true);
+    try {
+      const targets = docs.filter((d) => ids.includes(d.id) && canDeleteDoc(d));
+      const paths = targets.map((d) => d.storage_path).filter((p): p is string => !!p);
+      if (paths.length > 0) {
+        await supabase.storage.from("documents").remove(paths);
+      }
+      const { error } = await supabase
+        .from("documents")
+        .delete()
+        .in("id", targets.map((d) => d.id));
+      if (error) throw error;
+      toast.success(`${targets.length} documento${targets.length === 1 ? "" : "s"} eliminado${targets.length === 1 ? "" : "s"}`);
+      clearSelection();
+      setConfirmIds(null);
+      load();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al eliminar");
+    } finally {
+      setDeleting(false);
     }
-    const { error } = await supabase.from("documents").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    toast.success("Documento eliminado");
-    load();
   }
 
   const global = docs.filter((d) => d.is_global);
   const own = docs.filter((d) => !d.is_global && d.psychologist_id === user?.id);
+  const selectedCount = selected.size;
 
   return (
     <div className="px-4 md:px-8 py-6 md:py-10 max-w-6xl mx-auto">
@@ -75,9 +114,28 @@ export default function Documents() {
           <DialogTrigger asChild>
             <Button className="gap-2"><Upload className="h-4 w-4" />Subir documentos</Button>
           </DialogTrigger>
-          <UploadDialog onClose={() => { setOpen(false); load(); }} isAdmin={!!profile?.is_admin} />
+          <UploadDialog onClose={() => { setOpen(false); load(); }} isAdmin={isAdmin} />
         </Dialog>
       </header>
+
+      {selectedCount > 0 && (
+        <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 shadow-sm">
+          <div className="text-sm">
+            <span className="font-medium">{selectedCount}</span> seleccionado{selectedCount === 1 ? "" : "s"}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={clearSelection}>Limpiar</Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-2"
+              onClick={() => setConfirmIds(Array.from(selected))}
+            >
+              <Trash2 className="h-4 w-4" />Eliminar seleccionados
+            </Button>
+          </div>
+        </div>
+      )}
 
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-3">
@@ -85,7 +143,13 @@ export default function Documents() {
           <h2 className="font-semibold">Documentos globales</h2>
           <span className="text-xs text-muted-foreground">({global.length})</span>
         </div>
-        <DocList docs={global} loading={loading} ownUserId={user?.id} onDelete={handleDelete} onView={setViewing} canDelete={false} />
+        <DocList
+          docs={global} loading={loading}
+          onDelete={(id) => setConfirmIds([id])}
+          onView={setViewing}
+          canDeleteDoc={canDeleteDoc}
+          selected={selected} onToggle={toggleSelect}
+        />
       </section>
 
       <section>
@@ -94,54 +158,107 @@ export default function Documents() {
           <h2 className="font-semibold">Mis documentos</h2>
           <span className="text-xs text-muted-foreground">({own.length})</span>
         </div>
-        <DocList docs={own} loading={loading} ownUserId={user?.id} onDelete={handleDelete} onView={setViewing} canDelete />
+        <DocList
+          docs={own} loading={loading}
+          onDelete={(id) => setConfirmIds([id])}
+          onView={setViewing}
+          canDeleteDoc={canDeleteDoc}
+          selected={selected} onToggle={toggleSelect}
+        />
       </section>
 
       <ViewerSheet doc={viewing} onClose={() => setViewing(null)} />
+
+      <AlertDialog open={!!confirmIds} onOpenChange={(o) => { if (!o && !deleting) setConfirmIds(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminarán {confirmIds?.length ?? 0} documento{(confirmIds?.length ?? 0) === 1 ? "" : "s"} y todos sus fragmentos indexados. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => { e.preventDefault(); if (confirmIds) performDelete(confirmIds); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function DocList({ docs, loading, onDelete, onView, canDelete }: { docs: Doc[]; loading: boolean; ownUserId?: string; onDelete: (id: string) => void; onView: (d: Doc) => void; canDelete: boolean }) {
+function DocList({
+  docs, loading, onDelete, onView, canDeleteDoc, selected, onToggle,
+}: {
+  docs: Doc[];
+  loading: boolean;
+  onDelete: (id: string) => void;
+  onView: (d: Doc) => void;
+  canDeleteDoc: (d: Doc) => boolean;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+}) {
   if (loading) return <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-16 bg-card rounded-xl animate-pulse" />)}</div>;
   if (docs.length === 0) return <Card className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</Card>;
   return (
     <div className="grid gap-2">
-      {docs.map((d) => (
-        <Card key={d.id} className="p-4 flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => onView(d)}
-            className="h-10 w-10 rounded-lg bg-primary-soft text-primary flex items-center justify-center flex-shrink-0 hover:opacity-80 transition"
-            aria-label="Ver documento"
+      {docs.map((d) => {
+        const canDelete = canDeleteDoc(d);
+        const isSelected = selected.has(d.id);
+        return (
+          <Card
+            key={d.id}
+            className={`p-4 flex items-center gap-3 transition-colors ${isSelected ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
           >
-            <FileText className="h-5 w-5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => onView(d)}
-                className="font-medium truncate text-left hover:underline focus:outline-none focus:underline"
-              >
-                {d.title}
-              </button>
-              <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[d.document_type]}</Badge>
+            {canDelete ? (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onToggle(d.id)}
+                aria-label={`Seleccionar ${d.title}`}
+              />
+            ) : (
+              <div className="w-4" aria-hidden />
+            )}
+            <button
+              type="button"
+              onClick={() => onView(d)}
+              className="h-10 w-10 rounded-lg bg-primary-soft text-primary flex items-center justify-center flex-shrink-0 hover:opacity-80 transition"
+              aria-label="Ver documento"
+            >
+              <FileText className="h-5 w-5" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => onView(d)}
+                  className="font-medium truncate text-left hover:underline focus:outline-none focus:underline"
+                >
+                  {d.title}
+                </button>
+                <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[d.document_type]}</Badge>
+              </div>
+              <div className="text-sm text-muted-foreground truncate">
+                {d.author ?? "Autor desconocido"}{d.year ? ` · ${d.year}` : ""}
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground truncate">
-              {d.author ?? "Autor desconocido"}{d.year ? ` · ${d.year}` : ""}
-            </div>
-          </div>
-          <Button variant="ghost" size="icon" onClick={() => onView(d)} aria-label="Ver">
-            <Eye className="h-4 w-4" />
-          </Button>
-          {canDelete && (
-            <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)} aria-label="Eliminar">
-              <Trash2 className="h-4 w-4 text-destructive" />
+            <Button variant="ghost" size="icon" onClick={() => onView(d)} aria-label="Ver">
+              <Eye className="h-4 w-4" />
             </Button>
-          )}
-        </Card>
-      ))}
+            {canDelete && (
+              <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)} aria-label="Eliminar">
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            )}
+          </Card>
+        );
+      })}
     </div>
   );
 }
