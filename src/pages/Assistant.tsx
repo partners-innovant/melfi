@@ -574,13 +574,14 @@ function InputBox({
 }
 
 function Message({
-  message, question, conversationId, onCite, onExportPdf,
+  message, question, conversationId, onCite, onExportPdf, onSearchGeneral,
 }: {
   message: ChatMessage;
   question?: string;
   conversationId?: string | null;
   onCite: (c: Citation) => void;
   onExportPdf: () => void;
+  onSearchGeneral: () => void;
 }) {
   if (message.role === "user") {
     return (
@@ -625,19 +626,53 @@ function Message({
     }
   }
 
-  const isEmpty = !message.content && message.streaming;
+  const isEmpty = !message.content && (message.streaming || message.generalLoading);
+  const isGeneral = !!message.general;
+  const showGeneralFallback =
+    !isGeneral &&
+    !message.streaming &&
+    !!message.content &&
+    message.content.includes(NO_INFO_PHRASE);
 
   return (
     <div className="flex gap-3">
-      <div className="h-8 w-8 rounded-lg bg-primary-soft text-primary flex items-center justify-center flex-shrink-0">
-        <Sparkles className="h-4 w-4" />
+      <div
+        className={cn(
+          "h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0",
+          isGeneral
+            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+            : "bg-primary-soft text-primary",
+        )}
+      >
+        {isGeneral ? <Globe className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="prose prose-sm max-w-none">
+        {isGeneral && (
+          <div className="text-[11px] uppercase tracking-wide font-semibold text-amber-600 dark:text-amber-400 mb-1">
+            Conocimiento general
+          </div>
+        )}
+
+        <div
+          className={cn(
+            "prose prose-sm max-w-none",
+            isGeneral &&
+              "rounded-lg border-l-4 border-amber-500/60 bg-amber-50/50 dark:bg-amber-900/10 px-3 py-2",
+          )}
+        >
           <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
             {isEmpty ? (
               <span className="inline-flex items-center gap-1 text-muted-foreground">
-                Pensando<span className="streaming-cursor">▍</span>
+                {message.generalLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Buscando en conocimiento general...
+                  </>
+                ) : (
+                  <>
+                    Pensando<span className="streaming-cursor">▍</span>
+                  </>
+                )}
               </span>
             ) : (
               <>
@@ -670,7 +705,28 @@ function Message({
           </div>
         )}
 
-        {!message.streaming && message.content && !message.content.startsWith("❌") && (
+        {showGeneralFallback && question && (
+          <Card className="mt-3 p-3 border-dashed bg-muted/30">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl leading-none mt-0.5">🌐</div>
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="text-sm font-medium">
+                  ¿Quieres buscar en el conocimiento general de Claude?
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ⚠️ Las respuestas del conocimiento general no están basadas en documentos
+                  verificados y pueden contener inexactitudes. Úsalas como punto de partida, no
+                  como referencia clínica definitiva.
+                </p>
+                <Button size="sm" variant="outline" className="gap-2" onClick={onSearchGeneral}>
+                  <Globe className="h-3.5 w-3.5" /> Buscar igualmente
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {!message.streaming && !message.generalLoading && message.content && !message.content.startsWith("❌") && (
           <div className="mt-2 flex gap-1">
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={copyAnswer}>
               <Copy className="h-3.5 w-3.5" /> Copiar
@@ -681,7 +737,7 @@ function Message({
           </div>
         )}
 
-        {!message.streaming && message.content && !message.content.startsWith("❌") && question && (
+        {!message.streaming && !message.generalLoading && message.content && !message.content.startsWith("❌") && question && (
           <ResponseFeedbackBar
             question={question}
             answer={stripCitations(message.content)}
@@ -692,6 +748,7 @@ function Message({
     </div>
   );
 }
+
 
 function CitationPanel({ citation }: { citation: Citation }) {
   return (
