@@ -1,12 +1,14 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Baby, FileText, MessageSquare, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import ProfileCompletionModal from "@/components/ProfileCompletionModal";
 
 const items = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
+  { to: "/calendar", label: "Calendario", icon: Calendar },
   { to: "/documents", label: "Documentos", icon: FileText },
   { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
 ];
@@ -19,6 +21,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen w-full bg-surface">
+      <ProfileCompletionModal />
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r border-sidebar-border bg-sidebar fixed inset-y-0 left-0">
         <div className="flex items-center gap-2 px-6 h-16 border-b border-sidebar-border">

@@ -571,6 +571,8 @@ export type Database = {
         Row: {
           created_at: string
           first_name: string
+          google_calendar_id: string | null
+          google_calendar_token: Json | null
           id: string
           is_admin: boolean
           last_name: string
@@ -580,6 +582,8 @@ export type Database = {
         Insert: {
           created_at?: string
           first_name: string
+          google_calendar_id?: string | null
+          google_calendar_token?: Json | null
           id: string
           is_admin?: boolean
           last_name: string
@@ -589,6 +593,8 @@ export type Database = {
         Update: {
           created_at?: string
           first_name?: string
+          google_calendar_id?: string | null
+          google_calendar_token?: Json | null
           id?: string
           is_admin?: boolean
           last_name?: string
@@ -604,6 +610,7 @@ export type Database = {
           created_at: string
           duration_minutes: number | null
           emotional_state: string | null
+          google_event_id: string | null
           id: string
           interventions_used: string | null
           next_session_plan: string | null
@@ -624,6 +631,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           emotional_state?: string | null
+          google_event_id?: string | null
           id?: string
           interventions_used?: string | null
           next_session_plan?: string | null
@@ -644,6 +652,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           emotional_state?: string | null
+          google_event_id?: string | null
           id?: string
           interventions_used?: string | null
           next_session_plan?: string | null
