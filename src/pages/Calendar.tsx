@@ -111,22 +111,45 @@ export default function Calendar() {
 
   const googleConnected = !!profile?.google_calendar_token;
 
-  const loadGoogleEvents = useCallback(async () => {
+  const loadGoogleEvents = useCallback(async (opts?: { showToast?: boolean }) => {
     if (!googleConnected) { setGEvents([]); return; }
     try {
       const { data, error } = await supabase.functions.invoke("calendar-sync", {
         body: { action: "pull", timeMin: range.start.toISOString(), timeMax: range.end.toISOString() },
       });
       if (error) {
-        // 401 token_expired
-        const msg = (error as any)?.message ?? "";
-        if (msg.includes("401") || msg.includes("token_expired")) setTokenExpired(true);
+        const msg = (error as any)?.message ?? "Error desconocido";
+        console.error("[calendar-sync] invoke error", error);
+        if (msg.includes("401") || msg.toLowerCase().includes("token_expired")) {
+          setTokenExpired(true);
+          if (opts?.showToast) toast.error("Tu sesión de Google expiró. Reconecta para sincronizar.");
+        } else if (opts?.showToast) {
+          toast.error(`Error al sincronizar Google Calendar: ${msg}`);
+        }
         setGEvents([]); return;
       }
+      // Edge function may return a structured error payload with status 200
+      const payload = data as any;
+      if (payload?.error) {
+        console.error("[calendar-sync] api error payload", payload);
+        if (payload.status === 401 || payload.error === "token_expired") {
+          setTokenExpired(true);
+          if (opts?.showToast) toast.error("Tu sesión de Google expiró. Reconecta para sincronizar.");
+        } else if (opts?.showToast) {
+          toast.error(`Google Calendar: ${payload.reason || payload.error}`);
+        }
+        setGEvents(payload.events ?? []);
+        return;
+      }
       setTokenExpired(false);
-      const items = ((data as any)?.events ?? []).map((e: any) => ({ ...e, source: "google" as const }));
+      const items = (payload?.events ?? []).map((e: any) => ({ ...e, source: "google" as const }));
       setGEvents(items);
-    } catch {
+      if (opts?.showToast) {
+        toast.success(`Sincronizado: ${items.length} evento${items.length === 1 ? "" : "s"} de Google`);
+      }
+    } catch (e: any) {
+      console.error("[calendar-sync] exception", e);
+      if (opts?.showToast) toast.error(`Error al sincronizar: ${e?.message ?? e}`);
       setGEvents([]);
     }
   }, [googleConnected, range.start, range.end]);
