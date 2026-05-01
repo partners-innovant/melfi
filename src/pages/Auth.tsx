@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Brain } from "lucide-react";
+import { lovable } from "@/integrations/lovable";
 
 export default function Auth() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -28,6 +30,21 @@ export default function Auth() {
   }, [user, navigate]);
 
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function handleGoogle() {
+    setGoogleLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) throw result.error;
+      // If redirected, browser will navigate away.
+    } catch (e: any) {
+      toast.error(e?.message ?? "No se pudo iniciar sesión con Google");
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,6 +121,26 @@ export default function Auth() {
             </button>
           </div>
 
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2"
+            onClick={handleGoogle}
+            disabled={googleLoading}
+          >
+            <GoogleIcon />
+            {googleLoading ? "Conectando..." : "Continuar con Google"}
+          </Button>
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">o con correo</span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-3">
             {mode === "signup" && (
               <>
@@ -144,5 +181,13 @@ export default function Auth() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.66 4.1-5.5 4.1-3.31 0-6-2.74-6-6.1s2.69-6.1 6-6.1c1.88 0 3.14.8 3.86 1.49l2.63-2.53C16.86 3.39 14.66 2.4 12 2.4 6.97 2.4 2.9 6.47 2.9 11.5S6.97 20.6 12 20.6c6.93 0 9.18-4.85 9.18-7.36 0-.5-.06-.88-.13-1.24H12z" />
+    </svg>
   );
 }
