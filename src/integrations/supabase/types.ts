@@ -280,6 +280,7 @@ export type Database = {
           id: string
           is_global: boolean
           psychologist_id: string
+          source_url: string | null
           storage_path: string | null
           title: string
           year: string | null
@@ -291,6 +292,7 @@ export type Database = {
           id?: string
           is_global?: boolean
           psychologist_id: string
+          source_url?: string | null
           storage_path?: string | null
           title: string
           year?: string | null
@@ -302,6 +304,7 @@ export type Database = {
           id?: string
           is_global?: boolean
           psychologist_id?: string
+          source_url?: string | null
           storage_path?: string | null
           title?: string
           year?: string | null
