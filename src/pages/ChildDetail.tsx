@@ -31,6 +31,7 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
+import MedicationsSection from "@/components/MedicationsSection";
 
 const BEHAVIOR_COLORS = ["hsl(174 72% 46%)", "hsl(38 92% 50%)", "hsl(260 70% 60%)", "hsl(210 80% 55%)", "hsl(340 75% 55%)", "hsl(150 60% 45%)"];
 
@@ -166,6 +167,8 @@ export default function ChildDetail() {
           </Card>
 
           <ExtendedNotesEditor table="child_patients" rowId={child.id} initialValue={child.extended_notes ?? null} />
+
+          <MedicationsSection kind="child" patientId={child.id} />
 
           <Card className="p-6">
             <div className="flex items-center justify-between mb-3">

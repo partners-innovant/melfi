@@ -13,6 +13,7 @@ import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { PatientForm } from "./Patients";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
+import MedicationsSection from "@/components/MedicationsSection";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -132,6 +133,7 @@ export default function PatientDetail() {
             onClick={() => setTab("sessions")}
           />
           <ExtendedNotesEditor table="patients" rowId={patient.id} initialValue={patient.extended_notes ?? null} />
+          <MedicationsSection kind="adult" patientId={patient.id} />
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-4">
