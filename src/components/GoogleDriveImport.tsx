@@ -358,28 +358,47 @@ export default function GoogleDriveImport({
     setItems((prev) => prev.filter((it) => it.driveId !== id));
   }
 
-  if (connected === false) {
-    return (
-      <Button
-        variant="outline"
-        className="gap-2"
-        onClick={() => toast.info("Conecta tu cuenta de Google desde Calendario para importar desde Drive.")}
-      >
-        <FolderOpen className="h-4 w-4" />
-        Importar desde Google Drive
-      </Button>
-    );
-  }
-
   const pendingCount = items.filter((it) => it.status === "pending").length;
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
+  const handleMainClick = () => {
+    if (connected === false) {
+      setConnectModalOpen(true);
+      return;
+    }
+    void openPicker();
+  };
+
   return (
     <>
-      <Button variant="outline" className="gap-2" onClick={openPicker} disabled={opening || connected === null}>
+      <Button variant="outline" className="gap-2" onClick={handleMainClick} disabled={opening || connected === null}>
         <FolderOpen className="h-4 w-4" />
         {opening ? "Abriendo..." : "Importar desde Google Drive"}
       </Button>
+
+      {/* Connect Google modal */}
+      <Dialog open={connectModalOpen} onOpenChange={(o) => { if (!connecting) setConnectModalOpen(o); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" />
+              Conecta tu Google Drive
+            </DialogTitle>
+            <DialogDescription>
+              Para importar documentos directamente desde Google Drive, necesitas conectar tu cuenta de Google.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConnectModalOpen(false)} disabled={connecting}>
+              Cancelar
+            </Button>
+            <Button onClick={startConnect} disabled={connecting} className="gap-2">
+              {connecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+              {connecting ? "Redirigiendo…" : "Conectar Google"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={(o) => { if (!busy) setOpen(o); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
