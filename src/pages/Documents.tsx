@@ -26,6 +26,7 @@ import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { extractPdfTextAndMeta, extractTxtText, chunkText } from "@/lib/pdf";
 import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
+import UrlImportDialog from "@/components/UrlImportDialog";
 
 interface Doc {
   id: string;
@@ -127,6 +128,7 @@ export default function Documents() {
         </div>
         <div className="flex items-center gap-2">
           <RecommendDocumentsButton />
+          <UrlImportDialog isAdmin={isAdmin} onImported={load} />
           <GoogleDriveImport isAdmin={isAdmin} onImported={load} />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
