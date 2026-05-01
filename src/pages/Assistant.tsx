@@ -1004,3 +1004,129 @@ function WebSourcesButton({ question }: { question: string }) {
     </>
   );
 }
+
+type ImportStatus = "idle" | "importing" | "done" | "error";
+
+function ImportSourceButton({ url }: { url: string }) {
+  const [status, setStatus] = useState<ImportStatus>("idle");
+  const [errMsg, setErrMsg] = useState<string>("");
+
+  async function handleImport() {
+    setStatus("importing");
+    setErrMsg("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No autenticado");
+
+      const { data, error } = await supabase.functions.invoke("fetch-url-document", {
+        body: { url },
+      });
+      if (error) throw new Error(error.message ?? "Error de servidor");
+      if (!data?.ok) throw new Error(data?.error ?? "Error desconocido");
+
+      const chunks = chunkText(data.text);
+      if (chunks.length === 0) throw new Error("Sin contenido para indexar");
+
+      const { data: doc, error: docErr } = await supabase
+        .from("documents")
+        .insert({
+          psychologist_id: user.id,
+          title: data.title || url,
+          author: data.author || null,
+          year: data.year || null,
+          document_type: data.document_type || "articulo_cientifico",
+          is_global: false,
+          storage_path: null,
+          source_url: data.source_url || url,
+        } as any)
+        .select()
+        .single();
+      if (docErr) throw docErr;
+
+      const batchSize = 8;
+      for (let i = 0; i < chunks.length; i += batchSize) {
+        const batch = chunks.slice(i, i + batchSize);
+        const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
+          body: { input: batch.map((c) => c.content), input_type: "document" },
+        });
+        if (embErr) throw embErr;
+        if (embData?.error) throw new Error(embData.error);
+        const embeddings: number[][] = embData.embeddings;
+        const rows = batch.map((c, idx) => ({
+          document_id: doc.id,
+          psychologist_id: user.id,
+          chunk_index: c.index,
+          content: c.content,
+          page_number: c.page_number,
+          embedding: embeddings[idx] as any,
+        }));
+        const { error: insErr } = await supabase.from("document_chunks").insert(rows);
+        if (insErr) throw insErr;
+      }
+
+      setStatus("done");
+      toast.success("Documento importado a tu biblioteca");
+    } catch (e: any) {
+      console.error("[import-source] failed:", e);
+      const msg = e?.message ?? "Error al importar";
+      setErrMsg(msg);
+      setStatus("error");
+      toast.error(msg);
+    }
+  }
+
+  if (status === "done") {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        className="h-7 px-2 text-xs gap-1 border-emerald-500/60 text-emerald-700 dark:text-emerald-400 disabled:opacity-100"
+      >
+        <Check className="h-3 w-3" /> Importado
+      </Button>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleImport}
+              className="h-7 px-2 text-xs gap-1 border-destructive/60 text-destructive hover:bg-destructive/10"
+            >
+              <AlertCircle className="h-3 w-3" /> Error
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs">
+            {errMsg || "Error al importar"} — Click para reintentar
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={status === "importing"}
+      onClick={handleImport}
+      className="h-7 px-2 text-xs gap-1 border-teal-500/60 text-teal-700 hover:bg-teal-50 hover:text-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/40"
+    >
+      {status === "importing" ? (
+        <>
+          <Loader2 className="h-3 w-3 animate-spin" /> Importando...
+        </>
+      ) : (
+        <>
+          <PlusIcon className="h-3 w-3" /> Importar a Psicoasist
+        </>
+      )}
+    </Button>
+  );
+}
