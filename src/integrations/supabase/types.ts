@@ -305,6 +305,44 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          psychologist_id: string
+          status: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          psychologist_id: string
+          status?: string
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          psychologist_id?: string
+          status?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goal_tasks: {
         Row: {
           assigned_date: string | null
