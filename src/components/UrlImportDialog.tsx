@@ -178,6 +178,7 @@ export default function UrlImportDialog({
       onOpenChange={(o) => {
         setOpen(o);
         if (!o && !busy) reset();
+        onOpenChange?.(o);
       }}
     >
       <DialogTrigger asChild>
