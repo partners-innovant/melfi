@@ -200,6 +200,10 @@ export default function ChildDetail() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="sessions" className="mt-4">
+          <SessionsTab kind="child" patientId={child.id} onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }} />
+        </TabsContent>
+
         <TabsContent value="roadmap" className="mt-4">
           <RoadmapTab childId={id!} />
         </TabsContent>
