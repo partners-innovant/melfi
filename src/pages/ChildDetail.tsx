@@ -24,6 +24,7 @@ import {
   TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH,
 } from "@/lib/clinical";
 import { ChildForm } from "./Children";
+import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, ReferenceLine,
@@ -42,6 +43,8 @@ export default function ChildDetail() {
   const [form, setForm] = useState<any>({});
   const [editGuardians, setEditGuardians] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState("profile");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -110,9 +113,10 @@ export default function ChildDetail() {
         </div>
       </Card>
 
-      <Tabs defaultValue="profile">
-        <TabsList className="grid grid-cols-3 md:grid-cols-6 w-full">
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="sessions">Sesiones</TabsTrigger>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
           <TabsTrigger value="behavior">Conductual</TabsTrigger>
           <TabsTrigger value="evals">Evaluaciones</TabsTrigger>
@@ -121,6 +125,12 @@ export default function ChildDetail() {
         </TabsList>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
+          <LastSessionCard
+            key={refreshKey}
+            kind="child"
+            patientId={child.id}
+            onClick={() => setTab("sessions")}
+          />
           <Card className="p-6">
             <div className="flex items-start justify-between mb-4">
               <h2 className="font-semibold">Información del paciente</h2>
@@ -188,6 +198,10 @@ export default function ChildDetail() {
               </div>
             )}
           </Card>
+        </TabsContent>
+
+        <TabsContent value="sessions" className="mt-4">
+          <SessionsTab kind="child" patientId={child.id} onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }} />
         </TabsContent>
 
         <TabsContent value="roadmap" className="mt-4">
