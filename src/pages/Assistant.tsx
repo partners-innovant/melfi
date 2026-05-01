@@ -69,6 +69,7 @@ function formatDateGroup(d: Date): "Hoy" | "Ayer" | "Esta semana" | "Anteriores"
 
 export default function Assistant() {
   const [params] = useSearchParams();
+  const patientKind = params.get("kind") === "child" ? "child" : "adult";
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState<string>(params.get("patient") ?? NONE);
   const [docType, setDocType] = useState<string>(ALL);
