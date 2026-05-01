@@ -151,7 +151,6 @@ export default function GoogleDriveImport({
           setConnectModalOpen(true);
           return;
         } else {
-        } else {
           toast.error(data?.error ?? error?.message ?? "Error obteniendo token");
         }
         return;
