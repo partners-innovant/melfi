@@ -991,14 +991,8 @@ function WebSourcesButton({ question }: { question: string }) {
                       >
                         <ExternalLink className="h-3 w-3" /> Abrir fuente
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs gap-1 border-teal-500/60 text-teal-700 hover:bg-teal-50 hover:text-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/40"
-                        onClick={() => importToLibrary(s.url)}
-                      >
-                        <PlusIcon className="h-3 w-3" /> Importar a Psicoasist
-                      </Button>
+                      <ImportSourceButton url={s.url} />
+
                     </div>
                   </div>
                 ))}
