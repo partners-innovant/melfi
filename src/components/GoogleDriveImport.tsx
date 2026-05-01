@@ -289,7 +289,8 @@ export default function GoogleDriveImport({
           document_type: "articulo_cientifico",
           is_global: isGlobal && isAdmin,
           storage_path: storagePath,
-        })
+          import_source: 'google_drive',
+        } as any)
         .select()
         .single();
       if (docErr) {
