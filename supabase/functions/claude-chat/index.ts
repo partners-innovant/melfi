@@ -65,6 +65,10 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   otro: "Otro",
 };
 
+function sseEvent(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -72,7 +76,6 @@ Deno.serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY no configurada");
 
-    // Verify user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "No autorizado" }), {
@@ -100,8 +103,16 @@ Deno.serve(async (req) => {
     }
 
     const reqId = crypto.randomUUID().slice(0, 8);
-    const { question, patient_id, document_type, query_embedding } = await req.json();
-    console.log(`[claude-chat:${reqId}] received question (len=${question?.length ?? 0}), embedding dim=${Array.isArray(query_embedding) ? query_embedding.length : 'n/a'}, patient_id=${patient_id ?? 'none'}, doc_type=${document_type ?? 'all'}`);
+    const body = await req.json();
+    const {
+      question,
+      patient_id,
+      document_type,
+      query_embedding,
+      conversation_id,
+      stream: wantStream = true,
+    } = body;
+    console.log(`[claude-chat:${reqId}] question len=${question?.length ?? 0}, stream=${wantStream}`);
 
     if (!question || !query_embedding) {
       return new Response(JSON.stringify({ error: "question y query_embedding requeridos" }), {
@@ -110,26 +121,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find chunks
-    console.log(`[claude-chat:${reqId}] calling match_chunks RPC...`);
-    const tMatch = Date.now();
+    // 1. Match chunks
     const { data: chunks, error: matchErr } = await supabase.rpc("match_chunks", {
       query_embedding,
       match_count: 5,
       p_psychologist_id: user.id,
       p_document_type: document_type || null,
     });
-
     if (matchErr) {
-      console.error(`[claude-chat:${reqId}] match_chunks error:`, JSON.stringify(matchErr));
+      console.error(`[claude-chat:${reqId}] match_chunks error`, matchErr);
       return new Response(
-        JSON.stringify({ error: `match_chunks falló: ${matchErr.message ?? JSON.stringify(matchErr)}` }),
+        JSON.stringify({ error: `match_chunks: ${matchErr.message}` }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    console.log(`[claude-chat:${reqId}] match_chunks returned ${chunks?.length ?? 0} chunks in ${Date.now() - tMatch}ms`);
 
-    // Fetch document metadata
+    // 2. Doc metadata
     const docIds = [...new Set((chunks ?? []).map((c: any) => c.document_id))];
     const { data: docs } = await supabase
       .from("documents")
@@ -137,15 +144,12 @@ Deno.serve(async (req) => {
       .in("id", docIds);
     const docMap = new Map((docs ?? []).map((d: any) => [d.id, d]));
 
-    // Patient context
+    // 3. Patient context
     let patientCtx = "";
     if (patient_id) {
       const { data: p } = await supabase
-        .from("patients")
-        .select("*")
-        .eq("id", patient_id)
-        .eq("psychologist_id", user.id)
-        .maybeSingle();
+        .from("patients").select("*")
+        .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
       if (p) {
         patientCtx = `CONTEXTO DEL PACIENTE:
 Nombre: ${p.first_name} ${p.last_name}
@@ -173,9 +177,7 @@ Notas clínicas: ${p.notes ?? "ninguna"}
 
     const userMessage = `${patientCtx}${chunksCtx}\nPREGUNTA DEL PSICÓLOGO:\n${question}`;
 
-    // Call Claude
-    console.log(`[claude-chat:${reqId}] calling Claude API...`);
-    const tClaude = Date.now();
+    // 4. Call Claude with streaming
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -187,12 +189,12 @@ Notas clínicas: ${p.notes ?? "ninguna"}
         model: "claude-sonnet-4-5",
         max_tokens: 2048,
         system: SYSTEM_PROMPT,
+        stream: true,
         messages: [{ role: "user", content: userMessage }],
       }),
     });
-    console.log(`[claude-chat:${reqId}] Claude responded ${claudeResp.status} in ${Date.now() - tClaude}ms`);
 
-    if (!claudeResp.ok) {
+    if (!claudeResp.ok || !claudeResp.body) {
       const txt = await claudeResp.text();
       console.error(`[claude-chat:${reqId}] Claude error ${claudeResp.status}:`, txt);
       return new Response(
@@ -201,43 +203,122 @@ Notas clínicas: ${p.notes ?? "ninguna"}
       );
     }
 
-    const claudeData = await claudeResp.json();
-    const text = claudeData.content?.[0]?.text ?? "";
+    // 5. Stream pass-through, accumulate full text, then parse + persist
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+        let fullText = "";
+        let answerSoFar = "";
+        let inAnswer = false;
+        let answerEnded = false;
+        let buffer = "";
 
-    // Parse JSON
-    let parsed;
-    try {
-      const match = text.match(/\{[\s\S]*\}/);
-      parsed = JSON.parse(match ? match[0] : text);
-    } catch (e) {
-      parsed = {
-        answer: "No pude formatear correctamente la respuesta del modelo. Intenta nuevamente.",
-        citations: [],
-      };
-    }
+        try {
+          const reader = claudeResp.body!.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+            for (const line of lines) {
+              if (!line.startsWith("data:")) continue;
+              const payload = line.slice(5).trim();
+              if (!payload || payload === "[DONE]") continue;
+              try {
+                const evt = JSON.parse(payload);
+                if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+                  const delta: string = evt.delta.text ?? "";
+                  fullText += delta;
 
-    // Save consultation
-    const { data: consultation } = await userClient
-      .from("consultations")
-      .insert({
-        psychologist_id: user.id,
-        patient_id: patient_id || null,
-        question,
-        answer: parsed.answer,
-        citations: parsed.citations ?? [],
-        document_type_filter: document_type || null,
-      })
-      .select()
-      .single();
+                  // Extract just the "answer" string content for streaming UI.
+                  // Naive incremental: find "answer":" then accumulate until unescaped closing "
+                  if (!inAnswer && !answerEnded) {
+                    const idx = fullText.indexOf('"answer"');
+                    if (idx >= 0) {
+                      const colon = fullText.indexOf(':', idx);
+                      const quote = fullText.indexOf('"', colon + 1);
+                      if (quote >= 0) {
+                        inAnswer = true;
+                        // emit any chars after quote
+                        const after = fullText.slice(quote + 1);
+                        const { text, ended } = consumeJsonString(after);
+                        answerSoFar = text;
+                        answerEnded = ended;
+                        controller.enqueue(encoder.encode(sseEvent("delta", { text: answerSoFar })));
+                      }
+                    }
+                  } else if (inAnswer && !answerEnded) {
+                    // recompute answerSoFar from the section after "answer":"
+                    const idx = fullText.indexOf('"answer"');
+                    const colon = fullText.indexOf(':', idx);
+                    const quote = fullText.indexOf('"', colon + 1);
+                    const after = fullText.slice(quote + 1);
+                    const { text, ended } = consumeJsonString(after);
+                    if (text !== answerSoFar) {
+                      answerSoFar = text;
+                      controller.enqueue(encoder.encode(sseEvent("delta", { text: answerSoFar })));
+                    }
+                    answerEnded = ended;
+                  }
+                }
+              } catch (_e) { /* ignore parse errors of partial events */ }
+            }
+          }
 
-    return new Response(
-      JSON.stringify({
-        answer: parsed.answer,
-        citations: parsed.citations ?? [],
-        consultation_id: consultation?.id,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+          // Parse full JSON
+          let parsed: any;
+          try {
+            const match = fullText.match(/\{[\s\S]*\}/);
+            parsed = JSON.parse(match ? match[0] : fullText);
+          } catch {
+            parsed = { answer: answerSoFar || fullText, citations: [] };
+          }
+
+          // Persist
+          const convId = conversation_id || crypto.randomUUID();
+          const isFirst = !conversation_id;
+          const title = isFirst ? question.slice(0, 80) : null;
+          const { data: consultation } = await userClient
+            .from("consultations")
+            .insert({
+              psychologist_id: user.id,
+              patient_id: patient_id || null,
+              question,
+              answer: parsed.answer,
+              citations: parsed.citations ?? [],
+              document_type_filter: document_type || null,
+              conversation_id: convId,
+              conversation_title: title,
+            })
+            .select()
+            .single();
+
+          controller.enqueue(encoder.encode(sseEvent("done", {
+            answer: parsed.answer,
+            citations: parsed.citations ?? [],
+            consultation_id: consultation?.id,
+            conversation_id: convId,
+            conversation_title: title,
+          })));
+        } catch (err) {
+          console.error(`[claude-chat:${reqId}] stream err`, err);
+          controller.enqueue(encoder.encode(sseEvent("error", { error: String(err) })));
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
   } catch (e) {
     console.error("claude-chat error:", e);
     return new Response(
@@ -246,3 +327,32 @@ Notas clínicas: ${p.notes ?? "ninguna"}
     );
   }
 });
+
+// Consume a JSON string body (after opening quote). Returns decoded text and whether closing quote reached.
+function consumeJsonString(s: string): { text: string; ended: boolean } {
+  let out = "";
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '\\') {
+      const n = s[i + 1];
+      if (n === undefined) break; // wait for more
+      if (n === 'n') out += '\n';
+      else if (n === 't') out += '\t';
+      else if (n === 'r') out += '\r';
+      else if (n === '"') out += '"';
+      else if (n === '\\') out += '\\';
+      else if (n === '/') out += '/';
+      else if (n === 'u') {
+        if (i + 5 >= s.length) break;
+        out += String.fromCharCode(parseInt(s.slice(i + 2, i + 6), 16));
+        i += 6; continue;
+      } else out += n;
+      i += 2; continue;
+    }
+    if (c === '"') return { text: out, ended: true };
+    out += c;
+    i++;
+  }
+  return { text: out, ended: false };
+}
