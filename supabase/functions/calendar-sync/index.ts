@@ -216,15 +216,27 @@ Deno.serve(async (req) => {
         orderBy: "startTime",
         maxResults: "250",
       });
-      const res = await fetch(`${baseUrl}?${params.toString()}`, {
+      const fetchUrl = `${baseUrl}?${params.toString()}`;
+      console.log("[calendar-sync] pull", { userId, calendarId, timeMin, timeMax });
+      const res = await fetch(fetchUrl, {
         headers: { Authorization: `Bearer ${token.access_token}` },
       });
       const j = await res.json();
       if (!res.ok) {
-        return new Response(JSON.stringify({ error: "google_api", detail: j }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const reason = j?.error?.message || j?.error_description || j?.error || `http_${res.status}`;
+        console.error("[calendar-sync] google api error", res.status, JSON.stringify(j));
+        // Return 200 with error payload so the supabase-js client surfaces it cleanly
+        return new Response(JSON.stringify({
+          error: "google_api",
+          status: res.status,
+          reason: String(reason),
+          detail: j,
+          events: [],
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      console.log("[calendar-sync] pull ok", { count: (j.items ?? []).length });
       const events = (j.items ?? []).map((e: any) => ({
         id: e.id,
         summary: e.summary ?? "(sin título)",
