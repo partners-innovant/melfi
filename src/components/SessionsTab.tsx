@@ -61,6 +61,8 @@ export interface Session {
   next_session_plan: string | null;
   post_session_notes: string | null;
   profile_update_suggestions: any;
+  patient_id: string | null;
+  child_patient_id: string | null;
 }
 
 export async function fetchLastSession(kind: PatientKind, id: string): Promise<Session | null> {
