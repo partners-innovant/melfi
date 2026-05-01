@@ -29,6 +29,8 @@ import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
 import UrlImportDialog from "@/components/UrlImportDialog";
 
+type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search';
+
 interface Doc {
   id: string;
   title: string;
@@ -39,7 +41,16 @@ interface Doc {
   psychologist_id: string;
   storage_path: string | null;
   created_at: string;
+  import_source?: ImportSource | null;
+  source_url?: string | null;
 }
+
+const IMPORT_SOURCE_META: Record<ImportSource, { icon: string; label: string }> = {
+  upload: { icon: '📁', label: 'Subida manual' },
+  google_drive: { icon: '🔗', label: 'Google Drive' },
+  url: { icon: '🌐', label: 'URL' },
+  web_search: { icon: '🔍', label: 'Búsqueda web' },
+};
 
 export default function Documents() {
   const { user, profile } = useAuth();
