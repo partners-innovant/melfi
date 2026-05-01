@@ -147,7 +147,10 @@ export default function GoogleDriveImport({
       if (error || !data || data.error) {
         const code = data?.error;
         if (code === "not_connected" || code === "token_expired") {
-          toast.error("Conecta tu cuenta de Google primero (Calendario → Conectar Google).");
+          setConnected(false);
+          setConnectModalOpen(true);
+          return;
+        } else {
         } else {
           toast.error(data?.error ?? error?.message ?? "Error obteniendo token");
         }
