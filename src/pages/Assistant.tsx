@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2 } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink } from "lucide-react";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
