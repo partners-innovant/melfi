@@ -68,6 +68,13 @@ function formatDateGroup(d: Date): "Hoy" | "Ayer" | "Esta semana" | "Anteriores"
   return "Anteriores";
 }
 
+function findPrevQuestion(messages: ChatMessage[], idx: number): string {
+  for (let i = idx - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return messages[i].content;
+  }
+  return "";
+}
+
 export default function Assistant() {
   const [params] = useSearchParams();
   const patientKind = params.get("kind") === "child" ? "child" : "adult";
