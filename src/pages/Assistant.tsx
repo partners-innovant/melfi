@@ -628,6 +628,14 @@ function Message({
             </Button>
           </div>
         )}
+
+        {!message.streaming && message.content && !message.content.startsWith("❌") && question && (
+          <ResponseFeedbackBar
+            question={question}
+            answer={stripCitations(message.content)}
+            consultationId={conversationId ?? null}
+          />
+        )}
       </div>
     </div>
   );
