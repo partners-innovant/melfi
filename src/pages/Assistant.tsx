@@ -161,14 +161,21 @@ export default function Assistant() {
     setSidebarOpen(false);
     const { data, error } = await supabase
       .from("consultations")
-      .select("question, answer, citations, patient_id, created_at")
+      .select("question, answer, citations, patient_id, created_at, is_general_knowledge")
       .eq("conversation_id", cid)
       .order("created_at", { ascending: true });
     if (error) { toast.error(error.message); return; }
     const msgs: ChatMessage[] = [];
     for (const r of (data ?? []) as any[]) {
-      msgs.push({ role: "user", content: r.question });
-      msgs.push({ role: "assistant", content: r.answer, citations: r.citations ?? [] });
+      if (!r.is_general_knowledge) {
+        msgs.push({ role: "user", content: r.question });
+      }
+      msgs.push({
+        role: "assistant",
+        content: r.answer,
+        citations: r.citations ?? [],
+        general: !!r.is_general_knowledge,
+      });
     }
     setMessages(msgs);
     setConversationId(cid);
