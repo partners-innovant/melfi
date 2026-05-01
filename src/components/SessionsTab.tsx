@@ -561,7 +561,7 @@ function SuggestionsModal({
     } else {
       newValue = s.suggested_value;
     }
-    const { error } = await supabase.from(table).update({ [s.field]: newValue }).eq("id", patientId);
+    const { error } = await (supabase.from(table) as any).update({ [s.field]: newValue }).eq("id", patientId);
     if (error) return toast.error(error.message);
     toast.success(`Campo "${s.field}" actualizado`);
     setApplied((p) => new Set(p).add(idx));
