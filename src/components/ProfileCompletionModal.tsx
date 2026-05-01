@@ -44,11 +44,10 @@ export default function ProfileCompletionModal() {
   return (
     <Dialog open={needsProfileCompletion}>
       <DialogContent
-        className="max-w-md"
+        className="max-w-md [&>button.absolute]:hidden"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
-        hideCloseButton
       >
         <DialogHeader>
           <DialogTitle>Completa tu perfil</DialogTitle>
