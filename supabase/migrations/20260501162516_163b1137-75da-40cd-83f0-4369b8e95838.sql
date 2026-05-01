@@ -1,0 +1,1 @@
+revoke execute on function public.set_session_number() from public, anon, authenticated;
