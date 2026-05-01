@@ -278,6 +278,7 @@ export type Database = {
           created_at: string
           document_type: string
           id: string
+          import_source: string | null
           is_global: boolean
           psychologist_id: string
           source_url: string | null
@@ -290,6 +291,7 @@ export type Database = {
           created_at?: string
           document_type: string
           id?: string
+          import_source?: string | null
           is_global?: boolean
           psychologist_id: string
           source_url?: string | null
@@ -302,6 +304,7 @@ export type Database = {
           created_at?: string
           document_type?: string
           id?: string
+          import_source?: string | null
           is_global?: boolean
           psychologist_id?: string
           source_url?: string | null
