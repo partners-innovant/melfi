@@ -25,6 +25,7 @@ import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { extractPdfTextAndMeta, extractTxtText, chunkText } from "@/lib/pdf";
 import GoogleDriveImport from "@/components/GoogleDriveImport";
+import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
 
 interface Doc {
   id: string;
