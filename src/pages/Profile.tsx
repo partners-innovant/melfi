@@ -252,7 +252,7 @@ export default function Profile() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><Label>Nombre</Label><Input value={data.first_name ?? ""} onChange={(e) => set("first_name", e.target.value)} /></div>
                 <div><Label>Apellido</Label><Input value={data.last_name ?? ""} onChange={(e) => set("last_name", e.target.value)} /></div>
-                <div><Label>RUT</Label><Input value={data.rut ?? ""} onChange={(e) => set("rut", e.target.value)} /></div>
+                <div><Label>RUT</Label><RutInput value={data.rut ?? ""} onChange={(v) => set("rut", v)} /></div>
                 <div><Label>Teléfono</Label><Input value={data.phone ?? ""} onChange={(e) => set("phone", e.target.value)} /></div>
                 <div><Label>Email</Label><Input value={user?.email ?? ""} readOnly disabled /></div>
                 <div><Label>Ciudad</Label><Input value={data.city ?? ""} onChange={(e) => set("city", e.target.value)} /></div>
