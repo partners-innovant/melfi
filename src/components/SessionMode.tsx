@@ -711,7 +711,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
               >
                 {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                {analyzing ? "Transcribiendo…" : "✨ Transcribir y analizar"}
+                {analyzeStage === "transcribing" ? "Transcribiendo…" : analyzeStage === "analyzing" ? "Analizando…" : "✨ Transcribir y analizar"}
               </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
