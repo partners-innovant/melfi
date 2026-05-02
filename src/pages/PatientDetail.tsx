@@ -129,11 +129,11 @@ export default function PatientDetail() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex flex-wrap h-auto w-full justify-start">
-          <TabsTrigger value="profile">Perfil</TabsTrigger>
-          <TabsTrigger value="sessions">Sesiones</TabsTrigger>
-          <TabsTrigger value="documents">Documentos e Informes</TabsTrigger>
-          <TabsTrigger value="history">Consultas</TabsTrigger>
+        <TabsList className="flex h-auto w-full justify-start overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <TabsTrigger value="profile" className="flex-shrink-0 w-fit whitespace-nowrap">Perfil</TabsTrigger>
+          <TabsTrigger value="sessions" className="flex-shrink-0 w-fit whitespace-nowrap">Sesiones</TabsTrigger>
+          <TabsTrigger value="documents" className="flex-shrink-0 w-fit whitespace-nowrap">Documentos e Informes</TabsTrigger>
+          <TabsTrigger value="history" className="flex-shrink-0 w-fit whitespace-nowrap">Consultas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="documents" className="mt-4">
