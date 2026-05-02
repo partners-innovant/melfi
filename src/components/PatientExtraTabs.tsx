@@ -12,9 +12,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw,
+  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw, Paperclip, ChevronDown, ChevronRight, Brain,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { extractPdfText, extractTxtText } from "@/lib/pdf";
 
 const ADULT_BUCKET = "adult-files";
 
