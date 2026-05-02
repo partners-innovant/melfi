@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText,
+  Check, X, Plus, FileText, Sparkles, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -93,6 +93,15 @@ export default function AdminDocuments() {
   const [bulkAreas, setBulkAreas] = useState<string[]>([]);
   const [bulkSource, setBulkSource] = useState<string>("");
   const [bulkType, setBulkType] = useState<DocType>("otro");
+
+  // Auto-classify
+  type ClassifyStatus = "pending" | "processing" | "done" | "error";
+  interface ClassifyJob { id: string; title: string; status: ClassifyStatus; error?: string }
+  const [confirmClassifyOpen, setConfirmClassifyOpen] = useState(false);
+  const [classifyOpen, setClassifyOpen] = useState(false);
+  const [classifyJobs, setClassifyJobs] = useState<ClassifyJob[]>([]);
+  const [classifyRunning, setClassifyRunning] = useState(false);
+  const [singleClassifyId, setSingleClassifyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.is_admin) load();
