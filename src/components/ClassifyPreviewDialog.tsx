@@ -34,6 +34,8 @@ export interface ClassifyTarget {
   source_institution: string | null;
   source_institution_type: string | null;
   language: string | null;
+  storage_path?: string | null;
+  source_url?: string | null;
 }
 
 type LangCode = "es" | "en" | "otro";
