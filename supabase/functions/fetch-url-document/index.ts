@@ -128,13 +128,15 @@ Deno.serve(async (req) => {
 
     let resp: Response;
     try {
-      resp = await fetch(parsed.toString(), {
-        redirect: "follow",
-        headers: {
-          "User-Agent": "Mozilla/5.0 (compatible; ClinicalDocsBot/1.0)",
-          "Accept": "application/pdf,text/html,application/xhtml+xml,*/*;q=0.8",
-        },
-      });
+      const isPmc = /(?:^|\.)(?:ncbi\.nlm\.nih\.gov|europepmc\.org)$/i.test(parsed.hostname);
+      const browserHeaders: Record<string, string> = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/pdf,text/html,application/xhtml+xml,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Cache-Control": "no-cache",
+      };
+      if (isPmc) browserHeaders["Referer"] = "https://pmc.ncbi.nlm.nih.gov/";
+      resp = await fetch(parsed.toString(), { redirect: "follow", headers: browserHeaders });
     } catch (e: any) {
       return jsonResp({ error: `No se pudo descargar: ${e?.message ?? e}` }, 502);
     }
