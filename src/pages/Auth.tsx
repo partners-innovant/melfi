@@ -190,7 +190,7 @@ export default function Auth() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="rut">RUT</Label>
-                    <Input id="rut" value={form.rut} onChange={(e) => update("rut", e.target.value)} />
+                    <RutInput id="rut" value={form.rut} onChange={(v) => update("rut", v)} />
                   </div>
                   <div>
                     <Label htmlFor="phone">Teléfono</Label>
