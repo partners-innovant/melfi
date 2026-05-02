@@ -204,6 +204,19 @@ export default function PatientDetail() {
         patientId={patient.id}
         onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
       />
+
+      <TransferPatientDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        patient={{
+          id: patient.id,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          birth_date: patient.birth_date,
+          diagnosis: patient.diagnosis,
+          start_date: patient.start_date,
+        }}
+      />
     </div>
   );
 }
