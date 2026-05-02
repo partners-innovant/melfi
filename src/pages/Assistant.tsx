@@ -278,7 +278,7 @@ export default function Assistant() {
     }
   }
 
-  async function send(textOverride?: string) {
+  async function send(textOverride?: string, opts?: { mode?: string }) {
     const q = (textOverride ?? input).trim();
     if (!q || busy) return;
     setInput("");
@@ -316,6 +316,7 @@ export default function Assistant() {
           clinical_areas: areasActive ? selectedAreas : null,
           source_institutions: sourcesActive ? selectedSources : null,
           conversation_id: conversationId,
+          mode: opts?.mode,
         }),
       });
 
