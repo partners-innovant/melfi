@@ -42,6 +42,7 @@ import {
   SOURCE_INSTITUTIONS, sourceIconFor, type SourceInstitutionType,
   SOURCE_INSTITUTION_TYPE_LABELS, shortInstitutionName,
 } from "@/lib/clinical-areas";
+import { ClassifyPreviewDialog, type ClassifyTarget } from "@/components/ClassifyPreviewDialog";
 
 type LangCode = "es" | "en" | "otro";
 const LANG_LABELS: Record<LangCode, string> = { es: "Español", en: "Inglés", otro: "Otro" };
