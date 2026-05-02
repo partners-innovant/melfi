@@ -54,6 +54,7 @@ export default function Patients() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [sortMode, setSortMode] = useState<"recent" | "schedule">("recent");
   const [transferredMap, setTransferredMap] = useState<Record<string, string>>({}); // patientId -> ISO date received
   const [incoming, setIncoming] = useState<IncomingTransfer[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
