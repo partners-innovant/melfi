@@ -35,7 +35,7 @@ import {
 import { toast } from "sonner";
 import { Pencil, Plus, Power, Search, Trash2, Upload, X, Save, UserPlus, History, Mail } from "lucide-react";
 import { Navigate } from "react-router-dom";
-import TransferPatientDialog from "@/components/TransferPatientDialog";
+import AdminTransferWizard from "@/components/AdminTransferWizard";
 import TransferHistoryPanel from "@/components/TransferHistoryPanel";
 
 type RegisteredTherapist = {
