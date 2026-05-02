@@ -107,6 +107,8 @@ export function ClassifyPreviewDialog({
         id: t.id,
         title: t.title,
         status: "analyzing",
+        storagePath: t.storage_path ?? null,
+        sourceUrl: t.source_url ?? null,
         docType: (t.document_type ?? "otro") as DocType,
         year: t.year ?? "",
         language: (normalizeLang(t.language) || "") as CardState["language"],
