@@ -583,7 +583,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   }
 
   async function analyzeFile(item: QueueItem) {
-    update(item.id, { status: "analyzing", statusText: "Extrayendo texto y metadatos..." });
+    update(item.id, { status: "analyzing", statusText: "Analizando documento..." });
     try {
       let text = "";
       let title = item.file.name.replace(/\.(pdf|txt)$/i, "");
@@ -593,28 +593,44 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       let clinicalAreas: string[] = [];
       let sourceInstitution = "";
       let sourceInstitutionType = "";
-      const autoFilled = { docType: false, clinicalAreas: false, sourceInstitution: false };
+      const autoFilled = {
+        title: false, author: false, year: false,
+        docType: false, clinicalAreas: false, sourceInstitution: false,
+      };
+      let pdfTitleFound = false;
+      let pdfAuthorFound = false;
+      let pdfYearFound = false;
 
+      // 1) Client-side text extraction (first ~1000 chars used by AI)
       if (item.file.type === "application/pdf" || item.file.name.toLowerCase().endsWith(".pdf")) {
         const { text: t, meta } = await extractPdfTextAndMeta(item.file);
         text = t;
-        if (meta.title) title = meta.title;
-        if (meta.author) author = meta.author;
-        if (meta.year) year = meta.year;
+        if (meta.title) { title = meta.title; pdfTitleFound = true; }
+        if (meta.author) { author = meta.author; pdfAuthorFound = true; }
+        if (meta.year) { year = meta.year; pdfYearFound = true; }
       } else {
         text = await extractTxtText(item.file);
       }
 
-      // Always call AI for clinical classification (in addition to bibliographic metadata).
-      update(item.id, { statusText: "Clasificando con IA..." });
+      // 2) AI classification (Claude via extract-metadata)
+      let analysisFailed = false;
       try {
         const { data, error } = await supabase.functions.invoke("extract-metadata", {
           body: { text },
         });
         if (!error && data && !data.error) {
-          if (!title && data.title) title = data.title;
-          if (!author && data.author) author = data.author;
-          if (!year && data.year) year = data.year;
+          if (data.title) {
+            if (!pdfTitleFound) { title = data.title; }
+            autoFilled.title = true;
+          }
+          if (data.author) {
+            if (!pdfAuthorFound) { author = data.author; }
+            autoFilled.author = true;
+          }
+          if (data.year) {
+            if (!pdfYearFound) { year = data.year; }
+            autoFilled.year = true;
+          }
           if (data.document_type && (DOC_TYPES as readonly string[]).includes(data.document_type)) {
             docType = data.document_type as DocType;
             autoFilled.docType = true;
@@ -630,14 +646,20 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
             autoFilled.sourceInstitution = true;
           }
           if (data.source_institution_type) sourceInstitutionType = String(data.source_institution_type);
-        } else if (error || data?.error) {
+
+          // If AI returned nothing useful, mark as failed
+          const anyAuto = Object.values(autoFilled).some(Boolean);
+          if (!anyAuto) analysisFailed = true;
+        } else {
           console.warn("[upload] metadata AI failed:", error ?? data?.error);
+          analysisFailed = true;
         }
       } catch (e) {
         console.warn("[upload] metadata AI exception:", e);
+        analysisFailed = true;
       }
 
-      // Duplicate detection by title (case-insensitive, owner + global docs).
+      // 3) Duplicate detection by title (case-insensitive, owner + global docs).
       let duplicate: DuplicateDoc | null = null;
       try {
         duplicate = await findDuplicateByTitle(title);
@@ -647,7 +669,11 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
 
       update(item.id, {
         status: "ready",
-        statusText: duplicate ? "Duplicado detectado — elige una acción" : "Listo para subir",
+        statusText: duplicate
+          ? "Duplicado detectado — elige una acción"
+          : analysisFailed
+            ? "Listo para subir (sin auto-clasificación)"
+            : "Listo para subir",
         title,
         author,
         year,
@@ -656,13 +682,21 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         sourceInstitution,
         sourceInstitutionType,
         autoFilled,
+        analysisFailed,
         cachedText: text,
         duplicate,
         dupAction: duplicate ? "pending" : undefined,
       });
     } catch (e: any) {
+      // Hard failure (e.g. PDF unreadable) — leave the row in "ready" with empty editable fields
+      // so the user can still upload and edit metadata manually.
       console.error("[upload] analyze failed:", e);
-      update(item.id, { status: "error", error: e?.message ?? "Error al analizar", statusText: "Error" });
+      update(item.id, {
+        status: "ready",
+        statusText: "No se pudo analizar — completa los campos manualmente",
+        analysisFailed: true,
+        cachedText: "",
+      });
     }
   }
 
@@ -679,14 +713,32 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       clinicalAreas: [],
       sourceInstitution: "",
       sourceInstitutionType: "",
-      autoFilled: { docType: false, clinicalAreas: false, sourceInstitution: false },
+      autoFilled: {
+        title: false, author: false, year: false,
+        docType: false, clinicalAreas: false, sourceInstitution: false,
+      },
       status: "pending",
       progress: 0,
       statusText: "En cola",
     }));
     setItems((prev) => [...prev, ...next]);
+
+    // Parallel classification with concurrency limit of 3 to avoid rate limits.
     (async () => {
-      for (const it of next) await analyzeFile(it);
+      const CONCURRENCY = 3;
+      const queue = [...next];
+      const workers: Promise<void>[] = [];
+      const runWorker = async () => {
+        while (queue.length > 0) {
+          const it = queue.shift();
+          if (!it) break;
+          await analyzeFile(it);
+        }
+      };
+      for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
+        workers.push(runWorker());
+      }
+      await Promise.all(workers);
     })();
   }
 
