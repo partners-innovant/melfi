@@ -427,10 +427,6 @@ function DocList({
                       {DOC_TYPE_LABELS[d.document_type]}
                     </Badge>
                   </td>
-                  <td className="px-3 py-2 align-middle">
-                    <Badge variant={d.is_global ? "default" : "outline"} className="text-[10px] gap-1 whitespace-nowrap">
-                      {d.is_global ? <><Globe2 className="h-3 w-3" />Global</> : "Privado"}
-                    </Badge>
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex items-center justify-end gap-0.5">
