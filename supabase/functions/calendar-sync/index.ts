@@ -47,12 +47,15 @@ function buildEventBody(sess: any, patientName: string) {
   const dur = sess.duration_minutes ?? 50;
   const startISO = new Date(`${startDate}T${time}:00`);
   const endISO = new Date(startISO.getTime() + dur * 60_000);
-  return {
-    summary: `Sesión #${sess.session_number} — ${patientName}`,
-    description: sess.pre_session_notes || "",
+  const body: Record<string, unknown> = {
+    summary: `Sesión — ${patientName}`,
     start: { dateTime: startISO.toISOString() },
     end: { dateTime: endISO.toISOString() },
   };
+  const notes = sess.pre_session_notes || sess.post_session_notes || "";
+  if (notes) body.description = notes;
+  if (sess.location) body.location = sess.location;
+  return body;
 }
 
 Deno.serve(async (req) => {
