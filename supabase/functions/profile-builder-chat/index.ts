@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { patient_id, message } = body as { patient_id: string; message: string };
+    const { patient_id, message, mode } = body as { patient_id: string; message: string; mode?: string };
     if (!patient_id || !message?.trim()) {
       return new Response(JSON.stringify({ error: "patient_id y message requeridos" }), {
         status: 400,
@@ -231,6 +231,11 @@ ${profileSummary}
 DOCUMENTOS CARGADOS DEL PACIENTE:
 ${docsSummary}`;
 
+    const isSuggestDiagnosis = mode === "suggest_diagnosis";
+    const finalSystem = isSuggestDiagnosis
+      ? `${SYSTEM_PROMPT}\n\n${SUGGEST_DIAGNOSIS_PROMPT}`
+      : SYSTEM_PROMPT;
+
     const messages = [
       { role: "user" as const, content: contextBlock + "\n\n(Inicia o continúa la conversación según corresponda.)" },
       ...((history ?? []).length === 0
@@ -249,8 +254,8 @@ ${docsSummary}`;
       body: JSON.stringify({
         model: "claude-sonnet-4-5-20250929",
         max_tokens: 1500,
-        system: SYSTEM_PROMPT,
-        tools: TOOLS,
+        system: finalSystem,
+        tools: isSuggestDiagnosis ? [] : TOOLS,
         stream: true,
         messages,
       }),
