@@ -176,6 +176,53 @@ export function PatientProfileBuilderTab({
     "Trabajemos los objetivos terapéuticos",
   ];
 
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryText, setSummaryText] = useState("");
+  const [summaryMsgCount, setSummaryMsgCount] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+
+  async function generateSummary() {
+    setSummaryLoading(true);
+    setSummaryOpen(true);
+    setSummaryText("");
+    try {
+      const { data, error } = await supabase.functions.invoke("summarize-profile-chat", {
+        body: { patient_id: patientId },
+      });
+      if (error) throw error;
+      setSummaryText(data.summary ?? "");
+      setSummaryMsgCount(data.message_count ?? messages.length);
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al generar resumen");
+      setSummaryOpen(false);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  async function confirmAddToProfile() {
+    if (!summaryText.trim()) return;
+    setConfirming(true);
+    try {
+      const { data: current } = await supabase.from("patients").select("notes").eq("id", patientId).maybeSingle();
+      const now = new Date();
+      const stamp = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const block = `--- Agregado desde Constructor de Perfil — ${stamp} ---\n${summaryText.trim()}`;
+      const newNotes = current?.notes ? `${current.notes}\n\n${block}` : block;
+      const { error } = await supabase.from("patients").update({ notes: newNotes }).eq("id", patientId);
+      if (error) throw error;
+      toast.success("✓ Información agregada al perfil clínico");
+      setSummaryOpen(false);
+      setSummaryText("");
+      onProfileUpdated?.();
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <Card className="p-0 overflow-hidden flex flex-col" style={{ height: "calc(100vh - 280px)", minHeight: 500 }}>
       <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
