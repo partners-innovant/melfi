@@ -78,6 +78,11 @@ export default function AdminDocuments() {
   const [filterSource, setFilterSource] = useState<string>(ANY);
   const [filterLang, setFilterLang] = useState<string>(ANY);
   const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
+  const [noChunksOnly, setNoChunksOnly] = useState(false);
+
+  // Reprocessing
+  const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
+  const [reprocessErrors, setReprocessErrors] = useState<Record<string, string>>({});
 
   // Pagination
   const [page, setPage] = useState(1);
