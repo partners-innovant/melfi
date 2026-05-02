@@ -144,14 +144,9 @@ export default function AdminDocuments() {
   const [bulkSource, setBulkSource] = useState<string>("");
   const [bulkType, setBulkType] = useState<DocType>("otro");
 
-  // Auto-classify
-  type ClassifyStatus = "pending" | "processing" | "done" | "error";
-  interface ClassifyJob { id: string; title: string; status: ClassifyStatus; error?: string }
-  const [confirmClassifyOpen, setConfirmClassifyOpen] = useState(false);
+  // Auto-classify (preview-based flow)
+  const [classifyTargets, setClassifyTargets] = useState<ClassifyTarget[]>([]);
   const [classifyOpen, setClassifyOpen] = useState(false);
-  const [classifyJobs, setClassifyJobs] = useState<ClassifyJob[]>([]);
-  const [classifyRunning, setClassifyRunning] = useState(false);
-  const [singleClassifyId, setSingleClassifyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.is_admin) load();
