@@ -1651,6 +1651,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_document_chunk_counts: {
+        Args: never
+        Returns: {
+          chunk_count: number
+          document_id: string
+        }[]
+      }
       admin_list_therapist_child_patients: {
         Args: { _therapist_id: string }
         Returns: {
