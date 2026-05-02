@@ -562,11 +562,20 @@ interface QueueItem {
   cachedText?: string;
   duplicate?: DuplicateDoc | null;
   dupAction?: DupAction;
+  chunksCount?: number;
+}
+
+interface UploadResults {
+  success: number;
+  failed: number;
+  totalChunks: number;
+  errors: { name: string; error: string }[];
 }
 
 function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<UploadResults | null>(null);
 
   function update(id: string, patch: Partial<QueueItem>) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -776,7 +785,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         if (insErr) throw insErr;
 
       }
-      update(item.id, { status: "done", progress: 100, statusText: `${chunks.length} fragmentos indexados` });
+      update(item.id, { status: "done", progress: 100, statusText: `${chunks.length} fragmentos indexados`, chunksCount: chunks.length });
       return true;
     } catch (e: any) {
       console.error("[upload] failed:", e);
@@ -805,6 +814,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
     setBusy(true);
     let success = 0;
     let failed = 0;
+    const processedIds: string[] = [];
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
@@ -820,17 +830,33 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         try {
           const ok = await processOne(live, user.id);
           if (ok) success++; else failed++;
+          processedIds.push(it.id);
         } catch (e) {
           failed++;
+          processedIds.push(it.id);
           console.error("[upload] unexpected:", e);
         }
       }
-      toast.success(`${success} documento${success === 1 ? "" : "s"} procesado${success === 1 ? "" : "s"} correctamente, ${failed} con error${failed === 1 ? "" : "es"}.`);
+      // Build results from latest state
+      const latest = await new Promise<QueueItem[]>((resolve) => {
+        setItems((prev) => { resolve(prev); return prev; });
+      });
+      const processed = latest.filter((x) => processedIds.includes(x.id));
+      const totalChunks = processed.reduce((acc, x) => acc + (x.chunksCount ?? 0), 0);
+      const errors = processed
+        .filter((x) => x.status === "error")
+        .map((x) => ({ name: x.file.name, error: x.error ?? x.statusText ?? "Error desconocido" }));
+      setResults({ success, failed, totalChunks, errors });
     } catch (e: any) {
       toast.error(e?.message ?? "Error general");
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleResultsClose() {
+    setResults(null);
+    onClose();
   }
 
   const readyCount = items.filter(
@@ -840,6 +866,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
   return (
+    <>
     <DialogContent className="w-[95vw] max-w-[1400px] sm:max-w-[1400px] h-auto max-h-[90vh] overflow-y-auto rounded-lg shadow-lg">
       <DialogHeader>
         <DialogTitle>Subir documentos</DialogTitle>
@@ -910,6 +937,60 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         </Button>
       </DialogFooter>
     </DialogContent>
+
+    <Dialog open={!!results} onOpenChange={(o) => { if (!o) handleResultsClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-xl">
+            {results && results.failed === 0 ? "✅ Carga completada" : "⚠️ Carga completada con errores"}
+          </DialogTitle>
+        </DialogHeader>
+        {results && (
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">✅ Documentos indexados</span>
+                <span className="text-3xl font-bold text-teal-600">{results.success}</span>
+              </div>
+              {results.failed > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">❌ Documentos con errores</span>
+                  <span className="text-3xl font-bold text-destructive">{results.failed}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-sm text-muted-foreground">📄 Total fragmentos indexados</span>
+                <span className="text-2xl font-bold">{results.totalChunks}</span>
+              </div>
+            </div>
+
+            {results.errors.length > 0 && (
+              <details className="rounded-md border p-3 text-sm">
+                <summary className="cursor-pointer font-medium text-destructive">
+                  Ver archivos con errores ({results.errors.length})
+                </summary>
+                <ul className="mt-2 space-y-1.5 text-xs">
+                  {results.errors.map((e, i) => (
+                    <li key={i} className="border-l-2 border-destructive/40 pl-2">
+                      <div className="font-medium truncate">{e.name}</div>
+                      <div className="text-muted-foreground">{e.error}</div>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+
+            <Button
+              className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+              onClick={handleResultsClose}
+            >
+              Cerrar
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
