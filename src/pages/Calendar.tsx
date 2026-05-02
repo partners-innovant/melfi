@@ -44,7 +44,21 @@ interface GEvent {
   end: string;
   htmlLink?: string;
   allDay?: boolean;
+  description?: string | null;
+  location?: string | null;
   source: "google";
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return "hace unos segundos";
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d} d`;
 }
 
 // ---------- date helpers ----------
