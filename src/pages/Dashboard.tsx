@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import FeedbackButton from "@/components/FeedbackButton";
+import { DashboardEthicalDisclaimer } from "@/components/EthicalDisclaimer";
 
 type Feature = {
   emoji: string;
