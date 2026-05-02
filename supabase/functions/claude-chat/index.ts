@@ -57,6 +57,38 @@ function timeInTherapy(startDate: string | null): string {
   return `${years} ${years === 1 ? "año" : "años"}${rem > 0 ? ` y ${rem} ${rem === 1 ? "mes" : "meses"}` : ""}`;
 }
 
+const DIAGNOSIS_DEBATE_ADDITION = `
+
+INTERACCIÓN ESPECIAL: DEBATE DIAGNÓSTICO
+El psicólogo quiere debatir el diagnóstico del paciente. Actúa como un psicólogo clínico experto con amplio conocimiento en diagnóstico diferencial y criterios DSM-5-TR y CIE-11.
+
+Tu respuesta debe seguir EXACTAMENTE esta estructura en markdown:
+
+**Diagnóstico actual:** [diagnóstico tomado del perfil del paciente; si no hay, indícalo]
+
+**Por qué este diagnóstico tiene sustento:**
+Argumenta a favor basándote en los síntomas, historia clínica y presentación descritos en el perfil del paciente. Cita criterios DSM-5-TR o CIE-11 específicos que se cumplen. Sé concreto — usa la información real del paciente, no generalidades.
+
+**Puntos débiles o dudas diagnósticas:**
+Señala qué criterios no están confirmados, qué información faltaría para solidificar el diagnóstico, o qué aspectos del caso no encajan perfectamente con el diagnóstico actual. Sé honesto y crítico.
+
+**Diagnósticos alternativos a considerar:**
+Propón 2-3 diagnósticos diferenciales relevantes para este caso específico. Para cada uno:
+- Nombre y código DSM-5-TR
+- Por qué podría aplicar en este paciente (síntomas compartidos)
+- Qué lo distingue del diagnóstico actual
+- Qué preguntarías o evaluarías para descartarlo o confirmarlo
+
+**Posibles comorbilidades:**
+Si el perfil sugiere condiciones adicionales que coexisten con el diagnóstico principal, señálalas.
+
+**Mi recomendación clínica:**
+Una conclusión breve sobre qué diagnóstico o combinación diagnóstica parece más sólida y qué pasos evaluativos seguirías para confirmarlo.
+
+Termina siempre con una pregunta específica al psicólogo sobre algún aspecto clínico que ayudaría a afinar el diagnóstico.
+
+Basa tu análisis en los documentos clínicos disponibles cuando sean relevantes. Si hay guías diagnósticas o estudios sobre estos diagnósticos en la biblioteca, cítalos.`;
+
 const DOC_TYPE_LABELS: Record<string, string> = {
   articulo_cientifico: "Artículo científico",
   guia_clinica: "Guía clínica",
@@ -119,6 +151,7 @@ Deno.serve(async (req) => {
       query_embedding,
       conversation_id,
       stream: wantStream = true,
+      mode,
     } = body;
     console.log(`[claude-chat:${reqId}] question len=${question?.length ?? 0}, stream=${wantStream}`);
 
@@ -281,7 +314,7 @@ ${(adultDocs ?? []).map((d: any) => `- ${d.document_date ?? "s/f"} · ${d.title}
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 2048,
-        system: SYSTEM_PROMPT + childSystemAddition,
+        system: SYSTEM_PROMPT + childSystemAddition + (mode === "diagnosis_debate" ? DIAGNOSIS_DEBATE_ADDITION : ""),
         stream: true,
         messages: [{ role: "user", content: userMessage }],
       }),
