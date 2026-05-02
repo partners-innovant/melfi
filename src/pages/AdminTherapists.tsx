@@ -860,21 +860,31 @@ export default function AdminTherapists() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Transfer dialog */}
-      <TransferPatientDialog
+      {/* Transfer wizard (admin) */}
+      <AdminTransferWizard
         open={!!transferTarget}
         onOpenChange={(o) => !o && setTransferTarget(null)}
-        therapist={
-          transferTarget && transferTarget.email
+        fromTherapist={
+          transferTarget
             ? {
                 id: transferTarget.id,
                 email: transferTarget.email,
                 first_name: transferTarget.first_name,
                 last_name: transferTarget.last_name,
               }
-            : undefined
+            : null
         }
-        onTransferred={() => setTransferTarget(null)}
+        allTherapists={registered.map((r) => ({
+          id: r.id,
+          email: r.email,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          patient_count: r.patient_count,
+        }))}
+        onTransferred={() => {
+          setTransferTarget(null);
+          fetchAll();
+        }}
       />
 
       {/* Transfer history */}
