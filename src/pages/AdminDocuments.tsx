@@ -78,11 +78,18 @@ export default function AdminDocuments() {
   const [filterSource, setFilterSource] = useState<string>(ANY);
   const [filterLang, setFilterLang] = useState<string>(ANY);
   const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
-  const [noChunksOnly, setNoChunksOnly] = useState(false);
+  // Snapshot-based "Sin chunks" filter — only updates when user clicks the button
+  const [noChunksSnapshot, setNoChunksSnapshot] = useState<Set<string> | null>(null);
+  const [noChunksSearchAt, setNoChunksSearchAt] = useState<Date | null>(null);
+  const [, setNowTick] = useState(0);
 
   // Reprocessing
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
   const [reprocessErrors, setReprocessErrors] = useState<Record<string, string>>({});
+  // Recently processed (for green flash + "Procesado" label). Map id -> timestamp ms
+  const [recentlyProcessed, setRecentlyProcessed] = useState<Record<string, number>>({});
+  // Bulk progress
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -114,6 +121,55 @@ export default function AdminDocuments() {
     if (profile?.is_admin) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.is_admin]);
+
+  // Tick every 30s so "hace X min" stays fresh
+  useEffect(() => {
+    if (!noChunksSearchAt) return;
+    const t = setInterval(() => setNowTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, [noChunksSearchAt]);
+
+  // Auto-clear "recently processed" highlight after 3s
+  useEffect(() => {
+    const ids = Object.keys(recentlyProcessed);
+    if (ids.length === 0) return;
+    const timers = ids.map((id) => {
+      const elapsed = Date.now() - recentlyProcessed[id];
+      const remaining = Math.max(0, 3000 - elapsed);
+      return setTimeout(() => {
+        setRecentlyProcessed((prev) => {
+          if (!(id in prev)) return prev;
+          const n = { ...prev };
+          delete n[id];
+          return n;
+        });
+      }, remaining);
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [recentlyProcessed]);
+
+  function formatRelative(d: Date): string {
+    const sec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+    if (sec < 60) return "hace unos segundos";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `hace ${h} h`;
+    return d.toLocaleString("es-CL");
+  }
+
+  function runNoChunksSearch() {
+    const ids = new Set(rows.filter((r) => r.chunk_count === 0).map((r) => r.id));
+    setNoChunksSnapshot(ids);
+    setNoChunksSearchAt(new Date());
+    setPage(1);
+    if (ids.size === 0) {
+      toast.success("No hay documentos sin chunks 🎉");
+    } else {
+      toast.info(`${ids.size} documento(s) sin chunks`);
+    }
+  }
+
 
   async function load() {
     setLoading(true);
@@ -170,10 +226,10 @@ export default function AdminDocuments() {
       if (filterSource !== ANY && d.source_institution !== filterSource) return false;
       if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
       if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
-      if (noChunksOnly && d.chunk_count > 0) return false;
+      if (noChunksSnapshot && !noChunksSnapshot.has(d.id)) return false;
       return true;
     });
-  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksOnly]);
+  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksSnapshot]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -473,6 +529,7 @@ export default function AdminDocuments() {
       }
 
       setRows((rs) => rs.map((r) => (r.id === d.id ? { ...r, chunk_count: chunks.length } : r)));
+      setRecentlyProcessed((p) => ({ ...p, [d.id]: Date.now() }));
       return { ok: true, count: chunks.length };
     } catch (e: any) {
       const msg = e?.message ?? String(e);
@@ -499,17 +556,19 @@ export default function AdminDocuments() {
       toast.info("Ningún documento seleccionado tiene 0 chunks");
       return;
     }
-    const tid = toast.loading(`Re-procesando ${targets.length} documento(s)...`);
     let ok = 0;
     let fail = 0;
-    for (const d of targets) {
-      const res = await reprocessDoc(d);
+    setBulkProgress({ current: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      setBulkProgress({ current: i + 1, total: targets.length });
+      const res = await reprocessDoc(targets[i]);
       if (res.ok) ok++; else fail++;
     }
+    setBulkProgress(null);
     if (fail === 0) {
-      toast.success(`✅ ${ok} documento(s) re-procesado(s)`, { id: tid });
+      toast.success(`✅ ${ok} documento(s) procesado(s)`);
     } else {
-      toast.warning(`Completado: ${ok} ok, ${fail} con error`, { id: tid });
+      toast.warning(`✅ ${ok} documentos procesados · ❌ ${fail} con error`);
     }
   }
 
@@ -609,13 +668,33 @@ export default function AdminDocuments() {
           />
           Sin clasificar
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={noChunksOnly}
-            onCheckedChange={(v) => { setNoChunksOnly(!!v); setPage(1); }}
-          />
-          Sin chunks
-        </label>
+        <div className="flex flex-col gap-1 ml-2">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={noChunksSnapshot ? "default" : "outline"}
+              onClick={runNoChunksSearch}
+            >
+              <Search className="h-3.5 w-3.5 mr-1" />
+              {noChunksSnapshot ? "Actualizar búsqueda sin chunks" : "Buscar documentos sin chunks"}
+            </Button>
+            {noChunksSnapshot && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setNoChunksSnapshot(null); setNoChunksSearchAt(null); setPage(1); }}
+                title="Limpiar filtro"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          {noChunksSearchAt && (
+            <span className="text-[11px] text-muted-foreground">
+              Última búsqueda: {formatRelative(noChunksSearchAt)} · {noChunksSnapshot?.size ?? 0} resultado(s)
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Bulk action bar */}
@@ -635,8 +714,12 @@ export default function AdminDocuments() {
           <Button size="sm" variant="outline" onClick={() => setConfirmClassifyOpen(true)}>
             <Sparkles className="h-4 w-4 mr-1 text-primary" /> Auto-clasificar seleccionados
           </Button>
-          <Button size="sm" variant="outline" onClick={reprocessSelectedNoChunks}>
-            <RotateCw className="h-4 w-4 mr-1" /> Re-procesar documentos sin chunks
+          <Button size="sm" variant="outline" onClick={reprocessSelectedNoChunks} disabled={!!bulkProgress}>
+            {bulkProgress ? (
+              <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Procesando {bulkProgress.current} de {bulkProgress.total}...</>
+            ) : (
+              <><RotateCw className="h-4 w-4 mr-1" /> Re-procesar documentos sin chunks</>
+            )}
           </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
@@ -672,7 +755,10 @@ export default function AdminDocuments() {
             ) : paged.length === 0 ? (
               <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
             ) : paged.map((d) => (
-              <TableRow key={d.id} className={selected.has(d.id) ? "bg-primary/5" : undefined}>
+              <TableRow key={d.id} className={cn(
+                selected.has(d.id) && "bg-primary/5",
+                recentlyProcessed[d.id] && "bg-emerald-500/10 transition-colors duration-1000",
+              )}>
                 <TableCell>
                   <Checkbox
                     checked={selected.has(d.id)}
@@ -740,6 +826,15 @@ export default function AdminDocuments() {
                     <span className="inline-flex items-center gap-1 text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" /> …
                     </span>
+                  ) : recentlyProcessed[d.id] && d.chunk_count > 0 ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        ✅ {d.chunk_count} fragmentos
+                      </span>
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5">
+                        <Check className="h-3 w-3" /> Procesado
+                      </span>
+                    </div>
                   ) : d.chunk_count === 0 ? (
                     <TooltipProvider delayDuration={150}>
                       <div className="flex items-center justify-center gap-1.5">
