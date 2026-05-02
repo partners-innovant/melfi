@@ -6,14 +6,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Square, Send, Sparkles, Loader2, Mic, StopCircle, Check, MessageCircle,
-  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2,
+  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2, Pause, Play, Circle, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EMOTIONAL_STATES } from "@/components/SessionsTab";
 import ReactMarkdown from "react-markdown";
+
+type TranscriptSegment = { speaker: "Terapeuta" | "Paciente" | "Hablante" | string; text: string; t: number };
+type RecState = "idle" | "recording" | "paused";
 
 type Entry = { t: number; text: string };
 type Suggestions = {
