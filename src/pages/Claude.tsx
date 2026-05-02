@@ -65,6 +65,7 @@ export default function Claude() {
   const [streaming, setStreaming] = useState(false);
   const [memory, setMemory] = useState<Memory | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Snapshot of messages used for memory updates (used in beforeunload)
   const messagesRef = useRef<Msg[]>([]);
