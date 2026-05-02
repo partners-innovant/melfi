@@ -11,45 +11,30 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Loader2, Search, ExternalLink, Plus, Check, ChevronDown, ChevronUp, AlertCircle, FlaskConical,
+  Loader2, Search, ExternalLink, ChevronDown, ChevronUp, AlertCircle, FlaskConical, FileText,
 } from "lucide-react";
 import { ClassifyPreviewDialog, type ClassifyTarget } from "@/components/ClassifyPreviewDialog";
-import { extractPdfText, chunkText } from "@/lib/pdf";
+import { chunkText } from "@/lib/pdf";
 import type { DocType } from "@/lib/clinical";
 
-export type PubMedPdfStatus = "pdf_available" | "abstract_only" | "no_access";
-
 export interface PubMedArticle {
-  pubmed_id: string | null;
-  pmc_id: string | null;
   europepmc_id: string;
   source: string;
+  pubmed_id: string | null;
+  pmc_id: string | null;
   doi: string | null;
   title: string;
   authors: string;
-  journal: string | null;
-  year: string | null;
-  has_pdf?: boolean;
-  is_open_access?: boolean;
-  has_free_pdf: boolean;
-  pdf_status?: PubMedPdfStatus;
-  pdf_url?: string | null;
-  abstract: string | null;
-  url: string;
-  pmc_url: string | null;
-  europepmc_url?: string;
+  journal: string;
+  year: string;
+  abstract: string;
+  has_pdf: boolean;
+  is_open_access: boolean;
+  pdf_url: string | null;
+  article_url: string;
 }
 
-interface SearchPayload {
-  query: string;
-  onlyFree: boolean;
-  years: "5" | "10" | "all";
-  language: "any" | "english" | "español";
-  retmax?: number;
-}
+const DOWNLOAD_DELAY_MS = 2000;
 
 export function PubMedSearchDialog({
   open,
@@ -64,11 +49,6 @@ export function PubMedSearchDialog({
   initialQuery?: string;
   autoSearch?: boolean;
 }) {
-  const [query, setQuery] = useState(initialQuery ?? "");
-  const [onlyFree, setOnlyFree] = useState(true);
-  const [years, setYears] = useState<"5" | "10" | "all">("5");
-  const [language, setLanguage] = useState<"any" | "english" | "español">("any");
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[90vw] max-w-[1100px] max-h-[90vh] overflow-hidden flex flex-col">
@@ -78,17 +58,9 @@ export function PubMedSearchDialog({
             Buscar en PubMed
           </DialogTitle>
         </DialogHeader>
-
         <PubMedPanel
-          initial={{ query, onlyFree, years, language }}
-          showFilters
+          initialQuery={initialQuery ?? ""}
           autoSearch={autoSearch}
-          onQueryStateChange={(s) => {
-            setQuery(s.query);
-            setOnlyFree(s.onlyFree);
-            setYears(s.years);
-            setLanguage(s.language);
-          }}
           onImported={onImported}
           isAdmin
         />
@@ -97,52 +69,43 @@ export function PubMedSearchDialog({
   );
 }
 
-/**
- * Reusable PubMed search panel. Used inside the modal and inline in the AI Assistant.
- */
 export function PubMedPanel({
-  initial,
-  showFilters = true,
-  onQueryStateChange,
-  onImported,
+  initialQuery = "",
   autoSearch = false,
+  onImported,
   isAdmin = false,
   className,
 }: {
-  initial: SearchPayload;
-  showFilters?: boolean;
-  onQueryStateChange?: (s: SearchPayload) => void;
-  onImported?: () => void;
+  initialQuery?: string;
   autoSearch?: boolean;
+  onImported?: () => void;
   isAdmin?: boolean;
   className?: string;
 }) {
-  const [query, setQuery] = useState(initial.query);
-  const [onlyFree, setOnlyFree] = useState(initial.onlyFree);
-  const [years, setYears] = useState(initial.years);
-  const [language, setLanguage] = useState(initial.language);
+  const [query, setQuery] = useState(initialQuery);
+  const [onlyPdf, setOnlyPdf] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PubMedArticle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [existingPubmedIds, setExistingPubmedIds] = useState<Set<string>>(new Set());
+  const [existing, setExisting] = useState<Set<string>>(new Set());
+  const [importingIds, setImportingIds] = useState<Set<string>>(new Set());
+  const [importStatus, setImportStatus] = useState<Record<string, string>>({});
   const [classifyTarget, setClassifyTarget] = useState<ClassifyTarget | null>(null);
   const [classifyOpen, setClassifyOpen] = useState(false);
 
-  // notify parent of state changes
-  useEffect(() => {
-    onQueryStateChange?.({ query, onlyFree, years, language });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, onlyFree, years, language]);
+  // Serialize PDF downloads with delay between them
+  const downloadQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const lastDownloadAtRef = useRef<number>(0);
 
   const autoRan = useRef(false);
   useEffect(() => {
-    if (autoSearch && !autoRan.current && initial.query.trim()) {
+    if (autoSearch && !autoRan.current && initialQuery.trim()) {
       autoRan.current = true;
       void runSearch();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoSearch, initial.query]);
+  }, [autoSearch, initialQuery]);
 
   async function runSearch() {
     if (!query.trim()) {
@@ -154,23 +117,23 @@ export function PubMedPanel({
     try {
       const [{ data, error: fnErr }, libRes] = await Promise.all([
         supabase.functions.invoke("search-pubmed", {
-          body: { action: "search", query, onlyFree, years, language },
+          body: { action: "search", query, onlyPdf },
         }),
         supabase
           .from("documents")
-          .select("pubmed_id, pmc_id, europepmc_id")
-          .or("pubmed_id.not.is.null,pmc_id.not.is.null,europepmc_id.not.is.null"),
+          .select("pubmed_id, pmc_id, europepmc_id, source_url"),
       ]);
       if (fnErr) throw new Error(fnErr.message);
       if (data?.error) throw new Error(data.error);
       setResults((data?.articles ?? []) as PubMedArticle[]);
       const ids = new Set<string>();
-      for (const r of (libRes.data ?? []) as Array<{ pubmed_id: string | null; pmc_id: string | null; europepmc_id: string | null }>) {
+      for (const r of (libRes.data ?? []) as Array<{ pubmed_id: string | null; pmc_id: string | null; europepmc_id: string | null; source_url: string | null }>) {
         if (r.pubmed_id) ids.add(`pmid:${r.pubmed_id}`);
         if (r.pmc_id) ids.add(`pmc:${r.pmc_id}`);
         if (r.europepmc_id) ids.add(`epmc:${r.europepmc_id}`);
+        if (r.source_url) ids.add(`url:${r.source_url}`);
       }
-      setExistingPubmedIds(ids);
+      setExisting(ids);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -181,75 +144,83 @@ export function PubMedPanel({
   }
 
   function isInLibrary(a: PubMedArticle): boolean {
-    if (a.pubmed_id && existingPubmedIds.has(`pmid:${a.pubmed_id}`)) return true;
-    if (a.pmc_id && existingPubmedIds.has(`pmc:${a.pmc_id}`)) return true;
-    if (a.europepmc_id && existingPubmedIds.has(`epmc:${a.europepmc_id}`)) return true;
+    if (a.pubmed_id && existing.has(`pmid:${a.pubmed_id}`)) return true;
+    if (a.pmc_id && existing.has(`pmc:${a.pmc_id}`)) return true;
+    if (a.europepmc_id && existing.has(`epmc:${a.europepmc_id}`)) return true;
+    if (a.pdf_url && existing.has(`url:${a.pdf_url}`)) return true;
     return false;
   }
 
-  function handleAfterImport(article: PubMedArticle, target: ClassifyTarget) {
-    setExistingPubmedIds((prev) => {
-      const next = new Set(prev);
-      if (article.pubmed_id) next.add(`pmid:${article.pubmed_id}`);
-      if (article.pmc_id) next.add(`pmc:${article.pmc_id}`);
-      if (article.europepmc_id) next.add(`epmc:${article.europepmc_id}`);
-      return next;
+  async function handleImportPdf(article: PubMedArticle) {
+    if (!article.pdf_url) return;
+    setImportingIds((s) => new Set(s).add(article.europepmc_id));
+    setImportStatus((m) => ({ ...m, [article.europepmc_id]: "En cola..." }));
+
+    // Chain into the serial queue with a 2s gap between downloads
+    const job = downloadQueueRef.current.then(async () => {
+      const wait = Math.max(0, DOWNLOAD_DELAY_MS - (Date.now() - lastDownloadAtRef.current));
+      if (wait > 0) {
+        setImportStatus((m) => ({ ...m, [article.europepmc_id]: `Esperando ${Math.ceil(wait / 1000)}s...` }));
+        await new Promise((r) => setTimeout(r, wait));
+      }
+      lastDownloadAtRef.current = Date.now();
+      try {
+        const target = await importArticlePdf(article, isAdmin, (s) =>
+          setImportStatus((m) => ({ ...m, [article.europepmc_id]: s })),
+        );
+        setExisting((prev) => {
+          const next = new Set(prev);
+          if (article.pubmed_id) next.add(`pmid:${article.pubmed_id}`);
+          if (article.pmc_id) next.add(`pmc:${article.pmc_id}`);
+          if (article.europepmc_id) next.add(`epmc:${article.europepmc_id}`);
+          if (article.pdf_url) next.add(`url:${article.pdf_url}`);
+          return next;
+        });
+        setClassifyTarget(target);
+        setClassifyOpen(true);
+        toast.success("✅ PDF importado correctamente");
+      } catch (e) {
+        console.error("[pubmed] import failed", e);
+        toast.error(e instanceof Error ? e.message : "Error al importar");
+      } finally {
+        setImportingIds((s) => {
+          const next = new Set(s);
+          next.delete(article.europepmc_id);
+          return next;
+        });
+        setImportStatus((m) => {
+          const next = { ...m };
+          delete next[article.europepmc_id];
+          return next;
+        });
+      }
     });
-    setClassifyTarget(target);
-    setClassifyOpen(true);
+    downloadQueueRef.current = job.catch(() => {});
   }
 
   return (
     <div className={`flex flex-col flex-1 min-h-0 gap-3 ${className ?? ""}`}>
-      {showFilters && (
-        <div className="space-y-2 shrink-0">
-          <div className="flex gap-2">
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Busca artículos clínicos por tema, diagnóstico o técnica..."
-              onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
-              className="flex-1"
-            />
-            <Button onClick={runSearch} disabled={loading} className="gap-1.5">
-              {loading
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Search className="h-4 w-4" />}
-              Buscar
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Switch id="pubmed-free" checked={onlyFree} onCheckedChange={setOnlyFree} />
-              <Label htmlFor="pubmed-free" className="text-xs cursor-pointer">
-                Solo acceso libre (PMC)
-              </Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">Últimos:</Label>
-              <Select value={years} onValueChange={(v) => setYears(v as typeof years)}>
-                <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 años</SelectItem>
-                  <SelectItem value="10">10 años</SelectItem>
-                  <SelectItem value="all">Todos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label className="text-xs">Idioma:</Label>
-              <Select value={language} onValueChange={(v) => setLanguage(v as typeof language)}>
-                <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Cualquiera</SelectItem>
-                  <SelectItem value="english">Inglés</SelectItem>
-                  <SelectItem value="español">Español</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      <div className="space-y-2 shrink-0">
+        <div className="flex gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Busca artículos clínicos por tema, diagnóstico o técnica..."
+            onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
+            className="flex-1"
+          />
+          <Button onClick={runSearch} disabled={loading} className="gap-1.5">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            Buscar
+          </Button>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <Switch id="pubmed-pdf" checked={onlyPdf} onCheckedChange={setOnlyPdf} />
+          <Label htmlFor="pubmed-pdf" className="text-xs cursor-pointer">
+            Solo con PDF disponible
+          </Label>
+        </div>
+      </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
         {!results && !loading && !error && (
@@ -276,11 +247,12 @@ export function PubMedPanel({
         )}
         {results?.map((a) => (
           <ArticleCard
-            key={a.europepmc_id || a.pubmed_id || a.pmc_id || a.title}
+            key={a.europepmc_id}
             article={a}
             inLibrary={isInLibrary(a)}
-            isAdmin={isAdmin}
-            onImported={(t) => handleAfterImport(a, t)}
+            importing={importingIds.has(a.europepmc_id)}
+            statusText={importStatus[a.europepmc_id] || ""}
+            onImport={() => handleImportPdf(a)}
           />
         ))}
       </div>
@@ -303,48 +275,25 @@ export function PubMedPanel({
 function ArticleCard({
   article,
   inLibrary,
-  isAdmin,
-  onImported,
+  importing,
+  statusText,
+  onImport,
 }: {
   article: PubMedArticle;
   inLibrary: boolean;
-  isAdmin: boolean;
-  onImported: (target: ClassifyTarget) => void;
+  importing: boolean;
+  statusText: string;
+  onImport: () => void;
 }) {
   const [showAbstract, setShowAbstract] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [done, setDone] = useState(false);
-  const [statusText, setStatusText] = useState<string>("");
-
-  const status: PubMedPdfStatus =
-    article.pdf_status ??
-    (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
-  const canImportPdf = status === "pdf_available";
-
-  async function handleImport() {
-    setImporting(true);
-    try {
-      const { target } = await importPubMedArticle(article, isAdmin, setStatusText, canImportPdf);
-      setDone(true);
-      onImported(target);
-      toast.success(canImportPdf ? "✅ PDF importado correctamente" : "✅ Abstract importado correctamente");
-    } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : "Error al importar");
-    } finally {
-      setImporting(false);
-      setStatusText("");
-    }
-  }
-
-  const alreadyIn = inLibrary || done;
+  const canImportPdf = !!article.pdf_url && article.has_pdf;
 
   return (
     <Card className="p-3 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <a
-            href={article.url}
+            href={article.article_url}
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-sm leading-snug hover:underline inline-flex items-start gap-1"
@@ -358,21 +307,11 @@ function ArticleCard({
             {article.year ? ` · ${article.year}` : ""}
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          {status === "pdf_available" ? (
-            <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-              🟢 PDF Open Access
-            </Badge>
-          ) : status === "abstract_only" ? (
-            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
-              🟡 Solo abstract
-            </Badge>
-          ) : (
-            <Badge className="text-[10px] bg-muted text-muted-foreground border-border hover:bg-muted">
-              ⚪ Sin acceso libre
-            </Badge>
-          )}
-        </div>
+        {canImportPdf && (
+          <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15 shrink-0">
+            🟢 PDF
+          </Badge>
+        )}
       </div>
 
       {article.abstract && (
@@ -392,183 +331,84 @@ function ArticleCard({
       )}
 
       <div className="flex items-center justify-end gap-2 pt-1">
-        {alreadyIn ? (
+        {inLibrary ? (
           <Badge className="text-[11px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
             ✅ Ya en biblioteca
           </Badge>
-        ) : (
+        ) : canImportPdf ? (
           <Button
             size="sm"
             disabled={importing}
-            onClick={handleImport}
+            onClick={onImport}
             className="h-7 px-3 text-xs gap-1 bg-teal-600 hover:bg-teal-700 text-white"
           >
             {importing ? (
               <><Loader2 className="h-3 w-3 animate-spin" /> {statusText || "Importando..."}</>
             ) : (
-              <>
-                <Plus className="h-3 w-3" />
-                {canImportPdf ? "Importar PDF" : "Importar abstract"}
-              </>
+              <><FileText className="h-3 w-3" /> 📄 Importar PDF</>
             )}
           </Button>
-        )}
+        ) : null}
       </div>
     </Card>
   );
 }
 
 /**
- * Imports an article into the documents library (global if admin).
- * If `tryPdf` is true and a PDF is available via EuropePMC, downloads it,
- * uploads to Storage and indexes the extracted text. Otherwise imports the
- * abstract as a plain-text document.
+ * Imports a PMC article PDF using the existing fetch-url-document pipeline,
+ * inserts a document row + embedded chunks, and returns a ClassifyTarget so
+ * the caller can show the classification preview.
  */
-async function importPubMedArticle(
+async function importArticlePdf(
   article: PubMedArticle,
   isAdmin: boolean,
   setStatus: (s: string) => void,
-  tryPdf: boolean = false,
-): Promise<{ target: ClassifyTarget; usedPdf: boolean }> {
+): Promise<ClassifyTarget> {
+  if (!article.pdf_url) throw new Error("Sin PDF disponible");
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  let storagePath: string | null = null;
-  let docText = "";
-  let usedPdf = false;
-
-  if (tryPdf && article.source && article.europepmc_id) {
-    try {
-      setStatus("Descargando PDF...");
-      const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("search-pubmed", {
-        body: { action: "download_pdf", source: article.source, europepmc_id: article.europepmc_id },
-      });
-      if (pdfErr) throw new Error(pdfErr.message);
-      if (pdfData?.success && pdfData.pdf_base64) {
-        // Decode base64 → Blob → File
-        const binary = atob(pdfData.pdf_base64 as string);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const pdfFile = new File([bytes], `${article.europepmc_id}.pdf`, { type: "application/pdf" });
-
-        setStatus("Subiendo PDF...");
-        const path = `${user.id}/${crypto.randomUUID()}.pdf`;
-        const { error: upErr } = await supabase.storage.from("documents").upload(path, pdfFile, {
-          contentType: "application/pdf",
-          upsert: false,
-        });
-        if (upErr) throw new Error(`Storage: ${upErr.message}`);
-        storagePath = path;
-
-        setStatus("Extrayendo texto...");
-        docText = await extractPdfText(pdfFile);
-        usedPdf = true;
-      } else {
-        console.warn("[pubmed] PDF download failed:", pdfData?.error);
-      }
-    } catch (e) {
-      console.warn("[pubmed] PDF flow failed, falling back to abstract:", e);
-    }
-  }
-
-  if (!usedPdf) {
-    let abstractText = article.abstract ?? "";
-    if (!abstractText.trim()) {
-      try {
-        setStatus("Obteniendo abstract...");
-        const { data } = await supabase.functions.invoke("search-pubmed", {
-          body: {
-            action: "get_abstract",
-            source: article.source,
-            europepmc_id: article.europepmc_id,
-            pubmed_id: article.pubmed_id,
-          },
-        });
-        if (data?.abstract && typeof data.abstract === "string") {
-          abstractText = data.abstract;
-        }
-      } catch (e) {
-        console.warn("[pubmed] get_abstract failed:", e);
-      }
-    }
-    const note = "Documento importado como abstract";
-    const parts = [
-      `# ${article.title}`,
-      article.authors ? `Autores: ${article.authors}` : "",
-      article.journal ? `Revista: ${article.journal}` : "",
-      article.year ? `Año: ${article.year}` : "",
-      article.doi ? `DOI: ${article.doi}` : "",
-      article.url ? `PubMed: ${article.url}` : "",
-      "",
-      `> ${note}`,
-      "",
-      abstractText.trim() || "(Sin abstract disponible)",
-    ].filter(Boolean);
-    docText = parts.join("\n");
-  }
+  setStatus("Descargando PDF...");
+  const { data, error } = await supabase.functions.invoke("fetch-url-document", {
+    body: { url: article.pdf_url },
+  });
+  if (error) throw new Error(error.message ?? "Error de servidor");
+  if (!data?.ok) throw new Error(data?.error || "No se pudo descargar el PDF");
 
   setStatus("Indexando...");
-  const chunks = chunkText(docText);
+  const chunks = chunkText(data.text);
   if (chunks.length === 0) throw new Error("Sin contenido para indexar");
 
-  // Initial AI classification (best-effort) so the preview opens with suggestions
-  let initial: {
-    document_type?: DocType;
-    clinical_areas?: string[];
-    source_institution?: string | null;
-    source_institution_type?: string | null;
-    language?: string | null;
-  } = {};
-  try {
-    const fragment = `Title: ${article.title}\nAbstract: ${(article.abstract ?? "").slice(0, 1000)}`;
-    const { data: ai } = await supabase.functions.invoke("extract-metadata", { body: { text: fragment } });
-    if (ai && !ai.error) {
-      initial = {
-        document_type: (ai.document_type as DocType) ?? undefined,
-        clinical_areas: Array.isArray(ai.clinical_areas) ? ai.clinical_areas : undefined,
-        source_institution: ai.source_institution ?? null,
-        source_institution_type: ai.source_institution_type ?? null,
-        language: ai.language ?? null,
-      };
-    }
-  } catch (e) {
-    console.warn("[pubmed] auto-classify failed:", e);
-  }
-
-  // Create document row
   const { data: doc, error: docErr } = await supabase
     .from("documents")
     .insert({
       psychologist_id: user.id,
-      title: article.title,
-      author: article.authors || null,
-      year: article.year || null,
-      document_type: initial.document_type ?? "articulo_cientifico",
+      title: data.title || article.title,
+      author: data.author || article.authors || null,
+      year: data.year || article.year || null,
+      document_type: data.document_type || "articulo_cientifico",
       is_global: isAdmin,
-      storage_path: storagePath,
-      source_url: article.url,
+      storage_path: null,
+      source_url: article.pdf_url,
       import_source: "pubmed",
       pubmed_id: article.pubmed_id,
       pmc_id: article.pmc_id,
-      europepmc_id: article.europepmc_id || null,
-      europepmc_source: article.source || null,
-      abstract: article.abstract,
-      clinical_areas: initial.clinical_areas ?? [],
-      source_institution: initial.source_institution ?? "PubMed / NCBI",
-      source_institution_type: initial.source_institution_type ?? "revista_cientifica",
-      language: initial.language ?? null,
+      europepmc_id: article.europepmc_id,
+      europepmc_source: article.source,
+      abstract: article.abstract || null,
+      source_institution: "PubMed / NCBI",
+      source_institution_type: "revista_cientifica",
     } as any)
     .select()
     .single();
-  if (docErr) {
-    if (storagePath) await supabase.storage.from("documents").remove([storagePath]);
-    throw docErr;
-  }
+  if (docErr) throw docErr;
 
-  // Embed and insert chunks
   const batchSize = 8;
+  const totalBatches = Math.ceil(chunks.length / batchSize);
   for (let i = 0; i < chunks.length; i += batchSize) {
     const batch = chunks.slice(i, i + batchSize);
+    setStatus(`Embeddings ${Math.floor(i / batchSize) + 1}/${totalBatches}`);
     const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
       body: { input: batch.map((c) => c.content), input_type: "document" },
     });
@@ -583,30 +423,22 @@ async function importPubMedArticle(
       page_number: c.page_number,
       embedding: embeddings[idx] as any,
       is_global: isAdmin,
-      document_type: doc.document_type,
-      clinical_areas: doc.clinical_areas,
-      source_institution: doc.source_institution,
-      source_institution_type: doc.source_institution_type,
-      language: doc.language,
     }));
     const { error: insErr } = await supabase.from("document_chunks").insert(rows);
     if (insErr) throw insErr;
   }
 
   return {
-    target: {
-      id: doc.id,
-      title: doc.title,
-      author: doc.author,
-      year: doc.year,
-      document_type: doc.document_type as DocType,
-      clinical_areas: doc.clinical_areas ?? [],
-      source_institution: doc.source_institution,
-      source_institution_type: doc.source_institution_type,
-      language: doc.language,
-      storage_path: doc.storage_path,
-      source_url: doc.source_url,
-    },
-    usedPdf,
+    id: doc.id,
+    title: doc.title,
+    author: doc.author,
+    year: doc.year,
+    document_type: doc.document_type as DocType,
+    clinical_areas: doc.clinical_areas ?? [],
+    source_institution: doc.source_institution,
+    source_institution_type: doc.source_institution_type,
+    language: doc.language,
+    storage_path: doc.storage_path,
+    source_url: doc.source_url,
   };
 }
