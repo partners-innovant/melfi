@@ -470,7 +470,48 @@ export function PatientProfileBuilderTab({
             ))}
           </div>
         )}
+        {pendingFile && (
+          <div className="flex items-center gap-2 p-2 rounded-md border border-border bg-muted/40">
+            <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium truncate">{pendingFile.name}</div>
+              <div className="text-[10px] text-muted-foreground">{(pendingFile.size / 1024).toFixed(0)} KB</div>
+            </div>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setPendingFile(null)} disabled={analyzingFile}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => pendingFile && analyzeFile(pendingFile)}
+              disabled={analyzingFile}
+            >
+              {analyzingFile ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Analizar"}
+            </Button>
+          </div>
+        )}
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.txt,.docx,.png,.jpg,.jpeg,.webp,.gif,.mp3,.m4a,.ogg,.wav,.webm,.mp4,application/pdf,text/plain,image/*,audio/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setPendingFile(f);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending || analyzingFile}
+            size="icon"
+            variant="outline"
+            className="self-end h-11 w-11 shrink-0"
+            title="Adjuntar archivo (PDF, imagen, audio)"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -482,19 +523,19 @@ export function PatientProfileBuilderTab({
             }}
             placeholder="Cuéntame sobre el paciente o pide algo específico..."
             className="min-h-[44px] max-h-32 resize-none flex-1"
-            disabled={sending}
+            disabled={sending || analyzingFile}
           />
           <Button
             onClick={() => send("Dame tu hipótesis diagnóstica completa basada en toda la información disponible.", { mode: "suggest_diagnosis" })}
-            disabled={sending}
+            disabled={sending || analyzingFile}
             size="sm"
             variant="outline"
             className="self-end h-11 gap-1.5 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 text-xs"
             title="Sugerir diagnóstico"
           >
-            <Sparkles className="h-3.5 w-3.5" />💡 Sugerir diagnóstico
+            <Sparkles className="h-3.5 w-3.5" />💡 Sugerir
           </Button>
-          <Button onClick={() => send()} disabled={sending || !input.trim()} size="icon" className="self-end h-11 w-11">
+          <Button onClick={() => send()} disabled={sending || analyzingFile || !input.trim()} size="icon" className="self-end h-11 w-11">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
