@@ -554,7 +554,8 @@ interface QueueItem {
   sourceInstitution: string;
   sourceInstitutionType: string;
   // Track which fields were auto-filled by the AI
-  autoFilled: { docType: boolean; clinicalAreas: boolean; sourceInstitution: boolean };
+  autoFilled: { title: boolean; author: boolean; year: boolean; docType: boolean; clinicalAreas: boolean; sourceInstitution: boolean };
+  analysisFailed?: boolean;
   status: QueueStatus;
   progress: number;
   statusText: string;
@@ -582,7 +583,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   }
 
   async function analyzeFile(item: QueueItem) {
-    update(item.id, { status: "analyzing", statusText: "Extrayendo texto y metadatos..." });
+    update(item.id, { status: "analyzing", statusText: "Analizando documento..." });
     try {
       let text = "";
       let title = item.file.name.replace(/\.(pdf|txt)$/i, "");
@@ -592,28 +593,44 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       let clinicalAreas: string[] = [];
       let sourceInstitution = "";
       let sourceInstitutionType = "";
-      const autoFilled = { docType: false, clinicalAreas: false, sourceInstitution: false };
+      const autoFilled = {
+        title: false, author: false, year: false,
+        docType: false, clinicalAreas: false, sourceInstitution: false,
+      };
+      let pdfTitleFound = false;
+      let pdfAuthorFound = false;
+      let pdfYearFound = false;
 
+      // 1) Client-side text extraction (first ~1000 chars used by AI)
       if (item.file.type === "application/pdf" || item.file.name.toLowerCase().endsWith(".pdf")) {
         const { text: t, meta } = await extractPdfTextAndMeta(item.file);
         text = t;
-        if (meta.title) title = meta.title;
-        if (meta.author) author = meta.author;
-        if (meta.year) year = meta.year;
+        if (meta.title) { title = meta.title; pdfTitleFound = true; }
+        if (meta.author) { author = meta.author; pdfAuthorFound = true; }
+        if (meta.year) { year = meta.year; pdfYearFound = true; }
       } else {
         text = await extractTxtText(item.file);
       }
 
-      // Always call AI for clinical classification (in addition to bibliographic metadata).
-      update(item.id, { statusText: "Clasificando con IA..." });
+      // 2) AI classification (Claude via extract-metadata)
+      let analysisFailed = false;
       try {
         const { data, error } = await supabase.functions.invoke("extract-metadata", {
           body: { text },
         });
         if (!error && data && !data.error) {
-          if (!title && data.title) title = data.title;
-          if (!author && data.author) author = data.author;
-          if (!year && data.year) year = data.year;
+          if (data.title) {
+            if (!pdfTitleFound) { title = data.title; }
+            autoFilled.title = true;
+          }
+          if (data.author) {
+            if (!pdfAuthorFound) { author = data.author; }
+            autoFilled.author = true;
+          }
+          if (data.year) {
+            if (!pdfYearFound) { year = data.year; }
+            autoFilled.year = true;
+          }
           if (data.document_type && (DOC_TYPES as readonly string[]).includes(data.document_type)) {
             docType = data.document_type as DocType;
             autoFilled.docType = true;
@@ -629,14 +646,20 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
             autoFilled.sourceInstitution = true;
           }
           if (data.source_institution_type) sourceInstitutionType = String(data.source_institution_type);
-        } else if (error || data?.error) {
+
+          // If AI returned nothing useful, mark as failed
+          const anyAuto = Object.values(autoFilled).some(Boolean);
+          if (!anyAuto) analysisFailed = true;
+        } else {
           console.warn("[upload] metadata AI failed:", error ?? data?.error);
+          analysisFailed = true;
         }
       } catch (e) {
         console.warn("[upload] metadata AI exception:", e);
+        analysisFailed = true;
       }
 
-      // Duplicate detection by title (case-insensitive, owner + global docs).
+      // 3) Duplicate detection by title (case-insensitive, owner + global docs).
       let duplicate: DuplicateDoc | null = null;
       try {
         duplicate = await findDuplicateByTitle(title);
@@ -646,7 +669,11 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
 
       update(item.id, {
         status: "ready",
-        statusText: duplicate ? "Duplicado detectado — elige una acción" : "Listo para subir",
+        statusText: duplicate
+          ? "Duplicado detectado — elige una acción"
+          : analysisFailed
+            ? "Listo para subir (sin auto-clasificación)"
+            : "Listo para subir",
         title,
         author,
         year,
@@ -655,13 +682,21 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         sourceInstitution,
         sourceInstitutionType,
         autoFilled,
+        analysisFailed,
         cachedText: text,
         duplicate,
         dupAction: duplicate ? "pending" : undefined,
       });
     } catch (e: any) {
+      // Hard failure (e.g. PDF unreadable) — leave the row in "ready" with empty editable fields
+      // so the user can still upload and edit metadata manually.
       console.error("[upload] analyze failed:", e);
-      update(item.id, { status: "error", error: e?.message ?? "Error al analizar", statusText: "Error" });
+      update(item.id, {
+        status: "ready",
+        statusText: "No se pudo analizar — completa los campos manualmente",
+        analysisFailed: true,
+        cachedText: "",
+      });
     }
   }
 
@@ -678,14 +713,32 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       clinicalAreas: [],
       sourceInstitution: "",
       sourceInstitutionType: "",
-      autoFilled: { docType: false, clinicalAreas: false, sourceInstitution: false },
+      autoFilled: {
+        title: false, author: false, year: false,
+        docType: false, clinicalAreas: false, sourceInstitution: false,
+      },
       status: "pending",
       progress: 0,
       statusText: "En cola",
     }));
     setItems((prev) => [...prev, ...next]);
+
+    // Parallel classification with concurrency limit of 3 to avoid rate limits.
     (async () => {
-      for (const it of next) await analyzeFile(it);
+      const CONCURRENCY = 3;
+      const queue = [...next];
+      const workers: Promise<void>[] = [];
+      const runWorker = async () => {
+        while (queue.length > 0) {
+          const it = queue.shift();
+          if (!it) break;
+          await analyzeFile(it);
+        }
+      };
+      for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
+        workers.push(runWorker());
+      }
+      await Promise.all(workers);
     })();
   }
 
@@ -994,6 +1047,19 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   );
 }
 
+function FieldLabel({ text, ai }: { text: string; ai?: boolean }) {
+  return (
+    <Label className="text-xs flex items-center gap-1.5">
+      <span>{text}</span>
+      {ai && (
+        <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 px-1.5 py-0 text-[10px] font-medium leading-4">
+          <Sparkles className="h-2.5 w-2.5" /> IA
+        </span>
+      )}
+    </Label>
+  );
+}
+
 function QueueRow({
   item, isAdmin, disabled, onChange, onRemove,
 }: {
@@ -1075,14 +1141,42 @@ function QueueRow({
         </div>
       )}
 
+      {item.status === "analyzing" && (
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="h-4 w-4 animate-pulse text-primary" />
+            <span>✨ Analizando documento...</span>
+          </div>
+          <div className="space-y-2">
+            <div className="h-7 rounded bg-muted animate-pulse" />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="h-7 rounded bg-muted animate-pulse col-span-2" />
+              <div className="h-7 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="h-7 rounded bg-muted animate-pulse" />
+              <div className="h-7 rounded bg-muted animate-pulse col-span-2" />
+            </div>
+            <div className="h-7 rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+      )}
+
       {(item.status === "ready" || item.status === "done") && (
         <div className="space-y-2 pt-1">
+          {item.analysisFailed && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-1.5 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              No se pudo auto-clasificar — completa los campos manualmente
+            </div>
+          )}
+
           {/* Row 1: Título (full width) */}
           <div>
-            <Label className="text-xs">Título *</Label>
+            <FieldLabel text="Título *" ai={item.autoFilled.title} />
             <Input
               value={item.title}
-              onChange={(e) => onChange({ title: e.target.value })}
+              onChange={(e) => onChange({ title: e.target.value, autoFilled: { ...item.autoFilled, title: false } })}
               disabled={!editable || disabled}
               className="h-8 text-sm"
             />
@@ -1091,19 +1185,19 @@ function QueueRow({
           {/* Row 1b: Autor + Año (auxiliary) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="sm:col-span-2">
-              <Label className="text-xs">Autor</Label>
+              <FieldLabel text="Autor" ai={item.autoFilled.author} />
               <Input
                 value={item.author}
-                onChange={(e) => onChange({ author: e.target.value })}
+                onChange={(e) => onChange({ author: e.target.value, autoFilled: { ...item.autoFilled, author: false } })}
                 disabled={!editable || disabled}
                 className="h-8 text-sm"
               />
             </div>
             <div>
-              <Label className="text-xs">Año</Label>
+              <FieldLabel text="Año" ai={item.autoFilled.year} />
               <Input
                 value={item.year}
-                onChange={(e) => onChange({ year: e.target.value })}
+                onChange={(e) => onChange({ year: e.target.value, autoFilled: { ...item.autoFilled, year: false } })}
                 disabled={!editable || disabled}
                 className="h-8 text-sm"
               />
@@ -1113,10 +1207,10 @@ function QueueRow({
           {/* Row 2: Tipo (1/3) | Fuente / Institución (2/3) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
-              <Label className="text-xs">Tipo</Label>
+              <FieldLabel text="Tipo" ai={item.autoFilled.docType} />
               <Select
                 value={item.docType}
-                onValueChange={(v) => onChange({ docType: v as DocType })}
+                onValueChange={(v) => onChange({ docType: v as DocType, autoFilled: { ...item.autoFilled, docType: false } })}
                 disabled={!editable || disabled}
               >
                 <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
@@ -1126,13 +1220,14 @@ function QueueRow({
               </Select>
             </div>
             <div className="sm:col-span-2">
-              <Label className="text-xs">Fuente / Institución</Label>
+              <FieldLabel text="Fuente / Institución" ai={item.autoFilled.sourceInstitution} />
               <SourceInstitutionPicker
                 value={item.sourceInstitution}
                 onChange={(name, type) =>
                   onChange({
                     sourceInstitution: name,
                     sourceInstitutionType: type ?? item.sourceInstitutionType,
+                    autoFilled: { ...item.autoFilled, sourceInstitution: false },
                   })
                 }
                 disabled={!editable || disabled}
@@ -1142,10 +1237,10 @@ function QueueRow({
 
           {/* Row 3: Áreas clínicas (full width multi-select with chips) */}
           <div>
-            <Label className="text-xs">Área(s) clínica(s)</Label>
+            <FieldLabel text="Área(s) clínica(s)" ai={item.autoFilled.clinicalAreas} />
             <ClinicalAreasPicker
               value={item.clinicalAreas}
-              onChange={(areas) => onChange({ clinicalAreas: areas })}
+              onChange={(areas) => onChange({ clinicalAreas: areas, autoFilled: { ...item.autoFilled, clinicalAreas: false } })}
               disabled={!editable || disabled}
             />
           </div>
