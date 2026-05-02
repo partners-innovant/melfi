@@ -550,6 +550,8 @@ async function importPubMedArticle(
       import_source: "pubmed",
       pubmed_id: article.pubmed_id,
       pmc_id: article.pmc_id,
+      europepmc_id: article.europepmc_id || null,
+      europepmc_source: article.source || null,
       abstract: article.abstract,
       clinical_areas: initial.clinical_areas ?? [],
       source_institution: initial.source_institution ?? "PubMed / NCBI",
