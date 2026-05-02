@@ -249,6 +249,24 @@ export default function Assistant() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
 
+  // Auto-send a prefilled question when navigated with ?q=...&autosend=1
+  const autosentRef = useRef(false);
+  useEffect(() => {
+    if (autosentRef.current) return;
+    const q = params.get("q");
+    const autosend = params.get("autosend");
+    if (!q) return;
+    if (autosend === "1") {
+      autosentRef.current = true;
+      // Defer to next tick so patientId state is settled
+      setTimeout(() => { void send(q); }, 50);
+    } else {
+      autosentRef.current = true;
+      setInput(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   function newConversation() {
     setMessages([]);
     setConversationId(null);

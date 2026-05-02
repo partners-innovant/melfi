@@ -21,6 +21,7 @@ import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 import TransferPatientDialog from "@/components/TransferPatientDialog";
 import SessionSchedulePill from "@/components/SessionSchedulePill";
+import { useAppSidebar } from "@/components/sidebar-state";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -36,6 +37,16 @@ export default function PatientDetail() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [sessionModeOpen, setSessionModeOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(true);
+  const { collapsed: sidebarCollapsed } = useAppSidebar();
+  const builderWidthPx = sidebarCollapsed ? 560 : 400;
+  const [isXl, setIsXl] = useState<boolean>(
+    typeof window !== "undefined" ? window.innerWidth >= 1280 : true,
+  );
+  useEffect(() => {
+    const onResize = () => setIsXl(window.innerWidth >= 1280);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   async function load() {
     if (!id) return;
@@ -254,16 +265,17 @@ export default function PatientDetail() {
       </div>
 
       {/* Profile Builder side panel — animates width, never overlays.
+          Width adapts to sidebar state (400px expanded / 560px collapsed) on xl+.
           On <1200px (xl breakpoint) the parent stacks vertically and this becomes a full-width block. */}
       <div
         className={
-          "transition-[width,height] duration-300 ease-out overflow-hidden " +
-          "xl:h-full " +
-          (builderOpen
-            ? "xl:w-[400px] h-[70vh] xl:h-full"
-            : "xl:w-0 h-0")
+          "transition-all duration-300 ease-out overflow-hidden xl:h-full " +
+          (builderOpen ? "h-[70vh] xl:h-full" : "h-0 xl:h-full")
         }
-        style={{ flexShrink: 0 }}
+        style={{
+          flexShrink: 0,
+          width: builderOpen ? (isXl ? `${builderWidthPx}px` : "100%") : isXl ? 0 : "100%",
+        }}
       >
         {builderOpen && (
           <PatientProfileBuilderPanel

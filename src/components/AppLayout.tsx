@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import ProfileCompletionModal from "@/components/ProfileCompletionModal";
 import FeedbackButton from "@/components/FeedbackButton";
+import { SidebarStateContext } from "@/components/sidebar-state";
 
 const baseItems = [
   { to: "/", label: "Inicio", icon: LayoutDashboard, end: true },
@@ -66,6 +67,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const mainPad = collapsed ? "md:pl-16" : "md:pl-64";
 
   return (
+    <SidebarStateContext.Provider value={{ collapsed, setCollapsed }}>
     <TooltipProvider delayDuration={150}>
       <div className="flex min-h-screen w-full bg-surface">
         <ProfileCompletionModal />
@@ -310,5 +312,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
       </div>
     </TooltipProvider>
+    </SidebarStateContext.Provider>
   );
 }

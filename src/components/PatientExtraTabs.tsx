@@ -43,10 +43,14 @@ export function PatientProfileBuilderTab({
   patientId,
   onProfileUpdated,
   embedded = false,
+  headerExtra,
+  onMessagesChange,
 }: {
   patientId: string;
   onProfileUpdated?: () => void;
   embedded?: boolean;
+  headerExtra?: React.ReactNode;
+  onMessagesChange?: (messages: Msg[]) => void;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -101,6 +105,10 @@ export function PatientProfileBuilderTab({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
+
+  useEffect(() => {
+    onMessagesChange?.(messages);
+  }, [messages, onMessagesChange]);
 
   async function send(text?: string, opts?: { mode?: "suggest_diagnosis" }) {
     const message = (text ?? input).trim();
@@ -391,6 +399,7 @@ export function PatientProfileBuilderTab({
         >
           <RotateCcw className="h-3 w-3" />↺ Reiniciar
         </Button>
+        {headerExtra}
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4">
