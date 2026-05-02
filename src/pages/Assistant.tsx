@@ -551,17 +551,16 @@ export default function Assistant() {
                 sourcesCount={selectedSources.length}
                 allSourcesCount={availableSources.length}
               />
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {(patientKind === "child" ? CHILD_SUGGESTIONS : SUGGESTIONS).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => { setInput(s); }}
-                    className="text-left text-sm border border-border rounded-xl px-3 py-2.5 hover:bg-accent hover:border-primary/40 transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              <SuggestionChips
+                patientId={patientId}
+                patientKind={patientKind}
+                patientName={activePatientName}
+                dynamic={patientId !== NONE ? suggestionsCache[patientId] ?? [] : []}
+                loading={loadingSuggestions}
+                onPick={(s) => setInput(s)}
+                onRefresh={() => fetchPatientSuggestions(true)}
+              />
+
             </div>
           </div>
         ) : (
