@@ -175,9 +175,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="flex flex-col items-center gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="h-9 w-9 rounded-full bg-primary-soft text-accent-foreground flex items-center justify-center text-sm font-semibold">
-                      {initials || "?"}
-                    </div>
+                    <button
+                      onClick={() => navigate("/profile")}
+                      className="h-9 w-9 rounded-full bg-primary-soft text-accent-foreground flex items-center justify-center text-sm font-semibold overflow-hidden hover:ring-2 hover:ring-primary/40 transition"
+                      aria-label="Mi perfil"
+                    >
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        initials || "?"
+                      )}
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={8}>
                     {profile ? `${profile.first_name} ${profile.last_name}` : "—"}
@@ -199,17 +207,27 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             ) : (
               <div className="flex items-center gap-3 px-2 py-2">
-                <div className="h-9 w-9 rounded-full bg-primary-soft text-accent-foreground flex items-center justify-center text-sm font-semibold">
-                  {initials || "?"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">
-                    {profile ? `${profile.first_name} ${profile.last_name}` : "—"}
+                <button
+                  onClick={() => navigate("/profile")}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-md hover:bg-sidebar-accent/60 -mx-1 px-1 py-1 transition"
+                  aria-label="Mi perfil"
+                >
+                  <div className="h-9 w-9 rounded-full bg-primary-soft text-accent-foreground flex items-center justify-center text-sm font-semibold overflow-hidden flex-shrink-0">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      initials || "?"
+                    )}
                   </div>
-                  {profile?.is_admin && (
-                    <div className="text-[10px] uppercase tracking-wide text-primary font-semibold">Admin</div>
-                  )}
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {profile ? `${profile.first_name} ${profile.last_name}` : "—"}
+                    </div>
+                    {profile?.is_admin && (
+                      <div className="text-[10px] uppercase tracking-wide text-primary font-semibold">Admin</div>
+                    )}
+                  </div>
+                </button>
                 <button
                   onClick={signOut}
                   className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-secondary"
