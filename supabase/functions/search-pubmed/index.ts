@@ -4,6 +4,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type PdfStatus = "available" | "abstract_only" | "no_open_access";
+
 interface ArticleSummary {
   pubmed_id: string;
   pmc_id: string | null;
@@ -13,9 +15,39 @@ interface ArticleSummary {
   journal: string | null;
   year: string | null;
   has_free_pdf: boolean;
+  pdf_status: PdfStatus;
   abstract: string | null;
   url: string;
   pmc_url: string | null;
+}
+
+/**
+ * Use the PMC OA Web Service to verify whether a PMC article truly has a
+ * freely-downloadable PDF. Returns the resolved PDF URL or null.
+ * Docs: https://www.ncbi.nlm.nih.gov/pmc/tools/oa-service/
+ */
+async function resolvePmcPdfUrl(pmcId: string): Promise<string | null> {
+  const cleanId = pmcId.replace(/^PMC/i, "");
+  try {
+    const oaRes = await fetch(
+      `https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=PMC${cleanId}&format=pdf`,
+      {
+        headers: {
+          "User-Agent": "PsicoasistBot/1.0 (clinical research; mailto:support@psicoasist.com)",
+        },
+      },
+    );
+    if (!oaRes.ok) return null;
+    const oaText = await oaRes.text();
+    if (/<error\b/i.test(oaText)) return null;
+    const linkMatch = oaText.match(/<link[^>]*format="pdf"[^>]*href="([^"]+)"/i)
+      ?? oaText.match(/href="([^"]*\.pdf[^"]*)"/i);
+    if (!linkMatch) return null;
+    return linkMatch[1].replace(/^ftp:\/\//i, "https://");
+  } catch (e) {
+    console.warn("[search-pubmed] OA lookup failed for PMC", pmcId, e);
+    return null;
+  }
 }
 
 function parseAbstracts(xml: string): Record<string, string> {
@@ -90,7 +122,7 @@ Deno.serve(async (req) => {
     const xml = await fetchRes.text();
     const abstracts = parseAbstracts(xml);
 
-    const articles: ArticleSummary[] = ids.map((id) => {
+    const baseArticles = ids.map((id) => {
       const s = summaryData?.result?.[id] ?? {};
       const articleids: Array<{ idtype: string; value: string }> = s.articleids ?? [];
       const pmcRaw = articleids.find((a) => a.idtype === "pmc")?.value ?? null;
@@ -108,12 +140,23 @@ Deno.serve(async (req) => {
         authors: authorList,
         journal: s.fulljournalname ?? s.source ?? null,
         year,
-        has_free_pdf: !!pmcId,
         abstract: abstracts[id] ?? null,
         url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
         pmc_url: pmcId ? `https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${pmcId}/` : null,
       };
     });
+
+    // Verify PDF availability via PMC OA service in parallel for articles with a PMC ID.
+    const articles: ArticleSummary[] = await Promise.all(
+      baseArticles.map(async (a) => {
+        let pdf_status: PdfStatus = "no_open_access";
+        if (a.pmc_id) {
+          const pdfUrl = await resolvePmcPdfUrl(a.pmc_id);
+          pdf_status = pdfUrl ? "available" : "abstract_only";
+        }
+        return { ...a, has_free_pdf: pdf_status === "available", pdf_status };
+      }),
+    );
 
     return new Response(JSON.stringify({ articles }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

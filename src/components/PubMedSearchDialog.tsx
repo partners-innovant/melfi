@@ -20,6 +20,8 @@ import { ClassifyPreviewDialog, type ClassifyTarget } from "@/components/Classif
 import { extractPdfText, chunkText } from "@/lib/pdf";
 import type { DocType } from "@/lib/clinical";
 
+export type PubMedPdfStatus = "available" | "abstract_only" | "no_open_access";
+
 export interface PubMedArticle {
   pubmed_id: string;
   pmc_id: string | null;
@@ -29,6 +31,7 @@ export interface PubMedArticle {
   journal: string | null;
   year: string | null;
   has_free_pdf: boolean;
+  pdf_status?: PubMedPdfStatus;
   abstract: string | null;
   url: string;
   pmc_url: string | null;
@@ -296,10 +299,16 @@ function ArticleCard({
   async function handleImport() {
     setImporting(true);
     try {
-      const target = await importPubMedArticle(article, isAdmin, setStatusText);
+      const { target, usedPdf } = await importPubMedArticle(article, isAdmin, setStatusText);
       setDone(true);
       onImported(target);
-      toast.success("✅ Importado correctamente");
+      if (usedPdf) {
+        toast.success("✅ Importado correctamente");
+      } else {
+        toast.success("✅ Importado correctamente", {
+          description: "ℹ️ PDF no disponible en acceso libre — se importó el abstract del artículo",
+        });
+      }
     } catch (e) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "Error al importar");
@@ -331,15 +340,29 @@ function ArticleCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {article.has_free_pdf ? (
-            <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-              🟢 PDF disponible
-            </Badge>
-          ) : (
-            <Badge className="text-[10px] bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 hover:bg-blue-500/15">
-              🔵 Solo abstract
-            </Badge>
-          )}
+          {(() => {
+            const status: PubMedPdfStatus =
+              article.pdf_status ?? (article.has_free_pdf ? "available" : article.pmc_id ? "abstract_only" : "no_open_access");
+            if (status === "available") {
+              return (
+                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
+                  🟢 PDF disponible
+                </Badge>
+              );
+            }
+            if (status === "abstract_only") {
+              return (
+                <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
+                  🟡 Solo abstract
+                </Badge>
+              );
+            }
+            return (
+              <Badge className="text-[10px] bg-muted text-muted-foreground border-border hover:bg-muted">
+                ⚪ Sin acceso libre
+              </Badge>
+            );
+          })()}
         </div>
       </div>
 
@@ -393,7 +416,7 @@ async function importPubMedArticle(
   article: PubMedArticle,
   isAdmin: boolean,
   setStatus: (s: string) => void,
-): Promise<ClassifyTarget> {
+): Promise<{ target: ClassifyTarget; usedPdf: boolean }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
@@ -539,16 +562,19 @@ async function importPubMedArticle(
   }
 
   return {
-    id: doc.id,
-    title: doc.title,
-    author: doc.author,
-    year: doc.year,
-    document_type: doc.document_type as DocType,
-    clinical_areas: doc.clinical_areas ?? [],
-    source_institution: doc.source_institution,
-    source_institution_type: doc.source_institution_type,
-    language: doc.language,
-    storage_path: doc.storage_path,
-    source_url: doc.source_url,
+    target: {
+      id: doc.id,
+      title: doc.title,
+      author: doc.author,
+      year: doc.year,
+      document_type: doc.document_type as DocType,
+      clinical_areas: doc.clinical_areas ?? [],
+      source_institution: doc.source_institution,
+      source_institution_type: doc.source_institution_type,
+      language: doc.language,
+      storage_path: doc.storage_path,
+      source_url: doc.source_url,
+    },
+    usedPdf,
   };
 }
