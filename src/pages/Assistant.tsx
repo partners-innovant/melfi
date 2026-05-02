@@ -559,6 +559,7 @@ export default function Assistant() {
                 dynamic={patientId !== NONE ? suggestionsCache[patientId] ?? [] : []}
                 loading={loadingSuggestions}
                 onPick={(s) => setInput(s)}
+                onAutoSend={(text, mode) => send(text, { mode })}
                 onRefresh={() => fetchPatientSuggestions(true)}
               />
 
