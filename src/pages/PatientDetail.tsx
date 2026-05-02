@@ -27,7 +27,7 @@ export default function PatientDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState("builder");
+  const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
 
   async function load() {
