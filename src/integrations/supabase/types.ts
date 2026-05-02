@@ -1101,6 +1101,10 @@ export type Database = {
           profile_builder_completed: boolean
           psychologist_id: string
           relevant_history: string | null
+          session_day: string | null
+          session_duration: number | null
+          session_frequency: string | null
+          session_time: string | null
           sex: string | null
           start_date: string | null
           therapeutic_goals: string | null
@@ -1125,6 +1129,10 @@ export type Database = {
           profile_builder_completed?: boolean
           psychologist_id: string
           relevant_history?: string | null
+          session_day?: string | null
+          session_duration?: number | null
+          session_frequency?: string | null
+          session_time?: string | null
           sex?: string | null
           start_date?: string | null
           therapeutic_goals?: string | null
@@ -1149,6 +1157,10 @@ export type Database = {
           profile_builder_completed?: boolean
           psychologist_id?: string
           relevant_history?: string | null
+          session_day?: string | null
+          session_duration?: number | null
+          session_frequency?: string | null
+          session_time?: string | null
           sex?: string | null
           start_date?: string | null
           therapeutic_goals?: string | null
