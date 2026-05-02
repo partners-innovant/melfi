@@ -541,6 +541,13 @@ export default function Assistant() {
             <div className="border-t border-border bg-card px-4 md:px-6 py-3">
               <div className="max-w-3xl mx-auto">
                 <InputBox value={input} onChange={setInput} onSend={() => send()} busy={busy} />
+                <FilterIndicator
+                  yearFrom={yearFrom}
+                  areasCount={selectedAreas.length}
+                  allAreasCount={ALL_AREAS.length}
+                  sourcesCount={selectedSources.length}
+                  allSourcesCount={availableSources.length}
+                />
               </div>
             </div>
           </>
