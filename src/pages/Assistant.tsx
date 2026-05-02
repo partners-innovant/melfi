@@ -54,18 +54,31 @@ interface ConversationItem {
 const ALL = "__all__";
 const NONE = "__none__";
 
-const SUGGESTIONS = [
-  "¿Qué dice la evidencia sobre TCC para ansiedad?",
-  "¿Cómo abordar la resistencia terapéutica?",
-  "¿Cuáles son los criterios diagnósticos del DSM-5 para depresión mayor?",
-  "¿Qué protocolos existen para el tratamiento del TDAH en adultos?",
+// General clinical suggestions when no patient is selected (organized by clinical moment)
+const GENERAL_SUGGESTIONS: { label: string; question: string }[] = [
+  {
+    label: "Antes de sesión",
+    question: "¿Qué protocolo de evaluación inicial usar con un paciente que presenta síntomas mixtos de ansiedad y depresión?",
+  },
+  {
+    label: "Antes de sesión",
+    question: "¿Cómo estructurar las primeras 3 sesiones con un paciente resistente al proceso terapéutico?",
+  },
+  {
+    label: "Durante el tratamiento",
+    question: "¿Cuándo está indicado cambiar de enfoque terapéutico cuando no hay avance después de 3 meses?",
+  },
+  {
+    label: "Durante el tratamiento",
+    question: "¿Qué señales de alarma indican necesidad de derivación psiquiátrica urgente?",
+  },
 ];
 
-const CHILD_SUGGESTIONS = [
-  "¿Qué actividades lúdicas recomiendas para trabajar [objetivo actual]?",
-  "¿Cómo interpreto los resultados del último test?",
-  "¿Qué incluir en el informe para el colegio?",
-  "¿Cómo involucrar más a los apoderados en el proceso?",
+const CHILD_GENERAL_SUGGESTIONS: { label: string; question: string }[] = [
+  { label: "Antes de sesión", question: "¿Qué actividades lúdicas recomiendas para trabajar regulación emocional en niños?" },
+  { label: "Antes de sesión", question: "¿Cómo estructurar la primera sesión con un niño derivado por conducta disruptiva?" },
+  { label: "Durante el tratamiento", question: "¿Qué incluir en el informe psicoeducativo para el colegio?" },
+  { label: "Durante el tratamiento", question: "¿Cómo involucrar más a los apoderados en el proceso terapéutico?" },
 ];
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
