@@ -445,6 +445,7 @@ function ViewerSheet({ doc, onClose }: { doc: Doc | null; onClose: () => void })
 }
 
 type QueueStatus = "pending" | "analyzing" | "ready" | "uploading" | "done" | "error";
+type DupAction = "pending" | "replace" | "keep_both";
 
 interface QueueItem {
   id: string;
@@ -460,6 +461,9 @@ interface QueueItem {
   error?: string;
   // cached extracted text so we don't re-parse during upload
   cachedText?: string;
+  // duplicate detection
+  duplicate?: DuplicateDoc | null;
+  dupAction?: DupAction; // user choice for the duplicate prompt
 }
 
 function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
