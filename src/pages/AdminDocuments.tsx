@@ -3,8 +3,10 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye,
+  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye, Calendar as CalendarIcon, Filter,
 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format as formatDateFn } from "date-fns";
 import { extractPdfText, extractTxtText, chunkText, renderPdfPagesToBase64 } from "@/lib/pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,6 +85,33 @@ export default function AdminDocuments() {
   const [noChunksSnapshot, setNoChunksSnapshot] = useState<Set<string> | null>(null);
   const [noChunksSearchAt, setNoChunksSearchAt] = useState<Date | null>(null);
   const [, setNowTick] = useState(0);
+
+  // Per-column filters (debounced text inputs)
+  const [colTitle, setColTitle] = useState("");
+  const [colTitleDebounced, setColTitleDebounced] = useState("");
+  const [colAuthor, setColAuthor] = useState("");
+  const [colAuthorDebounced, setColAuthorDebounced] = useState("");
+  const [colYearFrom, setColYearFrom] = useState("");
+  const [colYearTo, setColYearTo] = useState("");
+  const [colType, setColType] = useState<string>(ANY);
+  const [colAreas, setColAreas] = useState<string[]>([]);
+  const [colSourceCol, setColSourceCol] = useState<string>(ANY);
+  const [colLang, setColLang] = useState<string>(ANY);
+  const [colChunks, setColChunks] = useState<string>(ANY); // ANY | "0" | "1+"
+  const [colOrigin, setColOrigin] = useState<string>(ANY);
+  const [colDateFrom, setColDateFrom] = useState<Date | undefined>(undefined);
+  const [colDateTo, setColDateTo] = useState<Date | undefined>(undefined);
+
+  // Debounce title/author 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setColTitleDebounced(colTitle), 300);
+    return () => clearTimeout(t);
+  }, [colTitle]);
+  useEffect(() => {
+    const t = setTimeout(() => setColAuthorDebounced(colAuthor), 300);
+    return () => clearTimeout(t);
+  }, [colAuthor]);
+
 
   // Reprocessing
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
@@ -222,6 +251,12 @@ export default function AdminDocuments() {
   // Filtering
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const tq = colTitleDebounced.trim().toLowerCase();
+    const aq = colAuthorDebounced.trim().toLowerCase();
+    const yFrom = colYearFrom ? parseInt(colYearFrom, 10) : null;
+    const yTo = colYearTo ? parseInt(colYearTo, 10) : null;
+    const dFrom = colDateFrom ? new Date(colDateFrom.getFullYear(), colDateFrom.getMonth(), colDateFrom.getDate()).getTime() : null;
+    const dTo = colDateTo ? new Date(colDateTo.getFullYear(), colDateTo.getMonth(), colDateTo.getDate(), 23, 59, 59, 999).getTime() : null;
     return rows.filter((d) => {
       if (q) {
         const hay = `${d.title} ${d.author ?? ""}`.toLowerCase();
@@ -233,9 +268,75 @@ export default function AdminDocuments() {
       if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
       if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
       if (noChunksSnapshot && !noChunksSnapshot.has(d.id)) return false;
+      // Column filters
+      if (tq && !d.title.toLowerCase().includes(tq)) return false;
+      if (aq && !(d.author ?? "").toLowerCase().includes(aq)) return false;
+      if (yFrom !== null) {
+        const y = d.year ? parseInt(d.year, 10) : NaN;
+        if (isNaN(y) || y < yFrom) return false;
+      }
+      if (yTo !== null) {
+        const y = d.year ? parseInt(d.year, 10) : NaN;
+        if (isNaN(y) || y > yTo) return false;
+      }
+      if (colType !== ANY && d.document_type !== colType) return false;
+      if (colAreas.length > 0 && !colAreas.some((a) => d.clinical_areas.includes(a))) return false;
+      if (colSourceCol !== ANY && (d.source_institution ?? "") !== colSourceCol) return false;
+      if (colLang !== ANY && (d.language ?? "") !== colLang) return false;
+      if (colChunks === "0" && d.chunk_count !== 0) return false;
+      if (colChunks === "1+" && d.chunk_count < 1) return false;
+      if (colOrigin !== ANY && (d.import_source ?? "upload") !== colOrigin) return false;
+      if (dFrom !== null && new Date(d.created_at).getTime() < dFrom) return false;
+      if (dTo !== null && new Date(d.created_at).getTime() > dTo) return false;
       return true;
     });
-  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksSnapshot]);
+  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksSnapshot,
+      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+
+  // Reset to page 1 when column filters change
+  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+
+  // Active column filter count + clear-all
+  const activeColFilterCount = useMemo(() => {
+    let n = 0;
+    if (colTitleDebounced) n++;
+    if (colAuthorDebounced) n++;
+    if (colYearFrom) n++;
+    if (colYearTo) n++;
+    if (colType !== ANY) n++;
+    if (colAreas.length > 0) n++;
+    if (colSourceCol !== ANY) n++;
+    if (colLang !== ANY) n++;
+    if (colChunks !== ANY) n++;
+    if (colOrigin !== ANY) n++;
+    if (colDateFrom) n++;
+    if (colDateTo) n++;
+    return n;
+  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+
+  function clearAllColFilters() {
+    setColTitle(""); setColAuthor("");
+    setColYearFrom(""); setColYearTo("");
+    setColType(ANY); setColAreas([]);
+    setColSourceCol(ANY); setColLang(ANY);
+    setColChunks(ANY); setColOrigin(ANY);
+    setColDateFrom(undefined); setColDateTo(undefined);
+  }
+
+  // Distinct institutions present in rows (for Fuente column dropdown)
+  const distinctInstitutions = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) if (r.source_institution) s.add(r.source_institution);
+    return Array.from(s).sort();
+  }, [rows]);
+
+  // Distinct origins
+  const distinctOrigins = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) s.add(r.import_source ?? "upload");
+    return Array.from(s).sort();
+  }, [rows]);
+
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -749,6 +850,18 @@ export default function AdminDocuments() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium inline-flex items-center gap-1.5">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          Filtros
+          {activeColFilterCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{activeColFilterCount}</Badge>
+          )}
+        </span>
+        {activeColFilterCount > 0 && (
+          <Button size="sm" variant="ghost" onClick={clearAllColFilters} className="h-7 text-xs">
+            <X className="h-3 w-3 mr-1" /> Limpiar todos los filtros
+          </Button>
+        )}
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -876,18 +989,86 @@ export default function AdminDocuments() {
               <TableHead className="w-10">
                 <Checkbox checked={allOnPageSelected} onCheckedChange={(v) => toggleAllOnPage(!!v)} />
               </TableHead>
-              <TableHead>Título</TableHead>
-              <TableHead>Autor</TableHead>
-              <TableHead className="w-20">Año</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead style={{ width: "25%" }}>Área(s) clínica(s)</TableHead>
-              <TableHead>Fuente</TableHead>
-              <TableHead>Idioma</TableHead>
-              <TableHead className="w-20 text-center">Chunks</TableHead>
-              <TableHead className="w-24">Modo</TableHead>
-              <TableHead>Origen</TableHead>
-              <TableHead>Subido</TableHead>
-              <TableHead className="w-32">Acciones</TableHead>
+              <TableHead style={{ width: "25%" }}>Título</TableHead>
+              <TableHead style={{ width: "10%" }}>Autor</TableHead>
+              <TableHead style={{ width: "5%" }}>Año</TableHead>
+              <TableHead style={{ width: "8%" }}>Tipo</TableHead>
+              <TableHead style={{ width: "30%" }}>Área(s) clínica(s)</TableHead>
+              <TableHead style={{ width: "10%" }}>Fuente</TableHead>
+              <TableHead style={{ width: "5%" }}>Idioma</TableHead>
+              <TableHead style={{ width: "5%" }} className="text-center">Chunks</TableHead>
+              <TableHead style={{ width: "5%" }}>Modo</TableHead>
+              <TableHead style={{ width: "5%" }}>Origen</TableHead>
+              <TableHead style={{ width: "7%" }}>Subido</TableHead>
+              <TableHead style={{ width: "5%" }}>Acciones</TableHead>
+            </TableRow>
+            {/* Column filter row */}
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="p-1" />
+              <TableHead className="p-1">
+                <ColTextFilter value={colTitle} onChange={setColTitle} placeholder="Filtrar título…" />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColTextFilter value={colAuthor} onChange={setColAuthor} placeholder="Filtrar autor…" />
+              </TableHead>
+              <TableHead className="p-1">
+                <div className="flex gap-1">
+                  <ColTextFilter value={colYearFrom} onChange={setColYearFrom} placeholder="Desde" type="number" compact />
+                  <ColTextFilter value={colYearTo} onChange={setColYearTo} placeholder="Hasta" type="number" compact />
+                </div>
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colType}
+                  onChange={setColType}
+                  options={[{ value: ANY, label: "Todos" }, ...DOC_TYPES.map((t) => ({ value: t, label: DOC_TYPE_LABELS[t] }))]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColAreasFilter value={colAreas} onChange={setColAreas} />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colSourceCol}
+                  onChange={setColSourceCol}
+                  options={[{ value: ANY, label: "Todas" }, ...distinctInstitutions.map((s) => ({ value: s, label: shortInstitutionName(s) }))]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colLang}
+                  onChange={setColLang}
+                  options={[
+                    { value: ANY, label: "Todos" },
+                    { value: "es", label: "Español" },
+                    { value: "en", label: "Inglés" },
+                    { value: "otro", label: "Otro" },
+                  ]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colChunks}
+                  onChange={setColChunks}
+                  options={[
+                    { value: ANY, label: "Todos" },
+                    { value: "0", label: "Sin chunks (0)" },
+                    { value: "1+", label: "Con chunks (1+)" },
+                  ]}
+                />
+              </TableHead>
+              <TableHead className="p-1" />
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colOrigin}
+                  onChange={setColOrigin}
+                  options={[{ value: ANY, label: "Todos" }, ...distinctOrigins.map((o) => ({ value: o, label: o }))]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColDateRangeFilter from={colDateFrom} to={colDateTo} onFromChange={setColDateFrom} onToChange={setColDateTo} />
+              </TableHead>
+              <TableHead className="p-1" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1030,8 +1211,11 @@ export default function AdminDocuments() {
                 <TableCell>
                   <Badge variant="secondary" className="text-[10px]">{d.import_source ?? "upload"}</Badge>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                  {new Date(d.created_at).toLocaleDateString("es-CL")}
+                <TableCell className="text-xs whitespace-nowrap">
+                  <div className="flex flex-col leading-tight">
+                    <span>{formatDateFn(new Date(d.created_at), "dd-MM-yyyy")}</span>
+                    <span className="text-[10px] text-muted-foreground">{formatDateFn(new Date(d.created_at), "HH:mm")}</span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
@@ -1573,4 +1757,170 @@ function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
+}
+
+// ---------- Column filter components ----------
+function ColTextFilter({ value, onChange, placeholder, type, compact }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="relative">
+      <Input
+        type={type ?? "text"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn("h-7 text-[12px] px-2", compact ? "w-full" : "w-full", value && "pr-6")}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ColSelectFilter({ value, onChange, options }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  const isActive = value !== ANY;
+  return (
+    <div className="relative">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className={cn("h-7 text-[12px] px-2", isActive && "pr-7")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="max-h-[400px]">
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {isActive && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onChange(ANY); }}
+          className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ColAreasFilter({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const all = [...CLINICAL_AREAS_NICE, ...CLINICAL_AREAS_TRANSVERSAL];
+  const isActive = value.length > 0;
+  function toggle(a: string) {
+    onChange(value.includes(a) ? value.filter((x) => x !== a) : [...value, a]);
+  }
+  return (
+    <div className="relative">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "h-7 text-[12px] px-2 w-full text-left rounded-md border border-input bg-background hover:bg-accent/50",
+              isActive && "pr-7",
+            )}
+          >
+            {value.length === 0 ? "Todas" : `${value.length} área(s)`}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Buscar área…" className="h-8 text-xs" />
+            <CommandList className="max-h-[300px]">
+              <CommandEmpty>Sin resultados</CommandEmpty>
+              <CommandGroup>
+                {all.map((a) => (
+                  <CommandItem key={a} value={a} onSelect={() => toggle(a)} className="text-xs">
+                    <Checkbox checked={value.includes(a)} className="mr-2" />
+                    {clinicalAreaLabel(a)}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {isActive && (
+        <button
+          type="button"
+          onClick={() => onChange([])}
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ColDateRangeFilter({ from, to, onFromChange, onToChange }: {
+  from: Date | undefined;
+  to: Date | undefined;
+  onFromChange: (d: Date | undefined) => void;
+  onToChange: (d: Date | undefined) => void;
+}) {
+  const isActive = !!(from || to);
+  return (
+    <div className="flex items-center gap-1">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="h-7 text-[11px] px-2 rounded-md border border-input bg-background hover:bg-accent/50 inline-flex items-center gap-1 flex-1 min-w-0"
+          >
+            <CalendarIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{from ? formatDateFn(from, "dd-MM-yy") : "Desde"}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={from} onSelect={onFromChange} initialFocus className={cn("p-3 pointer-events-auto")} />
+        </PopoverContent>
+      </Popover>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="h-7 text-[11px] px-2 rounded-md border border-input bg-background hover:bg-accent/50 inline-flex items-center gap-1 flex-1 min-w-0"
+          >
+            <CalendarIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{to ? formatDateFn(to, "dd-MM-yy") : "Hasta"}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={to} onSelect={onToChange} initialFocus className={cn("p-3 pointer-events-auto")} />
+        </PopoverContent>
+      </Popover>
+      {isActive && (
+        <button
+          type="button"
+          onClick={() => { onFromChange(undefined); onToChange(undefined); }}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
 }
