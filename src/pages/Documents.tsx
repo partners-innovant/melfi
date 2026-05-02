@@ -850,7 +850,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
   return (
-    <DialogContent className="w-[90vw] max-w-[1200px] sm:max-w-[1200px] max-h-[90vh] overflow-y-auto">
+    <DialogContent className="w-[95vw] max-w-[1400px] sm:max-w-[1400px] h-auto max-h-[90vh] overflow-y-auto rounded-lg shadow-lg">
       <DialogHeader>
         <DialogTitle>Subir documentos</DialogTitle>
       </DialogHeader>
