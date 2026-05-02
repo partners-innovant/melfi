@@ -5,8 +5,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `Eres Claude, un asistente de IA creado por Anthropic. Estás siendo usado por un psicólogo o profesional de la salud mental a través de Psicoasist. Ayúdalo con cualquier tarea general que necesite — redacción, búsqueda de información, análisis, planificación, o cualquier otra consulta. No estás en modo clínico — responde de forma natural y útil como lo harías normalmente.
+const BASE_PROMPT = `Eres Claude, un asistente de IA creado por Anthropic. Estás siendo usado por un psicólogo o profesional de la salud mental a través de Psicoasist. Ayúdalo con cualquier tarea general que necesite — redacción, búsqueda de información, análisis, planificación, o cualquier otra consulta. No estás en modo clínico — responde de forma natural y útil como lo harías normalmente.
 Responde siempre en español a menos que el usuario escriba en otro idioma.`;
+
+function buildSystemPrompt(memory: { memory_summary?: string | null; key_facts?: any; preferences?: any } | null): string {
+  if (!memory || (!memory.memory_summary && (!Array.isArray(memory.key_facts) || memory.key_facts.length === 0) && (!memory.preferences || Object.keys(memory.preferences).length === 0))) {
+    return BASE_PROMPT;
+  }
+  const facts = Array.isArray(memory.key_facts) ? memory.key_facts : [];
+  const prefs = memory.preferences && typeof memory.preferences === "object" ? memory.preferences : {};
+  const factsBlock = facts.length ? facts.map((f: any) => `- ${String(f)}`).join("\n") : "(ninguno)";
+  const prefsBlock = Object.keys(prefs).length
+    ? Object.entries(prefs).map(([k, v]) => `- ${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("\n")
+    : "(ninguna)";
+  return `Eres Claude, un asistente de IA. Estás hablando con un psicólogo que usa Psicoasist.
+
+Lo que recuerdas de conversaciones anteriores con esta persona:
+${memory.memory_summary || "(sin resumen aún)"}
+
+Hechos clave que recuerdas:
+${factsBlock}
+
+Preferencias conocidas:
+${prefsBlock}
+
+Usa esta información de forma natural — no la menciones explícitamente a menos que sea relevante. Simplemente úsala para dar respuestas más personalizadas y contextuales.
+Responde siempre en español a menos que el usuario escriba en otro idioma.`;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -45,6 +70,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fetch memory
+    const { data: memRow } = await userClient
+      .from("general_chat_memory")
+      .select("memory_summary, key_facts, preferences")
+      .eq("psychologist_id", user.id)
+      .maybeSingle();
+
+    const systemPrompt = buildSystemPrompt(memRow);
+
     // Ensure conversation exists / create one
     let convId: string = conversation_id;
     if (!convId) {
@@ -59,14 +93,12 @@ Deno.serve(async (req) => {
       if (convErr) throw convErr;
       convId = conv.id;
     } else {
-      // touch updated_at
       await userClient
         .from("general_conversations")
         .update({ updated_at: new Date().toISOString() })
         .eq("id", convId);
     }
 
-    // Save user message
     await userClient.from("general_messages").insert({
       conversation_id: convId,
       role: "user",
@@ -91,7 +123,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "claude-sonnet-4-5-20250929",
         max_tokens: 4096,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages,
         stream: true,
       }),
@@ -112,7 +144,6 @@ Deno.serve(async (req) => {
 
     const stream = new ReadableStream({
       async start(controller) {
-        // Send conversation id first as a meta event
         controller.enqueue(encoder.encode(`event: meta\ndata: ${JSON.stringify({ conversation_id: convId })}\n\n`));
 
         const reader = claudeResp.body!.getReader();
@@ -140,12 +171,11 @@ Deno.serve(async (req) => {
                   );
                 }
               } catch {
-                // ignore parse errors
+                // ignore
               }
             }
           }
 
-          // Persist assistant message
           await userClient.from("general_messages").insert({
             conversation_id: convId,
             role: "assistant",
