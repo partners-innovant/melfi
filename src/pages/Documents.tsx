@@ -818,6 +818,43 @@ function QueueRow({
 
       {showProgress && <Progress value={item.progress} className="h-1.5" />}
 
+      {item.status === "ready" && item.duplicate && (
+        <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-2">
+          <div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <span className="font-medium">⚠️ Ya existe un documento con este nombre: </span>
+              <span className="font-semibold">{item.duplicate.title}</span>
+              <span> — subido el {formatDate(item.duplicate.created_at)}. ¿Deseas reemplazarlo o mantener ambos?</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm" variant={item.dupAction === "replace" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => onChange({ dupAction: "replace", statusText: "Listo (reemplazará el existente)" })}
+              disabled={disabled}
+            >
+              Reemplazar
+            </Button>
+            <Button
+              size="sm" variant={item.dupAction === "keep_both" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => onChange({ dupAction: "keep_both", statusText: "Listo (se subirá con sufijo)" })}
+              disabled={disabled}
+            >
+              Mantener ambos
+            </Button>
+            <Button
+              size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={onRemove} disabled={disabled}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {item.status === "error" && item.error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive break-words">
           {item.error}
