@@ -37,6 +37,9 @@ export default function PatientDetail() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [sessionModeOpen, setSessionModeOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(true);
+  const { state: sidebarState } = useSidebar();
+  const sidebarCollapsed = sidebarState === "collapsed";
+  const builderWidthPx = sidebarCollapsed ? 560 : 400;
 
   async function load() {
     if (!id) return;
