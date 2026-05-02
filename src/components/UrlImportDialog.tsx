@@ -12,13 +12,16 @@ import { Link2, Loader2, CheckCircle2, AlertCircle, Globe2, AlertTriangle } from
 import { chunkText } from "@/lib/pdf";
 import { findDuplicateByUrl, deleteDocumentAndChunks, formatDate, type DuplicateDoc } from "@/lib/duplicates";
 
-type Status = "queued" | "downloading" | "processing" | "done" | "error";
+type Status = "queued" | "checking" | "duplicate" | "downloading" | "processing" | "done" | "error" | "skipped";
+type DupAction = "pending" | "reimport" | "skip";
 
 interface QItem {
   id: string;
   url: string;
   status: Status;
   message: string;
+  duplicate?: DuplicateDoc | null;
+  dupAction?: DupAction;
 }
 
 function truncate(s: string, n = 60) {
