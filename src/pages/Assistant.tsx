@@ -205,6 +205,7 @@ export default function Assistant() {
     setConversationId(null);
     setInput("");
     setSidebarOpen(false);
+    resetFilters();
   }
 
   async function loadConversation(cid: string) {
