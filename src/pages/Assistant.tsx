@@ -167,6 +167,7 @@ export default function Assistant() {
     }
   }, [patientId, suggestionsCache, fetchPatientSuggestions]);
 
+  useEffect(() => {
     (async () => {
       const table = patientKind === "child" ? "child_patients" : "patients";
       const { data } = await supabase
