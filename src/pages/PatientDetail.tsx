@@ -16,7 +16,7 @@ import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
 import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
-import PatientProfileBuilderPanel from "@/components/PatientProfileBuilderPanel";
+import PatientProfileBuilderPanel, { ProfileBuilderLauncher } from "@/components/PatientProfileBuilderPanel";
 import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 import TransferPatientDialog from "@/components/TransferPatientDialog";
@@ -35,6 +35,7 @@ export default function PatientDetail() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [transferOpen, setTransferOpen] = useState(false);
   const [sessionModeOpen, setSessionModeOpen] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(true);
 
   async function load() {
     if (!id) return;
@@ -83,10 +84,13 @@ export default function PatientDetail() {
   const age = calcAge(patient.birth_date);
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-10 max-w-4xl mx-auto">
-      <button onClick={() => navigate("/patients")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-        <ArrowLeft className="h-4 w-4" />Volver a pacientes
-      </button>
+    <div className="flex flex-col xl:flex-row h-[calc(100vh-0px)] min-h-0">
+      {/* Main content column */}
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="px-4 md:px-8 py-6 md:py-10 max-w-4xl mx-auto">
+          <button onClick={() => navigate("/patients")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
+            <ArrowLeft className="h-4 w-4" />Volver a pacientes
+          </button>
 
       <Card className="p-6 mb-6">
         <div className="flex items-start justify-between gap-4 mb-4">
@@ -226,11 +230,6 @@ export default function PatientDetail() {
         </DialogContent>
       </Dialog>
 
-      <PatientProfileBuilderPanel
-        patientId={patient.id}
-        onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
-      />
-
       <TransferPatientDialog
         open={transferOpen}
         onOpenChange={setTransferOpen}
@@ -251,6 +250,32 @@ export default function PatientDetail() {
         patientName={`${patient.first_name} ${patient.last_name}`}
         onSessionSaved={() => { load(); setRefreshKey((k) => k + 1); setTab("sessions"); }}
       />
+        </div>
+      </div>
+
+      {/* Profile Builder side panel — animates width, never overlays.
+          On <1200px (xl breakpoint) the parent stacks vertically and this becomes a full-width block. */}
+      <div
+        className={
+          "transition-[width,height] duration-300 ease-out overflow-hidden " +
+          "xl:h-full " +
+          (builderOpen
+            ? "xl:w-[400px] h-[70vh] xl:h-full"
+            : "xl:w-0 h-0")
+        }
+        style={{ flexShrink: 0 }}
+      >
+        {builderOpen && (
+          <PatientProfileBuilderPanel
+            patientId={patient.id}
+            open={builderOpen}
+            onOpenChange={setBuilderOpen}
+            onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
+          />
+        )}
+      </div>
+
+      {!builderOpen && <ProfileBuilderLauncher onOpen={() => setBuilderOpen(true)} />}
     </div>
   );
 }
