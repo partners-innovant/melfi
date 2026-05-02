@@ -1199,8 +1199,11 @@ export default function AdminDocuments() {
                 <TableCell>
                   <Badge variant="secondary" className="text-[10px]">{d.import_source ?? "upload"}</Badge>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                  {new Date(d.created_at).toLocaleDateString("es-CL")}
+                <TableCell className="text-xs whitespace-nowrap">
+                  <div className="flex flex-col leading-tight">
+                    <span>{formatDateFn(new Date(d.created_at), "dd-MM-yyyy")}</span>
+                    <span className="text-[10px] text-muted-foreground">{formatDateFn(new Date(d.created_at), "HH:mm")}</span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
