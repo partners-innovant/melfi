@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText,
+  Check, X, Plus, FileText, Sparkles, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -93,6 +93,15 @@ export default function AdminDocuments() {
   const [bulkAreas, setBulkAreas] = useState<string[]>([]);
   const [bulkSource, setBulkSource] = useState<string>("");
   const [bulkType, setBulkType] = useState<DocType>("otro");
+
+  // Auto-classify
+  type ClassifyStatus = "pending" | "processing" | "done" | "error";
+  interface ClassifyJob { id: string; title: string; status: ClassifyStatus; error?: string }
+  const [confirmClassifyOpen, setConfirmClassifyOpen] = useState(false);
+  const [classifyOpen, setClassifyOpen] = useState(false);
+  const [classifyJobs, setClassifyJobs] = useState<ClassifyJob[]>([]);
+  const [classifyRunning, setClassifyRunning] = useState(false);
+  const [singleClassifyId, setSingleClassifyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile?.is_admin) load();
@@ -305,6 +314,107 @@ export default function AdminDocuments() {
     setBulkTypeOpen(false);
   }
 
+  // ---- Auto-classification ----
+  function normalizeLanguage(v: unknown): "es" | "en" | "otro" | null {
+    if (typeof v !== "string") return null;
+    const s = v.trim().toLowerCase();
+    if (s === "es" || s.startsWith("espa")) return "es";
+    if (s === "en" || s.startsWith("ing") || s.startsWith("eng")) return "en";
+    if (s === "otro" || s === "other") return "otro";
+    return null;
+  }
+
+  async function classifyOne(doc: DocRow): Promise<void> {
+    const { data: chunkRows } = await supabase
+      .from("document_chunks")
+      .select("content")
+      .eq("document_id", doc.id)
+      .order("chunk_index", { ascending: true })
+      .limit(1);
+    const fragment = (chunkRows?.[0]?.content ?? "").toString().slice(0, 1000);
+    const text = `Title: ${doc.title}\nContent fragment: ${fragment}`;
+
+    const { data: ai, error } = await supabase.functions.invoke("extract-metadata", { body: { text } });
+    if (error) throw new Error(error.message ?? "Error de IA");
+    if (ai?.error) throw new Error(ai.error);
+
+    const patch: Record<string, unknown> = {};
+    if (!doc.title?.trim() && typeof ai.title === "string" && ai.title.trim()) patch.title = ai.title.trim();
+    if (!doc.author && typeof ai.author === "string" && ai.author.trim()) patch.author = ai.author.trim();
+    if (!doc.year && ai.year != null && String(ai.year).trim()) patch.year = String(ai.year).trim();
+    if ((!doc.document_type || doc.document_type === ("otro" as DocType)) &&
+        typeof ai.document_type === "string" &&
+        (DOC_TYPES as readonly string[]).includes(ai.document_type)) {
+      patch.document_type = ai.document_type;
+    }
+    if ((!doc.clinical_areas || doc.clinical_areas.length === 0) &&
+        Array.isArray(ai.clinical_areas) && ai.clinical_areas.length > 0) {
+      patch.clinical_areas = (ai.clinical_areas as string[]).slice(0, MAX_CLINICAL_AREAS);
+    }
+    if (!doc.source_institution && typeof ai.source_institution === "string" && ai.source_institution.trim()) {
+      patch.source_institution = ai.source_institution.trim();
+      if (typeof ai.source_institution_type === "string" && ai.source_institution_type) {
+        patch.source_institution_type = ai.source_institution_type;
+      }
+    }
+    if (!doc.language) {
+      const lang = normalizeLanguage(ai.language);
+      if (lang) patch.language = lang;
+    }
+
+    if (Object.keys(patch).length === 0) return;
+
+    const { error: upErr } = await supabase.from("documents").update(patch as any).eq("id", doc.id);
+    if (upErr) throw new Error(upErr.message);
+
+    const chunkPatch: Record<string, unknown> = {};
+    if (patch.clinical_areas) chunkPatch.clinical_areas = patch.clinical_areas;
+    if (patch.source_institution) chunkPatch.source_institution = patch.source_institution;
+    if (patch.source_institution_type) chunkPatch.source_institution_type = patch.source_institution_type;
+    if (patch.document_type) chunkPatch.document_type = patch.document_type;
+    if (patch.language) chunkPatch.language = patch.language;
+    if (Object.keys(chunkPatch).length > 0) {
+      await supabase.from("document_chunks").update(chunkPatch as any).eq("document_id", doc.id);
+    }
+
+    setRows((rs) => rs.map((r) => (r.id === doc.id ? { ...r, ...(patch as Partial<DocRow>) } : r)));
+  }
+
+  async function runBulkClassify() {
+    const ids = Array.from(selected);
+    const docs = rows.filter((r) => ids.includes(r.id));
+    setClassifyJobs(docs.map((d) => ({ id: d.id, title: d.title, status: "pending" })));
+    setConfirmClassifyOpen(false);
+    setClassifyOpen(true);
+    setClassifyRunning(true);
+    for (const d of docs) {
+      setClassifyJobs((js) => js.map((j) => (j.id === d.id ? { ...j, status: "processing" } : j)));
+      try {
+        await classifyOne(d);
+        setClassifyJobs((js) => js.map((j) => (j.id === d.id ? { ...j, status: "done" } : j)));
+      } catch (e: any) {
+        setClassifyJobs((js) =>
+          js.map((j) => (j.id === d.id ? { ...j, status: "error", error: e?.message ?? "Error" } : j)),
+        );
+      }
+      await new Promise((r) => setTimeout(r, 400));
+    }
+    setClassifyRunning(false);
+  }
+
+  async function classifySingle(d: DocRow) {
+    setSingleClassifyId(d.id);
+    const tid = toast.loading("✨ Clasificando...");
+    try {
+      await classifyOne(d);
+      toast.success("✅ Clasificado", { id: tid });
+    } catch (e: any) {
+      toast.error(`Error: ${e?.message ?? "no se pudo clasificar"}`, { id: tid });
+    } finally {
+      setSingleClassifyId(null);
+    }
+  }
+
   async function openViewer(d: DocRow) {
     setViewDoc(d);
     if (d.storage_path) {
@@ -416,6 +526,9 @@ export default function AdminDocuments() {
           <Button size="sm" variant="outline" onClick={() => { setBulkType("otro"); setBulkTypeOpen(true); }}>
             Asignar tipo
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setConfirmClassifyOpen(true)}>
+            <Sparkles className="h-4 w-4 mr-1 text-primary" /> Auto-clasificar seleccionados
+          </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
           </Button>
@@ -522,6 +635,18 @@ export default function AdminDocuments() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8"
+                      onClick={() => classifySingle(d)}
+                      disabled={singleClassifyId === d.id}
+                      title="Auto-clasificar"
+                    >
+                      {singleClassifyId === d.id
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Sparkles className="h-4 w-4 text-primary" />}
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewer(d)} title="Ver documento">
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -611,6 +736,106 @@ export default function AdminDocuments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Confirm auto-classify */}
+      <AlertDialog open={confirmClassifyOpen} onOpenChange={setConfirmClassifyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Auto-clasificar documentos
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Se analizará el contenido de {selected.size} documento(s) seleccionado(s) y se completará
+              automáticamente la información faltante (título, autor, año, tipo, área clínica, fuente e idioma).
+              Los campos que ya tienen información no serán modificados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={runBulkClassify}>Clasificar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Auto-classify progress */}
+      <Dialog
+        open={classifyOpen}
+        onOpenChange={(o) => {
+          if (!o && !classifyRunning) {
+            setClassifyOpen(false);
+            setClassifyJobs([]);
+            setSelected(new Set());
+            load();
+          }
+        }}
+      >
+        <DialogContent className="max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Auto-clasificación en curso
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const total = classifyJobs.length;
+            const doneCount = classifyJobs.filter((j) => j.status === "done").length;
+            const errCount = classifyJobs.filter((j) => j.status === "error").length;
+            const processedCount = doneCount + errCount;
+            const currentIndex = classifyRunning
+              ? Math.min(processedCount + 1, total)
+              : processedCount;
+            const pct = total === 0 ? 0 : Math.round((processedCount / total) * 100);
+            return (
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  {classifyRunning
+                    ? `Procesando ${currentIndex} de ${total}...`
+                    : `Completado: ${processedCount} de ${total}`}
+                </div>
+                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <div className="max-h-[320px] overflow-y-auto border rounded-md divide-y">
+                  {classifyJobs.map((j) => (
+                    <div key={j.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                      <span className="flex-shrink-0 w-5 text-center">
+                        {j.status === "pending" && <span className="text-muted-foreground">·</span>}
+                        {j.status === "processing" && <Loader2 className="h-4 w-4 animate-spin inline" />}
+                        {j.status === "done" && <span>✅</span>}
+                        {j.status === "error" && <span>❌</span>}
+                      </span>
+                      <span className="flex-1 truncate" title={j.title}>{j.title}</span>
+                      {j.status === "error" && j.error && (
+                        <span className="text-xs text-destructive truncate max-w-[180px]" title={j.error}>
+                          {j.error}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!classifyRunning && (
+                  <div className="text-sm">
+                    ✅ {doneCount} documento(s) clasificado(s) correctamente.
+                    {errCount > 0 && <> ❌ {errCount} con errores.</>}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button
+              disabled={classifyRunning}
+              onClick={() => {
+                setClassifyOpen(false);
+                setClassifyJobs([]);
+                setSelected(new Set());
+                load();
+              }}
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Bulk areas dialog */}
       <Dialog open={bulkAreaOpen} onOpenChange={setBulkAreaOpen}>
