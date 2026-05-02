@@ -678,6 +678,7 @@ function NewSessionModal({
   const [time, setTime] = useState("10:00");
   const [duration, setDuration] = useState(50);
   const [notes, setNotes] = useState("");
+  const [location, setLocation] = useState("");
   const [adults, setAdults] = useState<PatientLite[]>([]);
   const [kids, setKids] = useState<ChildLite[]>([]);
   const [saving, setSaving] = useState(false);
@@ -688,6 +689,7 @@ function NewSessionModal({
     setTime(prefill?.time ?? "10:00");
     setDuration(50);
     setNotes("");
+    setLocation("");
     setPatientId("");
     (async () => {
       const [{ data: a }, { data: c }] = await Promise.all([
