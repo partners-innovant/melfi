@@ -552,6 +552,9 @@ export default function Assistant() {
                 sourcesCount={selectedSources.length}
                 allSourcesCount={availableSources.length}
               />
+              <p className="text-[11px] text-muted-foreground mt-2 text-center">
+                Las respuestas se basan en documentos clínicos y el perfil ingresado. Verifica siempre con tu criterio profesional.
+              </p>
               <SuggestionChips
                 patientId={patientId}
                 patientKind={patientKind}
