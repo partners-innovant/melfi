@@ -852,6 +852,15 @@ export default function AdminDocuments() {
               <><RotateCw className="h-4 w-4 mr-1" /> Re-procesar documentos sin chunks</>
             )}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setConfirmVisionBulk(true)}
+            disabled={!!bulkProgress}
+            className="border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+          >
+            <ScanEye className="h-4 w-4 mr-1" /> Re-procesar seleccionados con visión
+          </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
           </Button>
