@@ -203,6 +203,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     persistEntries({ therapist: next });
   }
 
+  const transcriptSummaryText = useMemo(() => {
+    if (!summaryBlocks.length) return "";
+    return summaryBlocks[0].bullets.map((b) => `• ${b}`).join("\n");
+  }, [summaryBlocks]);
+
   async function requestSuggestions() {
     if (!sessionId) return;
     setLoadingSuggestions(true);
@@ -212,6 +217,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           patient_id: patientId,
           session_id: sessionId,
           previous_used_suggestions: usedSuggestions.map((s) => s.text),
+          transcript_summary: transcriptSummaryText || undefined,
         },
       });
       if (error) throw error;
