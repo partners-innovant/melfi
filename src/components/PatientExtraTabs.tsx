@@ -94,7 +94,7 @@ export function PatientProfileBuilderTab({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
 
-  async function send(text?: string) {
+  async function send(text?: string, opts?: { mode?: "suggest_diagnosis" }) {
     const message = (text ?? input).trim();
     if (!message || sending) return;
     setInput("");
@@ -110,7 +110,7 @@ export function PatientProfileBuilderTab({
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ patient_id: patientId, message }),
+        body: JSON.stringify({ patient_id: patientId, message, mode: opts?.mode }),
       });
       if (!resp.ok || !resp.body) {
         const err = await resp.text();
