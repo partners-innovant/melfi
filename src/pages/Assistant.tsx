@@ -368,19 +368,30 @@ export default function Assistant() {
           } else if (event === "done") {
             finalConvId = payload.conversation_id;
             finalCitations = payload.citations ?? [];
+            const finalAnswer: string = payload.answer ?? "";
+            const finalCites: Citation[] = payload.citations ?? [];
+            // Decide whether to attempt diagram generation (>200 words)
+            const wordCount = stripCitations(finalAnswer).split(/\s+/).filter(Boolean).length;
+            const tryDiagram = wordCount >= 200 && !finalAnswer.startsWith("❌") && !finalAnswer.includes(NO_INFO_PHRASE);
             setMessages((m) => {
               const copy = [...m];
               const last = copy[copy.length - 1];
               if (last && last.role === "assistant") {
                 copy[copy.length - 1] = {
                   role: "assistant",
-                  content: payload.answer ?? last.content,
-                  citations: payload.citations ?? [],
+                  content: finalAnswer || last.content,
+                  citations: finalCites,
                   streaming: false,
+                  diagramLoading: tryDiagram,
+                  diagram: tryDiagram ? undefined : null,
                 };
               }
               return copy;
             });
+            if (tryDiagram) {
+              // Fire-and-forget diagram fetch; updates the latest assistant message in place.
+              void fetchDiagramFor(finalAnswer);
+            }
           } else if (event === "error") {
             throw new Error(payload.error || "Error en streaming");
           }
