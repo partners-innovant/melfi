@@ -18,6 +18,7 @@ import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
 import PatientProfileBuilderPanel from "@/components/PatientProfileBuilderPanel";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 import TransferPatientDialog from "@/components/TransferPatientDialog";
+import SessionSchedulePill from "@/components/SessionSchedulePill";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -93,6 +94,17 @@ export default function PatientDetail() {
             <div>
               <h1 className="text-2xl font-semibold">{patient.first_name} {patient.last_name}</h1>
               <p className="text-sm text-muted-foreground">{patient.diagnosis ?? "Sin diagnóstico registrado"}</p>
+              <SessionSchedulePill
+                patientId={patient.id}
+                patientName={`${patient.first_name} ${patient.last_name}`}
+                schedule={{
+                  session_day: patient.session_day ?? null,
+                  session_time: patient.session_time ?? null,
+                  session_frequency: patient.session_frequency ?? null,
+                  session_duration: patient.session_duration ?? null,
+                }}
+                onUpdated={load}
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">

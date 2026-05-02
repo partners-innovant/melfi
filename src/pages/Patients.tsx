@@ -20,7 +20,17 @@ interface Patient {
   last_name: string;
   birth_date: string | null;
   diagnosis: string | null;
+  session_day: string | null;
+  session_time: string | null;
 }
+
+const DAY_LABELS: Record<string, string> = {
+  lunes: "Lunes", martes: "Martes", miercoles: "Miércoles", jueves: "Jueves",
+  viernes: "Viernes", sabado: "Sábado", domingo: "Domingo",
+};
+const DAY_ORDER: Record<string, number> = {
+  lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6, domingo: 7,
+};
 
 interface IncomingTransfer {
   id: string;
@@ -44,6 +54,7 @@ export default function Patients() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [sortMode, setSortMode] = useState<"recent" | "schedule">("recent");
   const [transferredMap, setTransferredMap] = useState<Record<string, string>>({}); // patientId -> ISO date received
   const [incoming, setIncoming] = useState<IncomingTransfer[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
@@ -58,7 +69,7 @@ export default function Patients() {
     const { data: { user } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from("patients")
-      .select("id, first_name, last_name, birth_date, diagnosis")
+      .select("id, first_name, last_name, birth_date, diagnosis, session_day, session_time")
       .order("created_at", { ascending: false });
     setPatients((data as Patient[]) ?? []);
 
@@ -149,19 +160,28 @@ export default function Patients() {
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Pacientes</h1>
           <p className="text-muted-foreground text-sm mt-1">{patients.length} {patients.length === 1 ? "paciente" : "pacientes"}</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" />Nuevo paciente</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Nuevo paciente</DialogTitle></DialogHeader>
-            <PatientForm form={form} setForm={setForm} />
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Select value={sortMode} onValueChange={(v) => setSortMode(v as any)}>
+            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Más recientes</SelectItem>
+              <SelectItem value="schedule">Ordenar por día y hora de sesión</SelectItem>
+            </SelectContent>
+          </Select>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2"><Plus className="h-4 w-4" />Nuevo paciente</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>Nuevo paciente</DialogTitle></DialogHeader>
+              <PatientForm form={form} setForm={setForm} />
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+                <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       {/* Incoming transfer banners */}
@@ -209,9 +229,19 @@ export default function Patients() {
         </Card>
       ) : (
         <div className="grid gap-2">
-          {patients.map((p) => {
+          {[...patients].sort((a, b) => {
+            if (sortMode !== "schedule") return 0;
+            const ad = a.session_day ? DAY_ORDER[a.session_day] ?? 99 : 99;
+            const bd = b.session_day ? DAY_ORDER[b.session_day] ?? 99 : 99;
+            if (ad !== bd) return ad - bd;
+            const at = a.session_time ?? "99:99";
+            const bt = b.session_time ?? "99:99";
+            return at.localeCompare(bt);
+          }).map((p) => {
             const age = calcAge(p.birth_date);
             const transferDate = transferredMap[p.id];
+            const dl = p.session_day ? DAY_LABELS[p.session_day] : null;
+            const tl = p.session_time ? String(p.session_time).slice(0, 5) : null;
             return (
               <Link key={p.id} to={`/patients/${p.id}`}>
                 <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4">
@@ -230,6 +260,9 @@ export default function Patients() {
                     <div className="text-sm text-muted-foreground truncate">
                       {age !== null && `${age} años`}{age !== null && p.diagnosis && " · "}{p.diagnosis ?? (age === null ? "Sin información" : "")}
                     </div>
+                    {dl && tl && (
+                      <div className="text-xs text-primary mt-0.5">📅 {dl} {tl}</div>
+                    )}
                   </div>
                 </Card>
               </Link>
