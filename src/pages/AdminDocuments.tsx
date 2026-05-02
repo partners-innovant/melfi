@@ -884,7 +884,7 @@ export default function AdminDocuments() {
           <Button size="sm" variant="outline" onClick={() => { setBulkType("otro"); setBulkTypeOpen(true); }}>
             Asignar tipo
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setConfirmClassifyOpen(true)}>
+          <Button size="sm" variant="outline" onClick={openBulkClassify}>
             <Sparkles className="h-4 w-4 mr-1 text-primary" /> Auto-clasificar seleccionados
           </Button>
           <Button size="sm" variant="outline" onClick={reprocessSelectedNoChunks} disabled={!!bulkProgress}>
