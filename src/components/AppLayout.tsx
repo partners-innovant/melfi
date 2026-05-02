@@ -58,7 +58,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [profile?.is_admin]);
 
   const items = profile?.is_admin
-    ? [...baseItems, { to: "/feedback", label: "Feedback", icon: Inbox, badge: newCount }]
+    ? [
+        ...baseItems,
+        { to: "/admin/documents", label: "Gestor de documentos", icon: Database },
+        { to: "/feedback", label: "Feedback", icon: Inbox, badge: newCount },
+      ]
     : baseItems;
 
   const sidebarWidth = collapsed ? "w-16" : "w-64";
