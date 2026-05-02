@@ -19,6 +19,7 @@ import Assistant from "./pages/Assistant";
 import Calendar from "./pages/Calendar";
 import FeedbackPage from "./pages/Feedback";
 import Profile from "./pages/Profile";
+import Claude from "./pages/Claude";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
