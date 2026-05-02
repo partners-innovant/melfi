@@ -398,7 +398,12 @@ function ArticleCard({
             {importing ? (
               <><Loader2 className="h-3 w-3 animate-spin" /> {statusText || "Importando..."}</>
             ) : (
-              <><Plus className="h-3 w-3" /> Importar</>
+              <>
+                <Plus className="h-3 w-3" />
+                {(article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : "abstract_only")) === "pdf_available"
+                  ? "Importar"
+                  : "Solo abstract"}
+              </>
             )}
           </Button>
         )}
