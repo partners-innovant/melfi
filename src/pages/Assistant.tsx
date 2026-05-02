@@ -21,6 +21,9 @@ import html2canvas from "html2canvas";
 import ResponseFeedbackBar from "@/components/ResponseFeedbackBar";
 import { chunkText } from "@/lib/pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import AssistantDiagram from "@/components/AssistantDiagram";
+import { AssistantDiagramData } from "@/lib/assistantDiagram";
+import { diagramToHtml } from "@/lib/assistantDiagramHtml";
 
 interface Citation {
   chunk_id: string;
@@ -39,6 +42,8 @@ interface ChatMessage {
   streaming?: boolean;
   general?: boolean;
   generalLoading?: boolean;
+  diagram?: AssistantDiagramData | null;
+  diagramLoading?: boolean;
 }
 
 const NO_INFO_PHRASE = "No tengo información suficiente en los documentos cargados";
@@ -279,6 +284,43 @@ export default function Assistant() {
     }
   }
 
+  // Fetch a diagram for the latest assistant message and patch it in.
+  // Failures are silent — diagrams are an enhancement, not core content.
+  async function fetchDiagramFor(answerText: string) {
+    try {
+      const { data, error } = await supabase.functions.invoke("assistant-diagram", {
+        body: { text: stripCitations(answerText) },
+      });
+      if (error) throw error;
+      const diagram = (data as any)?.diagram ?? null;
+      setMessages((m) => {
+        const copy = [...m];
+        // Patch the most recent assistant message that's awaiting a diagram.
+        for (let i = copy.length - 1; i >= 0; i--) {
+          const msg = copy[i];
+          if (msg.role === "assistant" && msg.diagramLoading) {
+            copy[i] = { ...msg, diagram, diagramLoading: false };
+            break;
+          }
+        }
+        return copy;
+      });
+    } catch (e) {
+      console.warn("[assistant-diagram] failed", e);
+      setMessages((m) => {
+        const copy = [...m];
+        for (let i = copy.length - 1; i >= 0; i--) {
+          const msg = copy[i];
+          if (msg.role === "assistant" && msg.diagramLoading) {
+            copy[i] = { ...msg, diagram: null, diagramLoading: false };
+            break;
+          }
+        }
+        return copy;
+      });
+    }
+  }
+
   async function send(textOverride?: string, opts?: { mode?: string }) {
     const q = (textOverride ?? input).trim();
     if (!q || busy) return;
@@ -363,19 +405,30 @@ export default function Assistant() {
           } else if (event === "done") {
             finalConvId = payload.conversation_id;
             finalCitations = payload.citations ?? [];
+            const finalAnswer: string = payload.answer ?? "";
+            const finalCites: Citation[] = payload.citations ?? [];
+            // Decide whether to attempt diagram generation (>200 words)
+            const wordCount = stripCitations(finalAnswer).split(/\s+/).filter(Boolean).length;
+            const tryDiagram = wordCount >= 200 && !finalAnswer.startsWith("❌") && !finalAnswer.includes(NO_INFO_PHRASE);
             setMessages((m) => {
               const copy = [...m];
               const last = copy[copy.length - 1];
               if (last && last.role === "assistant") {
                 copy[copy.length - 1] = {
                   role: "assistant",
-                  content: payload.answer ?? last.content,
-                  citations: payload.citations ?? [],
+                  content: finalAnswer || last.content,
+                  citations: finalCites,
                   streaming: false,
+                  diagramLoading: tryDiagram,
+                  diagram: tryDiagram ? undefined : null,
                 };
               }
               return copy;
             });
+            if (tryDiagram) {
+              // Fire-and-forget diagram fetch; updates the latest assistant message in place.
+              void fetchDiagramFor(finalAnswer);
+            }
           } else if (event === "error") {
             throw new Error(payload.error || "Error en streaming");
           }
@@ -969,6 +1022,16 @@ function Message({
           </div>
         )}
 
+        {!message.streaming && message.diagramLoading && (
+          <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            📊 Generando diagrama...
+          </div>
+        )}
+        {!message.streaming && message.diagram && (
+          <AssistantDiagram data={message.diagram} />
+        )}
+
         {showGeneralFallback && question && (
           <div className="mt-2 space-y-1">
             <button
@@ -1196,6 +1259,7 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
     <div style="margin-bottom:28px">
       <p style="color:${TEAL}; font-weight:700; font-size:15px; margin-bottom:8px">Respuesta:</p>
       <div>${answerHtml}</div>
+      ${assistant.diagram ? diagramToHtml(assistant.diagram) : ""}
     </div>
     ${citationsBlock}
     <div style="margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between">
