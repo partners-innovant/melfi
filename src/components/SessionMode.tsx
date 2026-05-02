@@ -425,6 +425,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       toast.error("No se pudo analizar: " + (e?.message ?? ""));
     } finally {
       setAnalyzing(false);
+      setAnalyzeStage("idle");
     }
   }
 
