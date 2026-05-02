@@ -427,7 +427,6 @@ function DocList({
                       {DOC_TYPE_LABELS[d.document_type]}
                     </Badge>
                   </td>
-                  </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex items-center justify-end gap-0.5">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(d)} aria-label="Ver">
