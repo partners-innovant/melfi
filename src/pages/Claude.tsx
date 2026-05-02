@@ -4,6 +4,25 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import {
@@ -15,11 +34,19 @@ import {
   Copy,
   Download,
   Trash2,
+  Brain,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Conv = { id: string; title: string | null; updated_at: string };
+type Memory = {
+  memory_summary: string | null;
+  key_facts: string[];
+  preferences: Record<string, any>;
+  updated_at: string | null;
+};
 
 const SUGGESTED = [
   "Ayúdame a redactar un email profesional",
@@ -35,15 +62,55 @@ export default function Claude() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [memory, setMemory] = useState<Memory | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Snapshot of messages used for memory updates (used in beforeunload)
+  const messagesRef = useRef<Msg[]>([]);
+  const updatedThisSessionRef = useRef(false);
+
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
 
   useEffect(() => {
-    if (user) loadConversations();
+    if (user) {
+      loadConversations();
+      loadMemory();
+    }
   }, [user]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  // Auto memory-update if conversation grows past 10 messages and not yet updated this session
+  useEffect(() => {
+    if (messages.length > 10 && !updatedThisSessionRef.current && !streaming) {
+      updatedThisSessionRef.current = true;
+      runMemoryUpdate(messages).catch(() => { updatedThisSessionRef.current = false; });
+    }
+  }, [messages, streaming]);
+
+  // beforeunload: best-effort memory update via keepalive fetch
+  useEffect(() => {
+    function onBeforeUnload() {
+      const msgs = messagesRef.current;
+      if (!session || msgs.length < 2) return;
+      try {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/claude-memory-update`;
+        fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ messages: msgs }),
+          keepalive: true,
+        });
+      } catch { /* noop */ }
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [session]);
 
   async function loadConversations() {
     const { data } = await supabase
@@ -51,6 +118,23 @@ export default function Claude() {
       .select("id, title, updated_at")
       .order("updated_at", { ascending: false });
     setConversations((data ?? []) as Conv[]);
+  }
+
+  async function loadMemory() {
+    const { data } = await supabase
+      .from("general_chat_memory")
+      .select("memory_summary, key_facts, preferences, updated_at")
+      .maybeSingle();
+    if (data) {
+      setMemory({
+        memory_summary: data.memory_summary,
+        key_facts: Array.isArray(data.key_facts) ? (data.key_facts as string[]) : [],
+        preferences: (data.preferences && typeof data.preferences === "object" ? data.preferences : {}) as Record<string, any>,
+        updated_at: data.updated_at,
+      });
+    } else {
+      setMemory(null);
+    }
   }
 
   async function loadMessages(id: string) {
@@ -61,18 +145,45 @@ export default function Claude() {
       .eq("conversation_id", id)
       .order("created_at");
     setMessages((data ?? []) as Msg[]);
+    updatedThisSessionRef.current = false;
   }
 
-  function newConversation() {
+  async function runMemoryUpdate(msgs: Msg[]) {
+    if (!session || msgs.length < 2) return;
+    try {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/claude-memory-update`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ messages: msgs }),
+      });
+      if (resp.ok) await loadMemory();
+    } catch (e) {
+      console.error("[memory update] error", e);
+    }
+  }
+
+  async function newConversation() {
+    // Update memory from current chat before clearing
+    if (messages.length >= 2) {
+      await runMemoryUpdate(messages);
+    }
     setActiveId(null);
     setMessages([]);
     setInput("");
+    updatedThisSessionRef.current = false;
   }
 
   async function deleteConversation(id: string) {
     if (!confirm("¿Eliminar esta conversación?")) return;
     await supabase.from("general_conversations").delete().eq("id", id);
-    if (activeId === id) newConversation();
+    if (activeId === id) {
+      setActiveId(null);
+      setMessages([]);
+    }
     loadConversations();
   }
 
@@ -157,7 +268,46 @@ export default function Claude() {
     a.click();
   }
 
+  async function deleteFact(idx: number) {
+    if (!memory || !user) return;
+    const next = memory.key_facts.filter((_, i) => i !== idx);
+    const { error } = await supabase
+      .from("general_chat_memory")
+      .update({ key_facts: next, updated_at: new Date().toISOString() })
+      .eq("psychologist_id", user.id);
+    if (error) { toast.error("Error al eliminar"); return; }
+    setMemory({ ...memory, key_facts: next });
+  }
+
+  async function deletePreference(key: string) {
+    if (!memory || !user) return;
+    const next = { ...memory.preferences };
+    delete next[key];
+    const { error } = await supabase
+      .from("general_chat_memory")
+      .update({ preferences: next, updated_at: new Date().toISOString() })
+      .eq("psychologist_id", user.id);
+    if (error) { toast.error("Error al eliminar"); return; }
+    setMemory({ ...memory, preferences: next });
+  }
+
+  async function clearAllMemory() {
+    if (!user) return;
+    const { error } = await supabase
+      .from("general_chat_memory")
+      .delete()
+      .eq("psychologist_id", user.id);
+    if (error) { toast.error("Error al borrar memoria"); return; }
+    setMemory(null);
+    toast.success("Memoria borrada");
+  }
+
   const empty = messages.length === 0;
+  const hasMemory = !!memory && (
+    !!memory.memory_summary ||
+    memory.key_facts.length > 0 ||
+    Object.keys(memory.preferences).length > 0
+  );
 
   return (
     <div className="flex h-[calc(100vh-0px)]">
@@ -206,11 +356,115 @@ export default function Claude() {
               <div className="text-xs text-muted-foreground mt-0.5">Asistente de uso general</div>
             </div>
           </div>
-          {messages.length > 0 && (
-            <Button size="sm" variant="outline" onClick={exportConversation}>
-              <Download className="h-4 w-4" /> Exportar
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <Sheet open={memoryOpen} onOpenChange={setMemoryOpen}>
+              <SheetTrigger asChild>
+                <Button size="sm" variant="outline" onClick={() => loadMemory()}>
+                  <Brain className="h-4 w-4" /> Memoria
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Lo que Claude recuerda de ti</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6 space-y-6">
+                  {!hasMemory ? (
+                    <div className="text-sm text-muted-foreground">
+                      Aún no hay nada guardado. Conversa con Claude y la memoria se construirá automáticamente.
+                    </div>
+                  ) : (
+                    <>
+                      {memory?.memory_summary && (
+                        <div>
+                          <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Resumen</div>
+                          <div className="rounded-lg border bg-muted/40 p-3 text-sm leading-relaxed">
+                            {memory.memory_summary}
+                          </div>
+                        </div>
+                      )}
+
+                      {memory && memory.key_facts.length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Hechos clave</div>
+                          <div className="flex flex-wrap gap-2">
+                            {memory.key_facts.map((f, i) => (
+                              <Badge key={i} variant="secondary" className="pr-1 gap-1">
+                                <span>{f}</span>
+                                <button
+                                  onClick={() => deleteFact(i)}
+                                  className="hover:text-destructive ml-1 inline-flex"
+                                  aria-label="Eliminar hecho"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {memory && Object.keys(memory.preferences).length > 0 && (
+                        <div>
+                          <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">Preferencias</div>
+                          <div className="space-y-1">
+                            {Object.entries(memory.preferences).map(([k, v]) => (
+                              <div key={k} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                                <div className="min-w-0">
+                                  <div className="font-medium truncate">{k}</div>
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {typeof v === "string" ? v : JSON.stringify(v)}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => deletePreference(k)}
+                                  className="text-muted-foreground hover:text-destructive flex-shrink-0"
+                                  aria-label="Eliminar preferencia"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-2 border-t">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm" className="w-full">
+                              <Trash2 className="h-4 w-4" /> Borrar toda la memoria
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Borrar toda la memoria?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Claude olvidará todo lo que sabe de ti. Esta acción no se puede deshacer.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction onClick={clearAllMemory}>Borrar</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        {memory?.updated_at && (
+                          <div className="text-xs text-muted-foreground text-center mt-3">
+                            Última actualización: {new Date(memory.updated_at).toLocaleString("es")}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+            {messages.length > 0 && (
+              <Button size="sm" variant="outline" onClick={exportConversation}>
+                <Download className="h-4 w-4" /> Exportar
+              </Button>
+            )}
+          </div>
         </header>
 
         {empty ? (
