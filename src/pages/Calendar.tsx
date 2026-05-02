@@ -95,10 +95,18 @@ export default function Calendar() {
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [, forceTick] = useState(0);
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
   const [activeGEvent, setActiveGEvent] = useState<GEvent | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newPrefill, setNewPrefill] = useState<{ date: string; time: string } | null>(null);
+
+  // Refresh "hace X min" label every 30s
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Handle ?gcal=connected | error in URL after OAuth roundtrip
   useEffect(() => {
