@@ -557,15 +557,18 @@ interface QueueItem {
   year: string;
   docType: DocType;
   isGlobal: boolean;
+  clinicalAreas: string[];
+  sourceInstitution: string;
+  sourceInstitutionType: string;
+  // Track which fields were auto-filled by the AI
+  autoFilled: { docType: boolean; clinicalAreas: boolean; sourceInstitution: boolean };
   status: QueueStatus;
   progress: number;
   statusText: string;
   error?: string;
-  // cached extracted text so we don't re-parse during upload
   cachedText?: string;
-  // duplicate detection
   duplicate?: DuplicateDoc | null;
-  dupAction?: DupAction; // user choice for the duplicate prompt
+  dupAction?: DupAction;
 }
 
 function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
