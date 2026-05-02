@@ -9,7 +9,7 @@ import ProfileCompletionModal from "@/components/ProfileCompletionModal";
 import FeedbackButton from "@/components/FeedbackButton";
 
 const baseItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/", label: "Inicio", icon: LayoutDashboard, end: true },
   { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
