@@ -591,3 +591,76 @@ function SourcePicker({
     </Popover>
   );
 }
+
+function ViewDocumentLink({
+  storagePath,
+  sourceUrl,
+}: {
+  storagePath: string | null;
+  sourceUrl: string | null;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const hasAny = Boolean(storagePath || sourceUrl);
+
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loading) return;
+    if (sourceUrl && !storagePath) {
+      window.open(sourceUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (storagePath) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(storagePath, 60 * 10);
+        if (error || !data?.signedUrl) {
+          toast.error("No se pudo abrir el documento");
+          return;
+        }
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    if (sourceUrl) {
+      window.open(sourceUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  if (!hasAny) {
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60 cursor-not-allowed shrink-0">
+              📄 Ver documento <ExternalLink className="h-3 w-3" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>URL original no disponible</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={loading}
+      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline shrink-0"
+    >
+      {loading ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <>
+          📄 Ver documento <ExternalLink className="h-3 w-3" />
+        </>
+      )}
+    </button>
+  );
+}
