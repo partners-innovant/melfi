@@ -1,8 +1,9 @@
 // PubMed integration using NCBI E-utilities + PMC OA Web Service.
-// Three actions:
+// Two actions:
 //   - "search":       run a PubMed query, return articles + verified pdf_status
-//   - "download_pdf": download a PMC OA PDF (verified via OA service first)
 //   - "get_abstract": fetch the abstract text for a single PubMed ID
+//
+// NOTE: PDF download has been removed temporarily — pending new download method.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -23,7 +24,6 @@ interface ArticleResult {
   pmc_url: string | null;
   pdf_status: PdfStatus;
   pdf_url: string | null;
-  // Backwards-compat with older callers
   has_free_pdf: boolean;
 }
 
@@ -37,42 +37,24 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 /**
- * Look up a PMC article in the OA Web Service.
- * Returns a usable HTTPS PDF URL or null when the article is not in the OA subset.
+ * Look up a PMC article in the OA Web Service to determine availability.
+ * Returns the badge status only — actual PDF download is not implemented here.
  */
-async function resolveOaPdfUrl(pmcId: string): Promise<string | null> {
+async function checkOaStatus(pmcId: string): Promise<PdfStatus> {
   const cleanId = pmcId.replace(/^PMC/i, "");
   try {
     const oaRes = await fetch(
       `https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=PMC${cleanId}&format=pdf`,
       { headers: { "User-Agent": UA } },
     );
-    if (!oaRes.ok) return null;
+    if (!oaRes.ok) return "abstract_only";
     const oaText = await oaRes.text();
-    if (/<error\b/i.test(oaText)) return null;
-
-    // Only treat as available if OA explicitly returns a PDF link.
-    // Look for <link format="pdf" href="..."> specifically.
-    const pdfLinkMatch = oaText.match(/<link[^>]*format="pdf"[^>]*href="([^"]+)"/i)
-      || oaText.match(/href="([^"]+\.pdf[^"]*)"[^>]*format="pdf"/i);
-    let pdfHref: string | null = pdfLinkMatch?.[1] ?? null;
-
-    // Fallback: any href ending in .pdf (some responses order attributes differently)
-    if (!pdfHref) {
-      const anyPdfHref = oaText.match(/href="((?:https?|ftp):\/\/[^"]+\.pdf[^"]*)"/i);
-      pdfHref = anyPdfHref?.[1] ?? null;
-    }
-
-    if (!pdfHref) return null;
-
-    // Edge runtime cannot fetch ftp://. NCBI's FTP host serves the same paths over HTTPS.
-    if (pdfHref.startsWith("ftp://")) {
-      pdfHref = pdfHref.replace(/^ftp:\/\//i, "https://");
-    }
-    return pdfHref;
+    if (/<error\b/i.test(oaText)) return "abstract_only";
+    if (/<link[^>]*format="pdf"/i.test(oaText)) return "pdf_available";
+    return "abstract_only";
   } catch (e) {
     console.warn("[search-pubmed] OA lookup failed for PMC", pmcId, e);
-    return null;
+    return "abstract_only";
   }
 }
 
@@ -96,15 +78,6 @@ function parseAbstracts(xml: string): Record<string, string> {
     out[pmid] = text;
   }
   return out;
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let bin = "";
-  const CHUNK = 0x8000;
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(bin);
 }
 
 async function handleSearch(body: Record<string, unknown>): Promise<Response> {
@@ -151,15 +124,8 @@ async function handleSearch(body: Record<string, unknown>): Promise<Response> {
     const year = s.pubdate ? String(s.pubdate).split(" ")[0] : null;
 
     let pdf_status: PdfStatus = "no_access";
-    let pdf_url: string | null = null;
     if (pmcId) {
-      const url = await resolveOaPdfUrl(pmcId);
-      if (url) {
-        pdf_status = "pdf_available";
-        pdf_url = url;
-      } else {
-        pdf_status = "abstract_only";
-      }
+      pdf_status = await checkOaStatus(pmcId);
     }
 
     return {
@@ -174,102 +140,12 @@ async function handleSearch(body: Record<string, unknown>): Promise<Response> {
       url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
       pmc_url: pmcId ? `https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${pmcId}/` : null,
       pdf_status,
-      pdf_url,
+      pdf_url: null,
       has_free_pdf: pdf_status === "pdf_available",
     };
   }));
 
   return jsonResponse({ articles });
-}
-
-function isPdfBytes(bytes: Uint8Array): boolean {
-  return bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
-}
-
-async function tryUnpaywallFallback(pmcId: string): Promise<{ bytes: Uint8Array; url: string } | null> {
-  try {
-    const upRes = await fetch(
-      `https://api.unpaywall.org/v2/PMC${pmcId}?email=admin@psicoasist.com`,
-      { headers: { "User-Agent": UA } },
-    );
-    if (!upRes.ok) return null;
-    const upData = await upRes.json();
-    const oaUrl: string | undefined = upData?.best_oa_location?.url_for_pdf;
-    if (!oaUrl) return null;
-    const fbRes = await fetch(oaUrl, {
-      redirect: "follow",
-      headers: { "User-Agent": UA, "Accept": "application/pdf,*/*;q=0.8" },
-    });
-    if (!fbRes.ok) return null;
-    const bytes = new Uint8Array(await fbRes.arrayBuffer());
-    if (!isPdfBytes(bytes)) return null;
-    return { bytes, url: oaUrl };
-  } catch (e) {
-    console.warn("[search-pubmed] Unpaywall fallback failed", e);
-    return null;
-  }
-}
-
-async function handleDownloadPdf(body: Record<string, unknown>): Promise<Response> {
-  const pmcRaw = typeof body.pmc_id === "string" ? body.pmc_id : (typeof body.pmcId === "string" ? body.pmcId : null);
-  if (!pmcRaw) {
-    return jsonResponse({ success: false, error: "pmc_id is required" }, 400);
-  }
-  const cleanId = pmcRaw.replace(/^PMC/i, "");
-
-  // Step 1: Verify article is in the OA subset via NCBI OA Web Service.
-  const verified = await resolveOaPdfUrl(cleanId);
-  if (!verified) {
-    return jsonResponse({ success: false, error: "PDF no disponible en PMC Open Access" }, 404);
-  }
-
-  // Step 2: Download from EuropePMC mirror (more permissive than NCBI direct).
-  const europePmcUrl = `https://europepmc.org/backend/ptpmcrender.fcgi?accid=PMC${cleanId}&blobtype=pdf`;
-  let bytes: Uint8Array | null = null;
-  let sourceUrl = europePmcUrl;
-
-  try {
-    const pdfRes = await fetch(europePmcUrl, {
-      redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; Psicoasist/1.0; research tool)",
-        "Accept": "application/pdf,*/*",
-        "Referer": "https://europepmc.org/",
-      },
-    });
-    if (pdfRes.ok) {
-      const contentType = pdfRes.headers.get("content-type") || "";
-      const buf = new Uint8Array(await pdfRes.arrayBuffer());
-      if ((contentType.includes("pdf") || isPdfBytes(buf)) && isPdfBytes(buf)) {
-        bytes = buf;
-      }
-    } else {
-      console.warn("[search-pubmed] EuropePMC download failed", pdfRes.status);
-    }
-  } catch (e) {
-    console.warn("[search-pubmed] EuropePMC fetch error", e);
-  }
-
-  // Step 3: Fallback to Unpaywall if EuropePMC didn't yield a PDF.
-  if (!bytes) {
-    const fb = await tryUnpaywallFallback(cleanId);
-    if (fb) {
-      bytes = fb.bytes;
-      sourceUrl = fb.url;
-    }
-  }
-
-  if (!bytes) {
-    return jsonResponse({ success: false, error: "Error descargando PDF desde EuropePMC y Unpaywall" }, 502);
-  }
-
-  return jsonResponse({
-    success: true,
-    pdf_base64: toBase64(bytes),
-    size: bytes.length,
-    url: sourceUrl,
-    source_url: sourceUrl,
-  });
 }
 
 async function handleGetAbstract(body: Record<string, unknown>): Promise<Response> {
@@ -290,7 +166,6 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? "search");
     if (action === "search") return await handleSearch(body);
-    if (action === "download_pdf") return await handleDownloadPdf(body);
     if (action === "get_abstract") return await handleGetAbstract(body);
     return jsonResponse({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {
