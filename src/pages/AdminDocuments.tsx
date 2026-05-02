@@ -36,13 +36,13 @@ import {
   CLINICAL_AREAS_NICE, CLINICAL_AREAS_TRANSVERSAL, MAX_CLINICAL_AREAS,
   clinicalAreaLabel, clinicalAreaColor,
   SOURCE_INSTITUTIONS, sourceIconFor, type SourceInstitutionType,
-  SOURCE_INSTITUTION_TYPE_LABELS,
+  SOURCE_INSTITUTION_TYPE_LABELS, shortInstitutionName,
 } from "@/lib/clinical-areas";
 
 type LangCode = "es" | "en" | "otro";
 const LANG_LABELS: Record<LangCode, string> = { es: "Español", en: "Inglés", otro: "Otro" };
 const ANY = "__any__";
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 200;
 
 interface DocRow {
   id: string;
@@ -435,7 +435,7 @@ export default function AdminDocuments() {
               <TableHead>Autor</TableHead>
               <TableHead className="w-20">Año</TableHead>
               <TableHead>Tipo</TableHead>
-              <TableHead>Área(s) clínica(s)</TableHead>
+              <TableHead style={{ width: "25%" }}>Área(s) clínica(s)</TableHead>
               <TableHead>Fuente</TableHead>
               <TableHead>Idioma</TableHead>
               <TableHead className="w-20 text-center">Chunks</TableHead>
@@ -485,7 +485,7 @@ export default function AdminDocuments() {
                     renderValue={(v) => DOC_TYPE_LABELS[v as DocType] ?? "—"}
                   />
                 </TableCell>
-                <TableCell className="min-w-[220px] max-w-[300px]">
+                <TableCell style={{ width: "25%" }} className="min-w-[260px]">
                   <InlineAreas value={d.clinical_areas} onSave={(v) => updateClinicalAreas(d.id, v)} />
                 </TableCell>
                 <TableCell className="min-w-[180px]">
@@ -840,9 +840,9 @@ function InlineSource({ value, onSave }: { value: string; onSave: (v: string) =>
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className="group flex items-center gap-1 text-left w-full text-sm hover:text-primary truncate">
+        <button type="button" className="group flex items-center gap-1 text-left w-full text-sm hover:text-primary truncate" title={value || undefined}>
           <span className="truncate">
-            {value ? `${icon} ${value}` : <span className="text-muted-foreground">—</span>}
+            {value ? `${icon} ${shortInstitutionName(value)}` : <span className="text-muted-foreground">—</span>}
           </span>
           <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-50 flex-shrink-0" />
         </button>
