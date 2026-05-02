@@ -211,16 +211,23 @@ Deno.serve(async (req) => {
     }
 
     if (action === "pull") {
-      const { timeMin, timeMax } = body;
+      // Defaults follow the spec: first day of current month → end of month + 2 weeks.
+      const now = new Date();
+      const defaultMin = new Date(now.getFullYear(), now.getMonth(), 1);
+      const defaultMax = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      defaultMax.setDate(defaultMax.getDate() + 14);
+      const timeMin = body.timeMin ? new Date(body.timeMin) : defaultMin;
+      const timeMax = body.timeMax ? new Date(body.timeMax) : defaultMax;
+
       const params = new URLSearchParams({
-        timeMin: new Date(timeMin).toISOString(),
-        timeMax: new Date(timeMax).toISOString(),
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
         singleEvents: "true",
         orderBy: "startTime",
         maxResults: "250",
       });
       const fetchUrl = `${baseUrl}?${params.toString()}`;
-      console.log("[calendar-sync] pull", { userId, calendarId, timeMin, timeMax });
+      console.log("[calendar-sync] pull", { userId, calendarId, timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString() });
       const res = await fetch(fetchUrl, {
         headers: { Authorization: `Bearer ${token.access_token}` },
       });
@@ -228,9 +235,10 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         const reason = j?.error?.message || j?.error_description || j?.error || `http_${res.status}`;
         console.error("[calendar-sync] google api error", res.status, JSON.stringify(j));
-        // Return 200 with error payload so the supabase-js client surfaces it cleanly
+        // Treat 401 as an expired/revoked token explicitly so the UI can prompt reconnect.
+        const isAuth = res.status === 401 || /invalid_grant|invalid credential/i.test(String(reason));
         return new Response(JSON.stringify({
-          error: "google_api",
+          error: isAuth ? "token_expired" : "google_api",
           status: res.status,
           reason: String(reason),
           detail: j,
@@ -243,12 +251,18 @@ Deno.serve(async (req) => {
       const events = (j.items ?? []).map((e: any) => ({
         id: e.id,
         summary: e.summary ?? "(sin título)",
+        description: e.description ?? null,
+        location: e.location ?? null,
         start: e.start?.dateTime ?? e.start?.date,
         end: e.end?.dateTime ?? e.end?.date,
         htmlLink: e.htmlLink,
         allDay: !!e.start?.date,
       }));
-      return new Response(JSON.stringify({ events }), {
+      return new Response(JSON.stringify({
+        events,
+        synced_at: new Date().toISOString(),
+        range: { timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString() },
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
