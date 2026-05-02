@@ -695,6 +695,15 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Button size="sm" variant="outline" onClick={pauseLiveRecording} className="gap-1.5">
                 <Pause className="h-3.5 w-3.5" /> Pausar
               </Button>
+              <Button
+                size="sm"
+                onClick={transcribeAndAnalyze}
+                disabled={analyzing}
+                className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
+              >
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                {analyzing ? "Transcribiendo…" : "✨ Transcribir y analizar"}
+              </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
               </Button>
@@ -708,6 +717,15 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Button size="sm" variant="outline" onClick={resumeLiveRecording} className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-500/10">
                 <Play className="h-3.5 w-3.5" /> Reanudar
               </Button>
+              <Button
+                size="sm"
+                onClick={transcribeAndAnalyze}
+                disabled={analyzing}
+                className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
+              >
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                {analyzing ? "Transcribiendo…" : "✨ Transcribir y analizar"}
+              </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
               </Button>
@@ -718,9 +736,14 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
             </span>
           )}
+          {transcriptionCount > 0 && (
+            <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
+              ~${TRANSCRIPTION_USD.toFixed(2)} USD · {transcriptionCount} transcripcion{transcriptionCount === 1 ? "" : "es"} esta sesión (~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} total)
+            </span>
+          )}
           {recState !== "idle" && (
             <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
-              Fragmentos procesados: {chunkCount}
+              Fragmentos: {chunkCount}
             </span>
           )}
         </div>
