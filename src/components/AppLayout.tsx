@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog, Sparkles } from "lucide-react";
+import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog } from "lucide-react";
+import claudeLogo from "@/assets/claude-logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,6 @@ import FeedbackButton from "@/components/FeedbackButton";
 const baseItems = [
   { to: "/", label: "Inicio", icon: LayoutDashboard, end: true },
   { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
-  { to: "/claude", label: "Claude", icon: Sparkles },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/calendar", label: "Calendario", icon: Calendar },
@@ -158,7 +158,42 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className={cn("border-t border-sidebar-border pt-2 pb-2", collapsed ? "px-2" : "px-3")}>
+          <div className={cn("border-t border-sidebar-border pt-2 pb-1", collapsed ? "px-2" : "px-3")}>
+            {(() => {
+              const claudeLink = (
+                <NavLink
+                  to="/claude"
+                  className={({ isActive }) =>
+                    cn(
+                      "relative flex items-center rounded-lg text-sm font-medium transition-colors",
+                      collapsed ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                    )
+                  }
+                >
+                  <img
+                    src={claudeLogo}
+                    alt=""
+                    width={20}
+                    height={20}
+                    loading="lazy"
+                    className="h-5 w-5 flex-shrink-0 object-contain"
+                  />
+                  {!collapsed && <span className="flex-1 truncate">Claude</span>}
+                </NavLink>
+              );
+              return collapsed ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>{claudeLink}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>Claude</TooltipContent>
+                </Tooltip>
+              ) : claudeLink;
+            })()}
+          </div>
+
+          <div className={cn("pt-1 pb-2", collapsed ? "px-2" : "px-3")}>
             {collapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
