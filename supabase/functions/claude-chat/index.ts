@@ -26,6 +26,8 @@ Responde SIEMPRE con este JSON exacto, sin texto adicional fuera del JSON:
       "author": "autor si está disponible",
       "year": "año si está disponible",
       "page_number": "número de página aproximado",
+      "document_type": "tipo de documento (clave, ej. guia_clinica)",
+      "source_institution": "institución exacta o null",
       "excerpt": "el fragmento exacto del texto original en el idioma del paper que respalda la afirmación"
     }
   ]
@@ -227,7 +229,8 @@ Notas clínicas: ${p.notes ?? "ninguna"}
     } else {
       chunks.forEach((c: any, i: number) => {
         const d = docMap.get(c.document_id) as any;
-        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
+        const inst = d?.source_institution ? ` — Fuente: ${d.source_institution}` : "";
+        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
       });
     }
 
