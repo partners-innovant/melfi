@@ -854,7 +854,6 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           </Tabs>
         </div>
       </div>
-      </div>
 
       {/* End-session dialog — must render above the z-[9999] fullscreen overlay */}
       <Dialog open={endOpen} onOpenChange={(o) => { if (!generating && !saving) setEndOpen(o); }}>
