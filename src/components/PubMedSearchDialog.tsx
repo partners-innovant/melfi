@@ -46,12 +46,16 @@ export function PubMedSearchDialog({
   open,
   onOpenChange,
   onImported,
+  initialQuery,
+  autoSearch = false,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onImported?: () => void;
+  initialQuery?: string;
+  autoSearch?: boolean;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [onlyFree, setOnlyFree] = useState(true);
   const [years, setYears] = useState<"5" | "10" | "all">("5");
   const [language, setLanguage] = useState<"any" | "english" | "español">("any");
@@ -69,6 +73,7 @@ export function PubMedSearchDialog({
         <PubMedPanel
           initial={{ query, onlyFree, years, language }}
           showFilters
+          autoSearch={autoSearch}
           onQueryStateChange={(s) => {
             setQuery(s.query);
             setOnlyFree(s.onlyFree);
