@@ -139,8 +139,25 @@ export default function Documents() {
     }
   }
 
-  const global = docs.filter((d) => d.is_global);
-  const own = docs.filter((d) => !d.is_global && d.psychologist_id === user?.id);
+  const ANY = "__any__";
+  const [filterType, setFilterType] = useState<string>(ANY);
+  const [filterArea, setFilterArea] = useState<string>(ANY);
+  const [filterSource, setFilterSource] = useState<string>(ANY);
+  const [filterScope, setFilterScope] = useState<"all" | "global" | "mine">("all");
+
+  const filtered = docs.filter((d) => {
+    if (filterType !== ANY && d.document_type !== filterType) return false;
+    if (filterArea !== ANY && !(d.clinical_areas ?? []).includes(filterArea)) return false;
+    if (filterSource !== ANY && d.source_institution !== filterSource) return false;
+    if (filterScope === "global" && !d.is_global) return false;
+    if (filterScope === "mine" && (d.is_global || d.psychologist_id !== user?.id)) return false;
+    return true;
+  });
+
+  const allSourcesInUse = Array.from(new Set(docs.map((d) => d.source_institution).filter((v): v is string => !!v))).sort();
+
+  const global = filtered.filter((d) => d.is_global);
+  const own = filtered.filter((d) => !d.is_global && d.psychologist_id === user?.id);
   const selectedCount = selected.size;
 
   return (
@@ -173,6 +190,56 @@ export default function Documents() {
           </Dialog>
         </div>
       </header>
+
+      {/* Filter bar */}
+      <Card className="p-3 mb-4 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
+          <Filter className="h-3.5 w-3.5" /> Filtros:
+        </div>
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY}>Todos los tipos</SelectItem>
+            {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterArea} onValueChange={setFilterArea}>
+          <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Área clínica" /></SelectTrigger>
+          <SelectContent className="max-h-80">
+            <SelectItem value={ANY}>Todas las áreas</SelectItem>
+            {CLINICAL_AREAS.map((a) => (
+              <SelectItem key={a} value={a}>{CLINICAL_AREA_LABELS[a]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterSource} onValueChange={setFilterSource}>
+          <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Fuente" /></SelectTrigger>
+          <SelectContent className="max-h-80">
+            <SelectItem value={ANY}>Todas las fuentes</SelectItem>
+            {allSourcesInUse.map((s) => (
+              <SelectItem key={s} value={s}>{sourceIconFor(s)} {s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterScope} onValueChange={(v: any) => setFilterScope(v)}>
+          <SelectTrigger className="h-8 text-xs w-[170px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="global">Solo globales</SelectItem>
+            <SelectItem value="mine">Mis documentos</SelectItem>
+          </SelectContent>
+        </Select>
+        {(filterType !== ANY || filterArea !== ANY || filterSource !== ANY || filterScope !== "all") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => { setFilterType(ANY); setFilterArea(ANY); setFilterSource(ANY); setFilterScope("all"); }}
+          >
+            Limpiar
+          </Button>
+        )}
+      </Card>
 
       {selectedCount > 0 && (
         <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 shadow-sm">
