@@ -92,7 +92,7 @@ export default function Profile() {
     setSavingSection(section);
     const patch: ProfileRow = {};
     for (const f of fields) patch[f] = data[f] ?? null;
-    const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+    const { error } = await supabase.from("profiles").update(patch as any).eq("id", user.id);
     setSavingSection(null);
     if (error) {
       toast.error("Error al guardar: " + error.message);
