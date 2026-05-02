@@ -117,12 +117,15 @@ export default function ChildDetail() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
+        <TabsList className="grid grid-cols-5 md:grid-cols-10 w-full">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
+          <TabsTrigger value="notes">Apuntes</TabsTrigger>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
           <TabsTrigger value="behavior">Conductual</TabsTrigger>
           <TabsTrigger value="evals">Evaluaciones</TabsTrigger>
+          <TabsTrigger value="tests">Tests</TabsTrigger>
+          <TabsTrigger value="documents">Documentos</TabsTrigger>
           <TabsTrigger value="comms">Comunicaciones</TabsTrigger>
           <TabsTrigger value="ai">Asistente IA</TabsTrigger>
         </TabsList>
