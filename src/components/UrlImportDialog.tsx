@@ -285,14 +285,41 @@ export default function UrlImportDialog({
             <div className="space-y-1.5">
               <div className="text-sm font-medium">Cola ({items.length})</div>
               {items.map((it) => (
-                <div key={it.id} className="flex items-center gap-2 rounded-md border p-2 text-xs">
-                  <StatusIcon status={it.status} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono">{truncate(it.url, 70)}</div>
-                    <div className={`mt-0.5 ${it.status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
-                      {it.message}
+                <div key={it.id} className="rounded-md border p-2 text-xs space-y-2">
+                  <div className="flex items-center gap-2">
+                    <StatusIcon status={it.status} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-mono">{truncate(it.url, 70)}</div>
+                      <div className={`mt-0.5 ${it.status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                        {it.message}
+                      </div>
                     </div>
                   </div>
+                  {it.status === "duplicate" && it.duplicate && (
+                    <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-2">
+                      <div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <span className="font-medium">⚠️ Este documento ya fue importado el {formatDate(it.duplicate.created_at)} como: </span>
+                          <span className="font-semibold">{it.duplicate.title}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm" variant={it.dupAction === "reimport" ? "default" : "outline"}
+                          className="h-7 text-xs"
+                          onClick={() => update(it.id, { dupAction: "reimport", message: "Listo para reimportar (reemplazará el existente)" })}
+                          disabled={busy}
+                        >Reimportar</Button>
+                        <Button
+                          size="sm" variant={it.dupAction === "skip" ? "default" : "outline"}
+                          className="h-7 text-xs"
+                          onClick={() => update(it.id, { dupAction: "skip", message: "Se saltará en la importación" })}
+                          disabled={busy}
+                        >Saltar</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -303,9 +330,21 @@ export default function UrlImportDialog({
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
             Cerrar
           </Button>
-          <Button onClick={handleProcess} disabled={busy || text.trim().length === 0}>
-            {busy ? "Procesando…" : "Procesar URLs"}
-          </Button>
+          {items.length === 0 ? (
+            <Button onClick={handleCheck} disabled={busy || text.trim().length === 0}>
+              {busy ? "Comprobando…" : "Procesar URLs"}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleImport}
+              disabled={
+                busy ||
+                items.some((it) => it.status === "duplicate" && (!it.dupAction || it.dupAction === "pending"))
+              }
+            >
+              {busy ? "Importando…" : "Importar"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -313,9 +352,12 @@ export default function UrlImportDialog({
 }
 
 function StatusIcon({ status }: { status: Status }) {
-  if (status === "downloading" || status === "processing")
+  if (status === "checking" || status === "downloading" || status === "processing")
     return <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />;
   if (status === "done") return <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />;
   if (status === "error") return <AlertCircle className="h-4 w-4 text-destructive shrink-0" />;
+  if (status === "duplicate") return <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />;
+  if (status === "skipped") return <X className="h-4 w-4 text-muted-foreground shrink-0" />;
   return <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />;
+}
 }
