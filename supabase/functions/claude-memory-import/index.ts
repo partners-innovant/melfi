@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5-20250929",
+        // Using Haiku — memory import/extraction, simple structured task
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 2048,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `Contexto importado:\n\n${text}` }],

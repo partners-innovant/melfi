@@ -129,7 +129,8 @@ El campo "time" debe ser HH:MM en formato 24h.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5-20250929",
+        // Using Haiku — slot suggestion is scheduling logic, no clinical reasoning needed
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 1500,
         messages: [{ role: "user", content: userPrompt }],
       }),

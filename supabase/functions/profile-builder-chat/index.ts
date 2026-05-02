@@ -252,6 +252,7 @@ ${docsSummary}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        // Using Sonnet — clinical reasoning required
         model: "claude-sonnet-4-5-20250929",
         max_tokens: 1500,
         system: finalSystem,
