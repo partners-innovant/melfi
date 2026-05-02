@@ -136,6 +136,9 @@ ${usedBlock}
 Complemento del terapeuta:
 ${complement}
 
+Transcripción completa de la sesión (audio auto-transcrito):
+${transcriptBlock}
+
 Genera el resumen, feedback y plan según las tres secciones requeridas.`;
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
