@@ -526,6 +526,9 @@ export default function AdminDocuments() {
           <Button size="sm" variant="outline" onClick={() => { setBulkType("otro"); setBulkTypeOpen(true); }}>
             Asignar tipo
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setConfirmClassifyOpen(true)}>
+            <Sparkles className="h-4 w-4 mr-1 text-primary" /> Auto-clasificar seleccionados
+          </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
           </Button>
