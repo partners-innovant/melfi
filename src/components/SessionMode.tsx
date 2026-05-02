@@ -747,7 +747,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           )}
           {transcriptionCount > 0 && (
             <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
-              ~${TRANSCRIPTION_USD.toFixed(2)} USD · {transcriptionCount} transcripcion{transcriptionCount === 1 ? "" : "es"} esta sesión (~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} total)
+              Transcripción (Haiku): ~${HAIKU_USD.toFixed(2)} · Análisis (Sonnet): ~${SONNET_USD.toFixed(2)} · Total esta vez: ~${TRANSCRIPTION_USD.toFixed(2)} · Acumulado sesión: ~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} ({transcriptionCount}×)
             </span>
           )}
           {recState !== "idle" && (
