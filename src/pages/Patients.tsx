@@ -164,6 +164,40 @@ export default function Patients() {
         </Dialog>
       </header>
 
+      {/* Incoming transfer banners */}
+      {incoming
+        .filter((i) => !dismissed.has(i.id))
+        .slice(0, 3)
+        .map((i) => {
+          const fromName =
+            [i.from_first_name, i.from_last_name].filter(Boolean).join(" ").trim() ||
+            "otro terapeuta";
+          return (
+            <div
+              key={i.id}
+              className="mb-3 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary-soft/40 p-3 text-sm"
+            >
+              <Inbox className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                📋 Tienes un nuevo paciente transferido:{" "}
+                <strong>{i.patient_name}</strong> — enviado por <strong>{fromName}</strong>
+              </div>
+              <button
+                onClick={() => {
+                  const next = new Set(dismissed);
+                  next.add(i.id);
+                  setDismissed(next);
+                  localStorage.setItem(DISMISSED_KEY, JSON.stringify(Array.from(next)));
+                }}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
+
       {loading ? (
         <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-16 bg-card rounded-xl animate-pulse" />)}</div>
       ) : patients.length === 0 ? (
@@ -177,6 +211,7 @@ export default function Patients() {
         <div className="grid gap-2">
           {patients.map((p) => {
             const age = calcAge(p.birth_date);
+            const transferDate = transferredMap[p.id];
             return (
               <Link key={p.id} to={`/patients/${p.id}`}>
                 <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4">
@@ -184,7 +219,14 @@ export default function Patients() {
                     {p.first_name[0]}{p.last_name[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium">{p.first_name} {p.last_name}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      <span>{p.first_name} {p.last_name}</span>
+                      {transferDate && (
+                        <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded">
+                          Transferido · {new Date(transferDate).toLocaleDateString("es-CL")}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-muted-foreground truncate">
                       {age !== null && `${age} años`}{age !== null && p.diagnosis && " · "}{p.diagnosis ?? (age === null ? "Sin información" : "")}
                     </div>
