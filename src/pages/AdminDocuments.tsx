@@ -884,9 +884,10 @@ export default function AdminDocuments() {
               <TableHead>Fuente</TableHead>
               <TableHead>Idioma</TableHead>
               <TableHead className="w-20 text-center">Chunks</TableHead>
+              <TableHead className="w-24">Modo</TableHead>
               <TableHead>Origen</TableHead>
               <TableHead>Subido</TableHead>
-              <TableHead className="w-24">Acciones</TableHead>
+              <TableHead className="w-32">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
