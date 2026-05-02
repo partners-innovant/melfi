@@ -668,13 +668,33 @@ export default function AdminDocuments() {
           />
           Sin clasificar
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={noChunksOnly}
-            onCheckedChange={(v) => { setNoChunksOnly(!!v); setPage(1); }}
-          />
-          Sin chunks
-        </label>
+        <div className="flex flex-col gap-1 ml-2">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={noChunksSnapshot ? "default" : "outline"}
+              onClick={runNoChunksSearch}
+            >
+              <Search className="h-3.5 w-3.5 mr-1" />
+              {noChunksSnapshot ? "Actualizar búsqueda sin chunks" : "Buscar documentos sin chunks"}
+            </Button>
+            {noChunksSnapshot && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setNoChunksSnapshot(null); setNoChunksSearchAt(null); setPage(1); }}
+                title="Limpiar filtro"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+          {noChunksSearchAt && (
+            <span className="text-[11px] text-muted-foreground">
+              Última búsqueda: {formatRelative(noChunksSearchAt)} · {noChunksSnapshot?.size ?? 0} resultado(s)
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Bulk action bar */}
