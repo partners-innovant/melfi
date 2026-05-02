@@ -38,7 +38,9 @@ type AnalyzedSuggestion = {
   addressed?: boolean;
 };
 type SummaryBlock = { t: number; bullets: string[] };
-const TRANSCRIPTION_USD = 0.18;
+const HAIKU_USD = 0.02;
+const SONNET_USD = 0.08;
+const TRANSCRIPTION_USD = HAIKU_USD + SONNET_USD;
 
 interface Props {
   open: boolean;
@@ -104,6 +106,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [chunkCount, setChunkCount] = useState(0);
   // Manual on-demand transcription + analysis
   const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeStage, setAnalyzeStage] = useState<"idle" | "transcribing" | "analyzing">("idle");
   const [summaryBlocks, setSummaryBlocks] = useState<SummaryBlock[]>([]);
   const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
   const [sessionInsight, setSessionInsight] = useState<string>("");
@@ -317,6 +320,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       return;
     }
     setAnalyzing(true);
+    setAnalyzeStage("transcribing");
     let newSegments: TranscriptSegment[] = [];
     try {
       // 1) Transcribe accumulated chunks (if any)
@@ -331,7 +335,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             const audio = await blobToBase64(blob);
             const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
             const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-              body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
+              body: { action: "transcribe", audio, mime_type: baseMime },
             });
             if (error) throw error;
             const segs: any[] = (data as any)?.segments ?? [];
@@ -359,10 +363,10 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         }
       }
 
-      // 2) Build context and call analyze-session-live
-      const transcriptText = transcriptRef.current
-        .filter((s) => !s.error)
-        .map((s) => `${s.speaker}: ${s.text}`).join("\n");
+      // 2) Build condensed context and call analyze (Sonnet) — only the NEW transcript chunk
+      const transcriptText = newSegments.length
+        ? newSegments.map((s) => `${s.speaker}: ${s.text}`).join("\n")
+        : transcriptRef.current.filter((s) => !s.error).slice(-12).map((s) => `${s.speaker}: ${s.text}`).join("\n");
       const therapistNotesText = therapistEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
       const patientNotesText = patientEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
       const activeWithIds: AnalyzedSuggestion[] = analyzedSuggestions.length
@@ -373,14 +377,18 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             ...suggestions.patterns.map((t, i) => ({ id: `p-${i}`, type: "pattern", text: t })),
             ...suggestions.unexplored.map((t, i) => ({ id: `u-${i}`, type: "alert", text: t })),
           ];
+      const recentBullets = (summaryBlocks[0]?.bullets ?? []).slice(0, 3);
 
-      const { data: ad, error: aerr } = await supabase.functions.invoke("analyze-session-live", {
+      setAnalyzeStage("analyzing");
+      const { data: ad, error: aerr } = await supabase.functions.invoke("transcribe-session-chunk", {
         body: {
+          action: "analyze",
           patient_id: patientId,
           transcript_text: transcriptText,
           therapist_notes: therapistNotesText,
           patient_notes: patientNotesText,
           active_suggestions: activeWithIds.map(({ id, type, text }) => ({ id, type, text })),
+          recent_summary_bullets: recentBullets,
         },
       });
       if (aerr) throw aerr;
@@ -417,6 +425,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       toast.error("No se pudo analizar: " + (e?.message ?? ""));
     } finally {
       setAnalyzing(false);
+      setAnalyzeStage("idle");
     }
   }
 
@@ -702,7 +711,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
               >
                 {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                {analyzing ? "Transcribiendo…" : "✨ Transcribir y analizar"}
+                {analyzeStage === "transcribing" ? "Transcribiendo…" : analyzeStage === "analyzing" ? "Analizando…" : "✨ Transcribir y analizar"}
               </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
@@ -724,7 +733,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
               >
                 {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                {analyzing ? "Transcribiendo…" : "✨ Transcribir y analizar"}
+                {analyzeStage === "transcribing" ? "Transcribiendo…" : analyzeStage === "analyzing" ? "Analizando…" : "✨ Transcribir y analizar"}
               </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
@@ -738,7 +747,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           )}
           {transcriptionCount > 0 && (
             <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
-              ~${TRANSCRIPTION_USD.toFixed(2)} USD · {transcriptionCount} transcripcion{transcriptionCount === 1 ? "" : "es"} esta sesión (~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} total)
+              Transcripción (Haiku): ~${HAIKU_USD.toFixed(2)} · Análisis (Sonnet): ~${SONNET_USD.toFixed(2)} · Total esta vez: ~${TRANSCRIPTION_USD.toFixed(2)} · Acumulado sesión: ~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} ({transcriptionCount}×)
             </span>
           )}
           {recState !== "idle" && (
