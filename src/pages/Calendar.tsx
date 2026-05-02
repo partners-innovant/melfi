@@ -136,36 +136,53 @@ export default function Calendar() {
   const loadGoogleEvents = useCallback(async (opts?: { showToast?: boolean }) => {
     if (!googleConnected) { setGEvents([]); return; }
     try {
+      // Always pull a wide window: first day of current month → end of month + 2 weeks
+      // (per spec). The visible-week / visible-month grid filters down from there.
+      const now = new Date();
+      const wideMin = new Date(now.getFullYear(), now.getMonth(), 1);
+      const wideMax = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      wideMax.setDate(wideMax.getDate() + 14);
+
       const { data, error } = await supabase.functions.invoke("calendar-sync", {
-        body: { action: "pull", timeMin: range.start.toISOString(), timeMax: range.end.toISOString() },
+        body: { action: "pull", timeMin: wideMin.toISOString(), timeMax: wideMax.toISOString() },
       });
+
       if (error) {
-        const msg = (error as any)?.message ?? "Error desconocido";
-        console.error("[calendar-sync] invoke error", error);
-        if (msg.includes("401") || msg.toLowerCase().includes("token_expired")) {
+        // Try to read the structured body the function returned (FunctionsHttpError exposes .context)
+        let detail: any = null;
+        try {
+          const ctx = (error as any).context;
+          if (ctx?.json) detail = await ctx.json();
+          else if (ctx?.text) detail = { reason: await ctx.text() };
+        } catch { /* ignore */ }
+        const msg = detail?.reason || detail?.error || (error as any)?.message || "Error desconocido";
+        console.error("[calendar-sync] invoke error", error, detail);
+        if (detail?.error === "token_expired" || /401|token_expired|invalid_grant/i.test(msg)) {
           setTokenExpired(true);
-          if (opts?.showToast) toast.error("Tu sesión de Google expiró. Reconecta para sincronizar.");
+          if (opts?.showToast) toast.error("Tu conexión con Google Calendar expiró. Reconecta tu cuenta.");
         } else if (opts?.showToast) {
-          toast.error(`Error al sincronizar Google Calendar: ${msg}`);
+          toast.error(`Google Calendar: ${msg}`);
         }
         setGEvents([]); return;
       }
-      // Edge function may return a structured error payload with status 200
+
       const payload = data as any;
       if (payload?.error) {
         console.error("[calendar-sync] api error payload", payload);
-        if (payload.status === 401 || payload.error === "token_expired") {
+        if (payload.error === "token_expired" || payload.status === 401) {
           setTokenExpired(true);
-          if (opts?.showToast) toast.error("Tu sesión de Google expiró. Reconecta para sincronizar.");
+          if (opts?.showToast) toast.error("Tu conexión con Google Calendar expiró. Reconecta tu cuenta.");
         } else if (opts?.showToast) {
           toast.error(`Google Calendar: ${payload.reason || payload.error}`);
         }
         setGEvents(payload.events ?? []);
         return;
       }
+
       setTokenExpired(false);
       const items = (payload?.events ?? []).map((e: any) => ({ ...e, source: "google" as const }));
       setGEvents(items);
+      setLastSyncedAt(payload?.synced_at ?? new Date().toISOString());
       if (opts?.showToast) {
         toast.success(`Sincronizado: ${items.length} evento${items.length === 1 ? "" : "s"} de Google`);
       }
@@ -174,7 +191,7 @@ export default function Calendar() {
       if (opts?.showToast) toast.error(`Error al sincronizar: ${e?.message ?? e}`);
       setGEvents([]);
     }
-  }, [googleConnected, range.start, range.end]);
+  }, [googleConnected]);
 
   const load = useCallback(async () => {
     setLoading(true);
