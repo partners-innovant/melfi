@@ -17,8 +17,9 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Sparkles, Plus, Phone, Mail, Users, Calendar,
-  ChevronDown, ChevronRight, FileText, Filter, MessageCircle,
+  ChevronDown, ChevronRight, FileText, Filter, MessageCircle, Send,
 } from "lucide-react";
+import TransferChildPatientDialog from "@/components/TransferChildPatientDialog";
 import {
   calcAge, ageRangeColor, GOAL_STATUSES, GOAL_STATUS_LABELS,
   TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH,
@@ -48,6 +49,7 @@ export default function ChildDetail() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -110,9 +112,14 @@ export default function ChildDetail() {
               </div>
             </div>
           </div>
-          <Link to={`/assistant?patient=${child.id}&kind=child`}>
-            <Button variant="outline" size="sm" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" />Consultar IA</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)} className="gap-1.5">
+              <Send className="h-3.5 w-3.5" />Transferir a otro terapeuta
+            </Button>
+            <Link to={`/assistant?patient=${child.id}&kind=child`}>
+              <Button variant="outline" size="sm" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" />Consultar IA</Button>
+            </Link>
+          </div>
         </div>
       </Card>
 
@@ -275,6 +282,18 @@ export default function ChildDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TransferChildPatientDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        patient={{
+          id: child.id,
+          first_name: child.first_name,
+          last_name: child.last_name,
+          birth_date: child.birth_date,
+          diagnosis: child.medical_diagnosis ?? null,
+        }}
+      />
     </div>
   );
 }
