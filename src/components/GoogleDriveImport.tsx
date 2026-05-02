@@ -294,6 +294,24 @@ export default function GoogleDriveImport({
         console.warn("[drive-import] metadata AI:", e);
       }
 
+      // Apply duplicate action chosen by the user (decision was made by filename;
+      // re-check against the AI-derived title in case it shifted).
+      let finalTitle = title;
+      const dup = item.duplicate ?? (await findDuplicateByTitle(title));
+      if (dup) {
+        if (item.dupAction === "replace") {
+          update(item.driveId, { statusText: "Eliminando documento previo..." });
+          await deleteDocumentAndChunks(dup);
+        } else if (item.dupAction === "keep_both") {
+          finalTitle = await nextAvailableTitle(title);
+        } else if (!item.duplicate) {
+          // Newly discovered after metadata: default to keep_both to avoid blocking the batch.
+          finalTitle = await nextAvailableTitle(title);
+        } else {
+          throw new Error("Resuelve el aviso de duplicado antes de importar");
+        }
+      }
+
       update(item.driveId, { status: "uploading", progress: 25, statusText: "Subiendo archivo..." });
       const storagePath = `${userId}/${crypto.randomUUID()}.pdf`;
       const { error: upErr } = await supabase.storage
@@ -305,12 +323,13 @@ export default function GoogleDriveImport({
         .from("documents")
         .insert({
           psychologist_id: userId,
-          title,
+          title: finalTitle,
           author: author || null,
           year: year || null,
           document_type: "articulo_cientifico",
           is_global: isGlobal && isAdmin,
           storage_path: storagePath,
+          source_url: item.name,
           import_source: 'google_drive',
         } as any)
         .select()
