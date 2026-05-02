@@ -497,60 +497,73 @@ export function PatientProfileBuilderTab({
             </Button>
           </div>
         )}
-        <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept=".pdf,.txt,.docx,.png,.jpg,.jpeg,.webp,.gif,.mp3,.m4a,.ogg,.wav,.webm,.mp4,application/pdf,text/plain,image/*,audio/*"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setPendingFile(f);
-              if (fileInputRef.current) fileInputRef.current.value = "";
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".pdf,.txt,.docx,.png,.jpg,.jpeg,.webp,.gif,.mp3,.m4a,.ogg,.wav,.webm,.mp4,application/pdf,text/plain,image/*,audio/*"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) setPendingFile(f);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+        />
+        <div className="rounded-xl border border-border bg-background focus-within:ring-2 focus-within:ring-ring/40 focus-within:border-ring transition-shadow overflow-hidden">
+          <Textarea
+            ref={builderTaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
             }}
-          />
-          <Button
-            onClick={() => fileInputRef.current?.click()}
+            placeholder="Cuéntame sobre el paciente o pide algo específico..."
+            className="min-h-[120px] max-h-[200px] resize-none w-full border-0 bg-transparent p-3 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
             disabled={sending || analyzingFile}
-            size="icon"
-            variant="outline"
-            className="self-end h-11 w-11 shrink-0"
-            title="Adjuntar archivo (PDF, imagen, audio)"
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <div className="relative flex-1">
-            <Textarea
-              ref={builderTaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              placeholder="Cuéntame sobre el paciente o pide algo específico..."
-              className="min-h-[44px] max-h-32 resize-none w-full pb-8"
+          />
+          <div className="flex items-center gap-2 h-9 px-2 border-t border-border bg-muted/40">
+            <Button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
               disabled={sending || analyzingFile}
-            />
-            <div className="absolute bottom-1.5 right-2">
-              <ImprovePromptButton value={input} onChange={setInput} textareaRef={builderTaRef} disabled={sending || analyzingFile} />
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+              title="Adjuntar archivo (PDF, imagen, audio)"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              <ImprovePromptButton
+                value={input}
+                onChange={setInput}
+                textareaRef={builderTaRef}
+                disabled={sending || analyzingFile}
+              />
+              <Button
+                type="button"
+                onClick={() => send("Dame tu hipótesis diagnóstica completa basada en toda la información disponible.", { mode: "suggest_diagnosis" })}
+                disabled={sending || analyzingFile}
+                size="sm"
+                variant="outline"
+                className="h-6 gap-1 rounded-full border-teal-500/50 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 px-2.5 text-[12px] leading-none font-medium"
+                title="Sugerir diagnóstico"
+              >
+                <Sparkles className="h-3 w-3" /> 💡 Sugerir diagnóstico
+              </Button>
+              <Button
+                type="button"
+                onClick={() => send()}
+                disabled={sending || analyzingFile || !input.trim()}
+                size="sm"
+                className="h-6 gap-1 rounded-full bg-teal-600 hover:bg-teal-700 text-white px-3 text-[12px] leading-none font-medium"
+              >
+                {sending ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Send className="h-3 w-3" /> Enviar</>}
+              </Button>
             </div>
           </div>
-          <Button
-            onClick={() => send("Dame tu hipótesis diagnóstica completa basada en toda la información disponible.", { mode: "suggest_diagnosis" })}
-            disabled={sending || analyzingFile}
-            size="sm"
-            variant="outline"
-            className="self-end h-11 gap-1.5 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 text-xs"
-            title="Sugerir diagnóstico"
-          >
-            <Sparkles className="h-3.5 w-3.5" />💡 Sugerir
-          </Button>
-          <Button onClick={() => send()} disabled={sending || analyzingFile || !input.trim()} size="icon" className="self-end h-11 w-11">
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
         </div>
         {messages.length >= 3 && (
           <Button
