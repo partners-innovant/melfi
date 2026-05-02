@@ -62,6 +62,7 @@ interface DocRow {
   source_url: string | null;
   created_at: string;
   chunk_count: number;
+  processing_mode: "text" | "vision" | null;
 }
 
 export default function AdminDocuments() {
