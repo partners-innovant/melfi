@@ -43,10 +43,14 @@ export function PatientProfileBuilderTab({
   patientId,
   onProfileUpdated,
   embedded = false,
+  headerExtra,
+  onMessagesChange,
 }: {
   patientId: string;
   onProfileUpdated?: () => void;
   embedded?: boolean;
+  headerExtra?: React.ReactNode;
+  onMessagesChange?: (messages: Msg[]) => void;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
