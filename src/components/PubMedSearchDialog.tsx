@@ -316,13 +316,18 @@ function ArticleCard({
   const [done, setDone] = useState(false);
   const [statusText, setStatusText] = useState<string>("");
 
+  const status: PubMedPdfStatus =
+    article.pdf_status ??
+    (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
+  const canImportPdf = status === "pdf_available";
+
   async function handleImport() {
     setImporting(true);
     try {
-      const { target } = await importPubMedArticle(article, isAdmin, setStatusText);
+      const { target } = await importPubMedArticle(article, isAdmin, setStatusText, canImportPdf);
       setDone(true);
       onImported(target);
-      toast.success("✅ Abstract importado correctamente");
+      toast.success(canImportPdf ? "✅ PDF importado correctamente" : "✅ Abstract importado correctamente");
     } catch (e) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "Error al importar");
