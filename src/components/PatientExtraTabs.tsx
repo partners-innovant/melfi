@@ -12,7 +12,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2,
+  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -48,20 +48,47 @@ export function PatientProfileBuilderTab({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [patientName, setPatientName] = useState<string>("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("patient_profile_chat")
-      .select("role, content")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: true });
-    setMessages((data ?? []) as Msg[]);
+    const [{ data: chat }, { data: p }] = await Promise.all([
+      supabase
+        .from("patient_profile_chat")
+        .select("role, content")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: true }),
+      supabase.from("patients").select("first_name, last_name").eq("id", patientId).maybeSingle(),
+    ]);
+    setMessages((chat ?? []) as Msg[]);
+    if (p) setPatientName(`${p.first_name} ${p.last_name}`.trim());
     setLoading(false);
   }, [patientId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleReset() {
+    setResetting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("patient_profile_chat")
+        .delete()
+        .eq("patient_id", patientId)
+        .eq("psychologist_id", user!.id);
+      if (error) throw error;
+      setMessages([]);
+      setResetOpen(false);
+      toast.success("Conversación reiniciada");
+    } catch (e: any) {
+      toast.error(e.message ?? "No se pudo reiniciar");
+    } finally {
+      setResetting(false);
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
