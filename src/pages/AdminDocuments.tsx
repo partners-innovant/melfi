@@ -141,16 +141,6 @@ export default function AdminDocuments() {
     setLoading(false);
   }
 
-  // Auth gates
-  if (authLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-  if (!profile?.is_admin) return <Navigate to="/" replace />;
-
   // Filtering
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -163,8 +153,7 @@ export default function AdminDocuments() {
       if (filterArea !== ANY && !d.clinical_areas.includes(filterArea)) return false;
       if (filterSource !== ANY && d.source_institution !== filterSource) return false;
       if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
-      if (unclassifiedOnly && d.clinical_areas.length > 0 && d.document_type) return false;
-      if (unclassifiedOnly && !(d.clinical_areas.length === 0 || !d.document_type)) return false;
+      if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
       return true;
     });
   }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly]);
@@ -181,6 +170,16 @@ export default function AdminDocuments() {
     const totalChunks = rows.reduce((sum, d) => sum + d.chunk_count, 0);
     return { total, noArea, noSource, totalChunks };
   }, [rows]);
+
+  // Auth gates (after hooks)
+  if (authLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  if (!profile?.is_admin) return <Navigate to="/" replace />;
 
   // ---- Mutations (auto-save) ----
   async function updateField(id: string, patch: Partial<DocRow>) {
