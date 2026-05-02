@@ -1153,12 +1153,9 @@ export default function AdminDocuments() {
                       variant="outline"
                       className="h-8 w-8"
                       onClick={() => classifySingle(d)}
-                      disabled={singleClassifyId === d.id}
                       title="Auto-clasificar"
                     >
-                      {singleClassifyId === d.id
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <Sparkles className="h-4 w-4 text-primary" />}
+                      <Sparkles className="h-4 w-4 text-primary" />
                     </Button>
                     <Button
                       size="icon"
