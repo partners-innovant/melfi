@@ -1414,6 +1414,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_therapists: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          is_admin: boolean
+          last_name: string
+          patient_count: number
+          phone: string
+          rut: string
+        }[]
+      }
       get_user_id_by_email: { Args: { _email: string }; Returns: string }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_email_allowed: { Args: { _email: string }; Returns: boolean }
