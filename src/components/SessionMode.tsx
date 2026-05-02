@@ -109,6 +109,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
   useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => {
+    if (activeTab !== "transcript") return;
+    const el = transcriptScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [transcript, activeTab]);
 
   // Init session row when overlay opens
   useEffect(() => {
