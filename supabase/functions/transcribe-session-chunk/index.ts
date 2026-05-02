@@ -187,17 +187,28 @@ ${profileBlock}
 Sugerencias activas actuales:
 ${sugBlock}
 
-Devuelve el JSON con summary_bullets, suggestions, suggestions_addressed y session_insights.`;
+Devuelve el JSON pedido.`;
 
-    const data = await callAnthropic(SONNET_MODEL, {
-      max_tokens: 2000,
-      system: ANALYZE_SYSTEM,
-      messages: [{ role: "user", content: userMessage }],
-    }, ANTHROPIC_API_KEY);
-    const text: string = data?.content?.[0]?.text ?? "";
-    const parsed = tryParseJson(text);
+    // Run bullets (Haiku) and suggestions+insights (Sonnet) in parallel
+    const [bulletsResp, analyzeResp] = await Promise.all([
+      // Using Haiku — summary bullets are pure summarization, no clinical reasoning needed
+      callAnthropic(HAIKU_MODEL, {
+        max_tokens: 1000,
+        system: BULLETS_SYSTEM,
+        messages: [{ role: "user", content: userMessage }],
+      }, ANTHROPIC_API_KEY),
+      // Using Sonnet — clinical suggestions + insights require deeper reasoning
+      callAnthropic(SONNET_MODEL, {
+        max_tokens: 1500,
+        system: ANALYZE_SYSTEM,
+        messages: [{ role: "user", content: userMessage }],
+      }, ANTHROPIC_API_KEY),
+    ]);
+
+    const bulletsParsed = tryParseJson(bulletsResp?.content?.[0]?.text ?? "");
+    const parsed = tryParseJson(analyzeResp?.content?.[0]?.text ?? "");
     return new Response(JSON.stringify({
-      summary_bullets: Array.isArray(parsed.summary_bullets) ? parsed.summary_bullets : [],
+      summary_bullets: Array.isArray(bulletsParsed.summary_bullets) ? bulletsParsed.summary_bullets : [],
       suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
       suggestions_addressed: Array.isArray(parsed.suggestions_addressed) ? parsed.suggestions_addressed : [],
       session_insights: typeof parsed.session_insights === "string" ? parsed.session_insights : "",
