@@ -333,7 +333,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             const audio = await blobToBase64(blob);
             const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
             const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-              body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
+              body: { action: "transcribe", audio, mime_type: baseMime },
             });
             if (error) throw error;
             const segs: any[] = (data as any)?.segments ?? [];
