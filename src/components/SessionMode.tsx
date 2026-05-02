@@ -11,8 +11,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Square, Send, Sparkles, Loader2, Mic, StopCircle, Check, MessageCircle,
-  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2, Pause, Play, Circle, FileText,
+  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2, Pause, Play, Circle, FileText, Wand2, ChevronDown, ChevronRight,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { EMOTIONAL_STATES } from "@/components/SessionsTab";
 import ReactMarkdown from "react-markdown";
@@ -27,7 +28,17 @@ type Suggestions = {
   interventions: string[];
   unexplored: string[];
 };
-type UsedSuggestion = { kind: "question" | "pattern" | "intervention" | "unexplored"; text: string; t: number };
+type UsedSuggestion = { kind: "question" | "pattern" | "intervention" | "unexplored", text: string; t: number };
+
+type AnalyzedSuggestion = {
+  id: string;
+  type: "question" | "intervention" | "pattern" | "alert" | string;
+  text: string;
+  rationale?: string;
+  addressed?: boolean;
+};
+type SummaryBlock = { t: number; bullets: string[] };
+const TRANSCRIPTION_USD = 0.18;
 
 interface Props {
   open: boolean;
@@ -91,6 +102,14 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [transcriptEditable, setTranscriptEditable] = useState(false);
   const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
   const [chunkCount, setChunkCount] = useState(0);
+  // Manual on-demand transcription + analysis
+  const [analyzing, setAnalyzing] = useState(false);
+  const [summaryBlocks, setSummaryBlocks] = useState<SummaryBlock[]>([]);
+  const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
+  const [sessionInsight, setSessionInsight] = useState<string>("");
+  const [transcriptionCount, setTranscriptionCount] = useState(0);
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState<number | null>(null);
+  const unprocessedChunksRef = useRef<Blob[]>([]);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
 
   const liveRecorderRef = useRef<MediaRecorder | null>(null);
@@ -184,6 +203,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     persistEntries({ therapist: next });
   }
 
+  const transcriptSummaryText = useMemo(() => {
+    if (!summaryBlocks.length) return "";
+    return summaryBlocks[0].bullets.map((b) => `• ${b}`).join("\n");
+  }, [summaryBlocks]);
+
   async function requestSuggestions() {
     if (!sessionId) return;
     setLoadingSuggestions(true);
@@ -193,6 +217,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           patient_id: patientId,
           session_id: sessionId,
           previous_used_suggestions: usedSuggestions.map((s) => s.text),
+          transcript_summary: transcriptSummaryText || undefined,
         },
       });
       if (error) throw error;
@@ -283,78 +308,115 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     return "";
   }
 
-  async function processChunk(blob: Blob) {
-    if (!blob || blob.size < 2000) return; // skip tiny chunks
-    setChunkCount((n) => n + 1);
-    setTranscribing(true);
-    let errorSeg: TranscriptSegment | null = null;
-    try {
-      const audio = await blobToBase64(blob);
-      const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
-      const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
-      const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-        body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
-      });
-      if (error) throw error;
-      const segs: any[] = (data as any)?.segments ?? [];
-      if (!segs.length) {
-        if ((data as any)?.error) throw new Error(String((data as any).error));
-        return;
-      }
-      const now = Date.now();
-      const enriched: TranscriptSegment[] = segs
-        .filter((s) => s && typeof s.text === "string" && s.text.trim())
-        .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
-      if (!enriched.length) return;
-      const next = [...transcriptRef.current, ...enriched];
-      transcriptRef.current = next;
-      setTranscript(next);
-      // Persist
-      const sid = sessionIdRef.current;
-      if (sid) {
-        supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
-      }
-      // Suggestion-detection
-      checkSuggestionsUsed(enriched.map((e) => `${e.speaker}: ${e.text}`).join("\n"));
-    } catch (e: any) {
-      console.error("transcribe chunk failed", e);
-      errorSeg = { speaker: "Error", text: "⚠️ Error transcribiendo fragmento", t: Date.now(), error: true };
-    } finally {
-      setTranscribing(false);
-      if (errorSeg) {
-        const next = [...transcriptRef.current, errorSeg];
-        transcriptRef.current = next;
-        setTranscript(next);
-      }
+  // Manual: transcribe accumulated chunks then run analysis
+  async function transcribeAndAnalyze() {
+    if (analyzing) return;
+    const pending = unprocessedChunksRef.current;
+    if (!pending.length && !transcriptRef.current.length) {
+      toast.info("Aún no hay audio grabado para transcribir.");
+      return;
     }
-  }
-
-  async function checkSuggestionsUsed(transcription: string) {
-    const all: { kind: "question" | "intervention"; text: string }[] = [
-      ...suggestionsRef.current.questions.map((t) => ({ kind: "question" as const, text: t })),
-      ...suggestionsRef.current.interventions.map((t) => ({ kind: "intervention" as const, text: t })),
-    ];
-    for (const sug of all) {
-      const key = sug.text.toLowerCase().trim();
-      if (checkedSuggestionsRef.current.has(key)) continue;
-      checkedSuggestionsRef.current.add(key);
-      try {
-        const { data, error } = await supabase.functions.invoke("check-suggestion-used", {
-          body: { transcription, suggestion: sug.text },
-        });
-        if (error) continue;
-        const used = !!(data as any)?.used;
-        const conf = Number((data as any)?.confidence ?? 0);
-        if (used && conf >= 0.75) {
-          markUsed(sug.kind, sug.text);
-          toast.success(`✓ Detectado: "${sug.text.slice(0, 50)}${sug.text.length > 50 ? "…" : ""}"`);
-        } else {
-          // Allow re-checking later if not detected this time
-          checkedSuggestionsRef.current.delete(key);
+    setAnalyzing(true);
+    let newSegments: TranscriptSegment[] = [];
+    try {
+      // 1) Transcribe accumulated chunks (if any)
+      if (pending.length) {
+        const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
+        const blob = new Blob(pending, { type: liveMimeRef.current || "audio/webm" });
+        // Clear processed chunks from memory immediately
+        unprocessedChunksRef.current = [];
+        if (blob.size >= 1000) {
+          setTranscribing(true);
+          try {
+            const audio = await blobToBase64(blob);
+            const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
+            const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
+              body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
+            });
+            if (error) throw error;
+            const segs: any[] = (data as any)?.segments ?? [];
+            const now = Date.now();
+            newSegments = segs
+              .filter((s) => s && typeof s.text === "string" && s.text.trim())
+              .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
+            if (newSegments.length) {
+              const next = [...transcriptRef.current, ...newSegments];
+              transcriptRef.current = next;
+              setTranscript(next);
+              const sid = sessionIdRef.current;
+              if (sid) supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
+            }
+          } catch (e: any) {
+            console.error("transcribe failed", e);
+            const errSeg: TranscriptSegment = { speaker: "Error", text: "⚠️ Error transcribiendo fragmento", t: Date.now(), error: true };
+            const next = [...transcriptRef.current, errSeg];
+            transcriptRef.current = next;
+            setTranscript(next);
+            toast.error("Error al transcribir fragmento");
+          } finally {
+            setTranscribing(false);
+          }
         }
-      } catch {
-        checkedSuggestionsRef.current.delete(key);
       }
+
+      // 2) Build context and call analyze-session-live
+      const transcriptText = transcriptRef.current
+        .filter((s) => !s.error)
+        .map((s) => `${s.speaker}: ${s.text}`).join("\n");
+      const therapistNotesText = therapistEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
+      const patientNotesText = patientEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
+      const activeWithIds: AnalyzedSuggestion[] = analyzedSuggestions.length
+        ? analyzedSuggestions
+        : [
+            ...suggestions.questions.map((t, i) => ({ id: `q-${i}`, type: "question", text: t })),
+            ...suggestions.interventions.map((t, i) => ({ id: `i-${i}`, type: "intervention", text: t })),
+            ...suggestions.patterns.map((t, i) => ({ id: `p-${i}`, type: "pattern", text: t })),
+            ...suggestions.unexplored.map((t, i) => ({ id: `u-${i}`, type: "alert", text: t })),
+          ];
+
+      const { data: ad, error: aerr } = await supabase.functions.invoke("analyze-session-live", {
+        body: {
+          patient_id: patientId,
+          transcript_text: transcriptText,
+          therapist_notes: therapistNotesText,
+          patient_notes: patientNotesText,
+          active_suggestions: activeWithIds.map(({ id, type, text }) => ({ id, type, text })),
+        },
+      });
+      if (aerr) throw aerr;
+      const bullets: string[] = Array.isArray((ad as any)?.summary_bullets) ? (ad as any).summary_bullets : [];
+      const newSugs: any[] = Array.isArray((ad as any)?.suggestions) ? (ad as any).suggestions : [];
+      const addressed: string[] = Array.isArray((ad as any)?.suggestions_addressed) ? (ad as any).suggestions_addressed : [];
+      const insight: string = typeof (ad as any)?.session_insights === "string" ? (ad as any).session_insights : "";
+
+      // Mark addressed on previous active set so therapist sees what was detected
+      const addressedSet = new Set(addressed.map(String));
+      const refreshed: AnalyzedSuggestion[] = newSugs.map((s, i) => ({
+        id: `n-${Date.now()}-${i}`,
+        type: s.type ?? "intervention",
+        text: String(s.text ?? "").trim(),
+        rationale: s.rationale ? String(s.rationale) : undefined,
+        addressed: false,
+      })).filter((s) => s.text);
+      // Also keep any prior addressed ones flagged at the top
+      const flaggedPrior = activeWithIds
+        .filter((s) => addressedSet.has(s.id))
+        .map((s) => ({ ...s, addressed: true }));
+
+      setAnalyzedSuggestions([...flaggedPrior, ...refreshed]);
+      setSessionInsight(insight);
+
+      if (bullets.length) {
+        setSummaryBlocks((prev) => [{ t: Date.now(), bullets }, ...prev]);
+      }
+      setTranscriptionCount((n) => n + 1);
+      setLastAnalyzedAt(Date.now());
+      toast.success("✨ Transcripción y análisis listos");
+    } catch (e: any) {
+      console.error(e);
+      toast.error("No se pudo analizar: " + (e?.message ?? ""));
+    } finally {
+      setAnalyzing(false);
     }
   }
 
@@ -377,15 +439,17 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       liveMimeRef.current = mr.mimeType || mime || "audio/webm";
       liveChunksRef.current = [];
+      unprocessedChunksRef.current = [];
       mr.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           liveChunksRef.current.push(e.data);
-          // Process every chunk that arrives (timeslice = 10s)
-          processChunk(e.data);
+          unprocessedChunksRef.current.push(e.data);
+          setChunkCount((n) => n + 1);
         }
       };
       mr.onerror = (ev) => { console.error("MediaRecorder error", ev); toast.error("Error de grabación"); };
-      mr.start(10000); // 10s timeslice — more responsive real-time transcription
+      // Smaller timeslice keeps blob granularity for on-demand transcription
+      mr.start(5000);
       liveRecorderRef.current = mr;
       liveStartRef.current = Date.now();
       livePausedAccumRef.current = 0;
@@ -437,6 +501,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     liveRecorderRef.current = null;
     // Clear audio chunks from memory
     liveChunksRef.current = [];
+    unprocessedChunksRef.current = [];
     setRecState("idle");
   }
 
@@ -557,6 +622,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     setRecState("idle"); setRecElapsed(0);
     setSuppressRecDisclaimer(false);
     setActiveTab("suggestions"); setTranscriptEditable(false);
+    setSummaryBlocks([]); setAnalyzedSuggestions([]); setSessionInsight("");
+    setTranscriptionCount(0); setLastAnalyzedAt(null); setChunkCount(0);
+    unprocessedChunksRef.current = [];
   }
 
   const elapsedMs = startedAt ? now - startedAt : 0;
@@ -627,6 +695,15 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Button size="sm" variant="outline" onClick={pauseLiveRecording} className="gap-1.5">
                 <Pause className="h-3.5 w-3.5" /> Pausar
               </Button>
+              <Button
+                size="sm"
+                onClick={transcribeAndAnalyze}
+                disabled={analyzing}
+                className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
+              >
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                {analyzing ? "Transcribiendo…" : "✨ Transcribir y analizar"}
+              </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
               </Button>
@@ -640,6 +717,15 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Button size="sm" variant="outline" onClick={resumeLiveRecording} className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-500/10">
                 <Play className="h-3.5 w-3.5" /> Reanudar
               </Button>
+              <Button
+                size="sm"
+                onClick={transcribeAndAnalyze}
+                disabled={analyzing}
+                className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
+              >
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                {analyzing ? "Transcribiendo…" : "✨ Transcribir y analizar"}
+              </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
               </Button>
@@ -650,9 +736,14 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
             </span>
           )}
+          {transcriptionCount > 0 && (
+            <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
+              ~${TRANSCRIPTION_USD.toFixed(2)} USD · {transcriptionCount} transcripcion{transcriptionCount === 1 ? "" : "es"} esta sesión (~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} total)
+            </span>
+          )}
           {recState !== "idle" && (
             <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
-              Fragmentos procesados: {chunkCount}
+              Fragmentos: {chunkCount}
             </span>
           )}
         </div>
@@ -732,6 +823,19 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 ))}
               </div>
             )}
+
+            {summaryBlocks.length > 0 && (
+              <div className="mt-6">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+                  📝 Resumen de lo conversado
+                </div>
+                <div className="space-y-2">
+                  {summaryBlocks.map((block, idx) => (
+                    <SummaryBlockCard key={block.t} block={block} defaultOpen={idx === 0} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -777,34 +881,100 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   </div>
                 )}
 
-                <SuggestionGroup
-                  icon={<MessageCircle className="h-4 w-4" />}
-                  title="Preguntas sugeridas"
-                  tone="blue"
-                  items={suggestions.questions}
-                  onUse={(t) => markUsed("question", t)}
-                />
-                <SuggestionGroup
-                  icon={<Eye className="h-4 w-4" />}
-                  title="Patrones observados"
-                  tone="purple"
-                  items={suggestions.patterns}
-                  onUse={(t) => markUsed("pattern", t)}
-                />
-                <SuggestionGroup
-                  icon={<Lightbulb className="h-4 w-4" />}
-                  title="Intervenciones"
-                  tone="teal"
-                  items={suggestions.interventions}
-                  onUse={(t) => markUsed("intervention", t)}
-                />
-                <SuggestionGroup
-                  icon={<AlertTriangle className="h-4 w-4" />}
-                  title="No explorado"
-                  tone="amber"
-                  items={suggestions.unexplored}
-                  onUse={(t) => markUsed("unexplored", t)}
-                />
+                {sessionInsight && (
+                  <div className="rounded-md border border-teal-400/40 bg-teal-500/10 p-3 text-sm">
+                    <div className="font-semibold mb-1">💡 Insight de sesión</div>
+                    <div className="text-muted-foreground">{sessionInsight}</div>
+                    {lastAnalyzedAt && (
+                      <div className="text-[10px] text-muted-foreground/80 mt-1">
+                        Última transcripción: {clockFromTimestamp(lastAnalyzedAt)}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {analyzedSuggestions.length > 0 ? (
+                  <div className="space-y-2">
+                    {analyzedSuggestions.map((s) => {
+                      const tone =
+                        s.type === "question" ? "border-blue-400/40 bg-blue-500/10"
+                        : s.type === "pattern" ? "border-purple-400/40 bg-purple-500/10"
+                        : s.type === "alert" ? "border-amber-400/40 bg-amber-500/10"
+                        : "border-teal-400/40 bg-teal-500/10";
+                      const addressedClass = s.addressed ? "ring-2 ring-amber-400 bg-amber-500/15 border-amber-400/60" : "";
+                      const kind: UsedSuggestion["kind"] =
+                        s.type === "question" ? "question"
+                        : s.type === "pattern" ? "pattern"
+                        : s.type === "alert" ? "unexplored"
+                        : "intervention";
+                      return (
+                        <div key={s.id} className={`p-2.5 rounded-md border text-sm ${tone} ${addressedClass}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="text-[10px] uppercase tracking-wide font-semibold opacity-70 mb-0.5">
+                                {s.type}
+                                {s.addressed && (
+                                  <Badge variant="outline" className="ml-2 border-amber-500 text-amber-700 text-[10px]">
+                                    🎙️ Detectado en conversación
+                                  </Badge>
+                                )}
+                              </div>
+                              <div>{s.text}</div>
+                              {s.rationale && (
+                                <div className="text-[11px] text-muted-foreground mt-1 italic">{s.rationale}</div>
+                              )}
+                            </div>
+                          </div>
+                          {s.addressed && (
+                            <div className="mt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  markUsed(kind, s.text);
+                                  setAnalyzedSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+                                }}
+                                className="gap-1.5 h-7"
+                              >
+                                <Check className="h-3.5 w-3.5" /> Marcar como usado
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <>
+                    <SuggestionGroup
+                      icon={<MessageCircle className="h-4 w-4" />}
+                      title="Preguntas sugeridas"
+                      tone="blue"
+                      items={suggestions.questions}
+                      onUse={(t) => markUsed("question", t)}
+                    />
+                    <SuggestionGroup
+                      icon={<Eye className="h-4 w-4" />}
+                      title="Patrones observados"
+                      tone="purple"
+                      items={suggestions.patterns}
+                      onUse={(t) => markUsed("pattern", t)}
+                    />
+                    <SuggestionGroup
+                      icon={<Lightbulb className="h-4 w-4" />}
+                      title="Intervenciones"
+                      tone="teal"
+                      items={suggestions.interventions}
+                      onUse={(t) => markUsed("intervention", t)}
+                    />
+                    <SuggestionGroup
+                      icon={<AlertTriangle className="h-4 w-4" />}
+                      title="No explorado"
+                      tone="amber"
+                      items={suggestions.unexplored}
+                      onUse={(t) => markUsed("unexplored", t)}
+                    />
+                  </>
+                )}
 
                 {usedSuggestions.length > 0 && (
                   <div>
@@ -827,7 +997,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
                     {recState === "idle"
                       ? 'La transcripción aparecerá aquí. Pulsa "🔴 Grabar sesión" para empezar.'
-                      : "Escuchando… los segmentos aparecerán cada ~10 segundos."}
+                      : 'Pulsa "✨ Transcribir y analizar" cuando quieras transcribir el audio acumulado.'}
                   </div>
                 ) : (
                   transcript.map((seg, i) => {
@@ -1098,5 +1268,32 @@ function SummarySection({
         )}
       </div>
     </div>
+  );
+}
+
+function SummaryBlockCard({ block, defaultOpen }: { block: SummaryBlock; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const label = `Transcripción ${new Date(block.t).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`;
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="border rounded-md bg-card">
+        <CollapsibleTrigger asChild>
+          <button type="button" className="w-full px-3 py-2 flex items-center justify-between gap-2 text-sm font-semibold hover:bg-muted/50">
+            <span className="flex items-center gap-1.5">
+              {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              {defaultOpen ? `📌 ${label}` : `Ver resumen anterior — ${label}`}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-normal">{block.bullets.length} bullets</span>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1">
+            {block.bullets.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }

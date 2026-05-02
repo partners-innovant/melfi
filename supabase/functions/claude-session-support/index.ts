@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { patient_id, session_id, previous_used_suggestions } = body ?? {};
+    const { patient_id, session_id, previous_used_suggestions, transcript_summary } = body ?? {};
     if (!patient_id || !session_id) {
       return new Response(JSON.stringify({ error: "patient_id y session_id requeridos" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -126,6 +126,10 @@ Medicación activa: ${(meds ?? []).map((m: any) => `${m.name}${m.dose ? ` ${m.do
       ? previous_used_suggestions.map((s: any) => `- ${s}`).join("\n")
       : "(ninguna aún)";
 
+    const transcriptBlock = (typeof transcript_summary === "string" && transcript_summary.trim())
+      ? `\nResumen de lo conversado hasta ahora (transcripción):\n${transcript_summary.trim()}\n\nConsidera este contexto real de la conversación al generar sugerencias — deben ser relevantes para lo que se está discutiendo ahora.\n`
+      : "";
+
     const userMessage = `Perfil del paciente:
 ${profileBlock}
 
@@ -134,7 +138,7 @@ ${sessionLog}
 
 Última entrada:
 ${lastEntryBlock}
-
+${transcriptBlock}
 Sugerencias ya utilizadas por el terapeuta (no las repitas):
 ${previousUsedBlock}
 
