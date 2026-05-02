@@ -14,6 +14,7 @@ import { PatientForm } from "./Patients";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
+import { PatientProfileBuilderTab, PatientDocumentsTab } from "@/components/PatientExtraTabs";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -24,7 +25,7 @@ export default function PatientDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState("profile");
+  const [tab, setTab] = useState("builder");
   const [refreshKey, setRefreshKey] = useState(0);
 
   async function load() {
@@ -119,11 +120,21 @@ export default function PatientDetail() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid grid-cols-3 w-full max-w-md">
+        <TabsList className="flex flex-wrap h-auto w-full justify-start">
+          <TabsTrigger value="builder">Constructor de Perfil</TabsTrigger>
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
+          <TabsTrigger value="documents">Documentos e Informes</TabsTrigger>
           <TabsTrigger value="history">Consultas</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="builder" className="mt-4">
+          <PatientProfileBuilderTab patientId={patient.id} onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4">
+          <PatientDocumentsTab patientId={patient.id} />
+        </TabsContent>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
           <LastSessionCard

@@ -211,12 +211,17 @@ ${(comms ?? []).map((m: any) => `- ${m.contact_date} ${m.contact_type ?? ""} con
         .from("patients").select("*")
         .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
       if (p) {
-        const { data: meds } = await supabase
-          .from("patient_medications")
-          .select("name, dose, frequency, prescribed_by")
-          .eq("patient_id", patient_id)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false });
+        const [{ data: meds }, { data: adultDocs }] = await Promise.all([
+          supabase.from("patient_medications")
+            .select("name, dose, frequency, prescribed_by")
+            .eq("patient_id", patient_id).eq("is_active", true)
+            .order("created_at", { ascending: false }),
+          supabase.from("adult_documents")
+            .select("title, document_type, professional_name, professional_role, document_date, notes")
+            .eq("patient_id", patient_id)
+            .order("document_date", { ascending: false, nullsFirst: false })
+            .limit(10),
+        ]);
         const medsLine = (meds && meds.length > 0)
           ? (meds as any[]).map((m) => `Medicación actual: ${m.name}${m.dose ? ` ${m.dose}` : ""}${m.frequency ? ` ${m.frequency}` : ""}${m.prescribed_by ? `, prescrito por ${m.prescribed_by}` : ""}`).join("\n")
           : "Medicación actual: ninguna registrada";
@@ -229,7 +234,18 @@ Ocupación: ${p.occupation ?? "no especificada"}
 Diagnóstico: ${p.diagnosis ?? "no registrado"}
 Tiempo en terapia: ${timeInTherapy(p.start_date)}
 ${medsLine}
+Motivo de consulta: ${p.presenting_problem ?? "—"}
+Historia clínica: ${p.clinical_history ?? "—"}
+Contexto familiar: ${p.family_context ?? "—"}
+Contexto laboral: ${p.work_context ?? "—"}
+Tratamientos previos: ${p.previous_treatments ?? "—"}
+Antecedentes relevantes: ${p.relevant_history ?? "—"}
+Recursos personales: ${p.personal_resources ?? "—"}
+Objetivos terapéuticos: ${p.therapeutic_goals ?? "—"}
 Notas clínicas: ${p.notes ?? "ninguna"}
+
+Documentos e informes externos del paciente:
+${(adultDocs ?? []).map((d: any) => `- ${d.document_date ?? "s/f"} · ${d.title}${d.document_type ? ` (${d.document_type})` : ""}${d.professional_name ? ` — ${d.professional_name}${d.professional_role ? `, ${d.professional_role}` : ""}` : ""}${d.notes ? ` · ${String(d.notes).slice(0, 150)}` : ""}`).join("\n") || "- (sin documentos)"}
 
 `;
       }
