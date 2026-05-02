@@ -312,10 +312,18 @@ export default function Calendar() {
           <Button variant="outline" size="icon" onClick={prev} aria-label="Anterior"><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" onClick={goToday}>Hoy</Button>
           <Button variant="outline" size="icon" onClick={next} aria-label="Siguiente"><ChevronRight className="h-4 w-4" /></Button>
-          {googleConnected && !tokenExpired && (
-            <Button variant="outline" onClick={manualSync} disabled={syncing} className="gap-2">
-              <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />Sincronizar
-            </Button>
+          {googleConnected && (
+            <div className="flex items-center gap-2">
+              {lastSyncedAt && !tokenExpired && (
+                <span className="text-xs text-muted-foreground hidden md:inline">
+                  Última sincronización: {relativeTime(lastSyncedAt)}
+                </span>
+              )}
+              <Button variant="outline" onClick={manualSync} disabled={syncing} className="gap-2">
+                <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+                {syncing ? "Sincronizando…" : "Sincronizar"}
+              </Button>
+            </div>
           )}
           <Button onClick={() => openNewAt(new Date())} className="gap-2"><Plus className="h-4 w-4" />Nueva sesión</Button>
         </div>
