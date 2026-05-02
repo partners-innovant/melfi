@@ -815,6 +815,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
     setBusy(true);
     let success = 0;
     let failed = 0;
+    const processedIds: string[] = [];
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
@@ -830,17 +831,33 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         try {
           const ok = await processOne(live, user.id);
           if (ok) success++; else failed++;
+          processedIds.push(it.id);
         } catch (e) {
           failed++;
+          processedIds.push(it.id);
           console.error("[upload] unexpected:", e);
         }
       }
-      toast.success(`${success} documento${success === 1 ? "" : "s"} procesado${success === 1 ? "" : "s"} correctamente, ${failed} con error${failed === 1 ? "" : "es"}.`);
+      // Build results from latest state
+      const latest = await new Promise<QueueItem[]>((resolve) => {
+        setItems((prev) => { resolve(prev); return prev; });
+      });
+      const processed = latest.filter((x) => processedIds.includes(x.id));
+      const totalChunks = processed.reduce((acc, x) => acc + (x.chunksCount ?? 0), 0);
+      const errors = processed
+        .filter((x) => x.status === "error")
+        .map((x) => ({ name: x.file.name, error: x.error ?? x.statusText ?? "Error desconocido" }));
+      setResults({ success, failed, totalChunks, errors });
     } catch (e: any) {
       toast.error(e?.message ?? "Error general");
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleResultsClose() {
+    setResults(null);
+    onClose();
   }
 
   const readyCount = items.filter(
