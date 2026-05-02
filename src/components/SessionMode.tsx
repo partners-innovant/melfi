@@ -379,6 +379,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           ];
       const recentBullets = (summaryBlocks[0]?.bullets ?? []).slice(0, 3);
 
+      setAnalyzeStage("analyzing");
       const { data: ad, error: aerr } = await supabase.functions.invoke("transcribe-session-chunk", {
         body: {
           action: "analyze",
