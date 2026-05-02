@@ -17,6 +17,8 @@ import {
 import { toast } from "sonner";
 import { Camera, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RutInput } from "@/components/RutInput";
+import { validateRUT } from "@/lib/rut";
 
 const REGIONS = [
   "Arica y Parinacota", "Tarapacá", "Antofagasta", "Atacama", "Coquimbo",
