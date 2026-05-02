@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
     const xml = await fetchRes.text();
     const abstracts = parseAbstracts(xml);
 
-    const articles: ArticleSummary[] = ids.map((id) => {
+    const baseArticles = ids.map((id) => {
       const s = summaryData?.result?.[id] ?? {};
       const articleids: Array<{ idtype: string; value: string }> = s.articleids ?? [];
       const pmcRaw = articleids.find((a) => a.idtype === "pmc")?.value ?? null;
@@ -140,12 +140,23 @@ Deno.serve(async (req) => {
         authors: authorList,
         journal: s.fulljournalname ?? s.source ?? null,
         year,
-        has_free_pdf: !!pmcId,
         abstract: abstracts[id] ?? null,
         url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
         pmc_url: pmcId ? `https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${pmcId}/` : null,
       };
     });
+
+    // Verify PDF availability via PMC OA service in parallel for articles with a PMC ID.
+    const articles: ArticleSummary[] = await Promise.all(
+      baseArticles.map(async (a) => {
+        let pdf_status: PdfStatus = "no_open_access";
+        if (a.pmc_id) {
+          const pdfUrl = await resolvePmcPdfUrl(a.pmc_id);
+          pdf_status = pdfUrl ? "available" : "abstract_only";
+        }
+        return { ...a, has_free_pdf: pdf_status === "available", pdf_status };
+      }),
+    );
 
     return new Response(JSON.stringify({ articles }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
