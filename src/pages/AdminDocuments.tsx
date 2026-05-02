@@ -3,8 +3,10 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText, Sparkles, Loader2,
+  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw,
 } from "lucide-react";
+import { extractPdfText, extractTxtText, chunkText } from "@/lib/pdf";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -76,6 +78,11 @@ export default function AdminDocuments() {
   const [filterSource, setFilterSource] = useState<string>(ANY);
   const [filterLang, setFilterLang] = useState<string>(ANY);
   const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
+  const [noChunksOnly, setNoChunksOnly] = useState(false);
+
+  // Reprocessing
+  const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
+  const [reprocessErrors, setReprocessErrors] = useState<Record<string, string>>({});
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -163,9 +170,10 @@ export default function AdminDocuments() {
       if (filterSource !== ANY && d.source_institution !== filterSource) return false;
       if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
       if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
+      if (noChunksOnly && d.chunk_count > 0) return false;
       return true;
     });
-  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly]);
+  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksOnly]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -415,6 +423,97 @@ export default function AdminDocuments() {
     }
   }
 
+  async function reprocessDoc(d: DocRow): Promise<{ ok: boolean; count?: number; error?: string }> {
+    if (!d.storage_path) return { ok: false, error: "El documento no tiene archivo en storage" };
+    setReprocessing((s) => { const n = new Set(s); n.add(d.id); return n; });
+    setReprocessErrors((e) => { const n = { ...e }; delete n[d.id]; return n; });
+    try {
+      // Download file
+      const { data: blob, error: dlErr } = await supabase.storage.from("documents").download(d.storage_path);
+      if (dlErr || !blob) throw new Error(dlErr?.message ?? "No se pudo descargar el archivo");
+
+      // Extract text
+      const lower = d.storage_path.toLowerCase();
+      const isPdf = lower.endsWith(".pdf") || blob.type === "application/pdf";
+      const file = new File([blob], d.storage_path.split("/").pop() ?? "doc", { type: blob.type });
+      const text = isPdf ? await extractPdfText(file) : await extractTxtText(file);
+      if (!text.trim()) throw new Error("No se pudo extraer texto del archivo");
+
+      const chunks = chunkText(text);
+      if (chunks.length === 0) throw new Error("No se generaron fragmentos");
+
+      // Clear any existing chunks for this document first
+      await supabase.from("document_chunks").delete().eq("document_id", d.id);
+
+      // Embed in batches and insert
+      const batchSize = 8;
+      for (let i = 0; i < chunks.length; i += batchSize) {
+        const batch = chunks.slice(i, i + batchSize);
+        const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
+          body: { input: batch.map((c) => c.content), input_type: "document" },
+        });
+        if (embErr) throw embErr;
+        if (embData?.error) throw new Error(embData.error);
+        const embeddings: number[][] = embData.embeddings;
+        const insertRows = batch.map((c, idx) => ({
+          document_id: d.id,
+          psychologist_id: profile!.id,
+          chunk_index: c.index,
+          content: c.content,
+          page_number: c.page_number,
+          embedding: embeddings[idx] as any,
+          clinical_areas: d.clinical_areas ?? [],
+          source_institution: d.source_institution ?? null,
+          source_institution_type: d.source_institution_type ?? null,
+          document_type: d.document_type,
+          is_global: d.is_global,
+        }));
+        const { error: insErr } = await supabase.from("document_chunks").insert(insertRows);
+        if (insErr) throw insErr;
+      }
+
+      setRows((rs) => rs.map((r) => (r.id === d.id ? { ...r, chunk_count: chunks.length } : r)));
+      return { ok: true, count: chunks.length };
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      setReprocessErrors((er) => ({ ...er, [d.id]: msg }));
+      return { ok: false, error: msg };
+    } finally {
+      setReprocessing((s) => { const n = new Set(s); n.delete(d.id); return n; });
+    }
+  }
+
+  async function reprocessSingle(d: DocRow) {
+    const tid = toast.loading(`↻ Re-procesando "${d.title}"...`);
+    const res = await reprocessDoc(d);
+    if (res.ok) {
+      toast.success(`✅ ${res.count} fragmentos indexados`, { id: tid });
+    } else {
+      toast.error(`❌ ${res.error}`, { id: tid });
+    }
+  }
+
+  async function reprocessSelectedNoChunks() {
+    const targets = rows.filter((r) => selected.has(r.id) && r.chunk_count === 0);
+    if (targets.length === 0) {
+      toast.info("Ningún documento seleccionado tiene 0 chunks");
+      return;
+    }
+    const tid = toast.loading(`Re-procesando ${targets.length} documento(s)...`);
+    let ok = 0;
+    let fail = 0;
+    for (const d of targets) {
+      const res = await reprocessDoc(d);
+      if (res.ok) ok++; else fail++;
+    }
+    if (fail === 0) {
+      toast.success(`✅ ${ok} documento(s) re-procesado(s)`, { id: tid });
+    } else {
+      toast.warning(`Completado: ${ok} ok, ${fail} con error`, { id: tid });
+    }
+  }
+
+
   async function openViewer(d: DocRow) {
     setViewDoc(d);
     if (d.storage_path) {
@@ -510,6 +609,13 @@ export default function AdminDocuments() {
           />
           Sin clasificar
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={noChunksOnly}
+            onCheckedChange={(v) => { setNoChunksOnly(!!v); setPage(1); }}
+          />
+          Sin chunks
+        </label>
       </div>
 
       {/* Bulk action bar */}
@@ -528,6 +634,9 @@ export default function AdminDocuments() {
           </Button>
           <Button size="sm" variant="outline" onClick={() => setConfirmClassifyOpen(true)}>
             <Sparkles className="h-4 w-4 mr-1 text-primary" /> Auto-clasificar seleccionados
+          </Button>
+          <Button size="sm" variant="outline" onClick={reprocessSelectedNoChunks}>
+            <RotateCw className="h-4 w-4 mr-1" /> Re-procesar documentos sin chunks
           </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
@@ -626,7 +735,48 @@ export default function AdminDocuments() {
                     renderValue={(v) => LANG_LABELS[v as LangCode] ?? "—"}
                   />
                 </TableCell>
-                <TableCell className="text-center text-sm tabular-nums">{d.chunk_count}</TableCell>
+                <TableCell className="text-center text-sm tabular-nums">
+                  {reprocessing.has(d.id) ? (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> …
+                    </span>
+                  ) : d.chunk_count === 0 ? (
+                    <TooltipProvider delayDuration={150}>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="text-destructive font-semibold">0</span>
+                        {reprocessErrors[d.id] ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => reprocessSingle(d)}
+                                disabled={!d.storage_path}
+                                className="text-[11px] text-destructive hover:underline inline-flex items-center gap-0.5"
+                              >
+                                <X className="h-3 w-3" /> Error
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[320px] text-xs">
+                              {reprocessErrors[d.id]}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => reprocessSingle(d)}
+                            disabled={!d.storage_path}
+                            title={d.storage_path ? "Re-procesar documento" : "Sin archivo en storage"}
+                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5 disabled:opacity-50 disabled:no-underline"
+                          >
+                            <RotateCw className="h-3 w-3" /> Re-procesar
+                          </button>
+                        )}
+                      </div>
+                    </TooltipProvider>
+                  ) : (
+                    d.chunk_count
+                  )}
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="text-[10px]">{d.import_source ?? "upload"}</Badge>
                 </TableCell>
