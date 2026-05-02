@@ -305,6 +305,7 @@ export type Database = {
           embedding: string | null
           id: string
           is_global: boolean
+          language: string | null
           page_number: number | null
           psychologist_id: string
           source_institution: string | null
@@ -320,6 +321,7 @@ export type Database = {
           embedding?: string | null
           id?: string
           is_global?: boolean
+          language?: string | null
           page_number?: number | null
           psychologist_id: string
           source_institution?: string | null
@@ -335,6 +337,7 @@ export type Database = {
           embedding?: string | null
           id?: string
           is_global?: boolean
+          language?: string | null
           page_number?: number | null
           psychologist_id?: string
           source_institution?: string | null
@@ -359,6 +362,7 @@ export type Database = {
           id: string
           import_source: string | null
           is_global: boolean
+          language: string | null
           psychologist_id: string
           source_institution: string | null
           source_institution_type: string | null
@@ -375,6 +379,7 @@ export type Database = {
           id?: string
           import_source?: string | null
           is_global?: boolean
+          language?: string | null
           psychologist_id: string
           source_institution?: string | null
           source_institution_type?: string | null
@@ -391,6 +396,7 @@ export type Database = {
           id?: string
           import_source?: string | null
           is_global?: boolean
+          language?: string | null
           psychologist_id?: string
           source_institution?: string | null
           source_institution_type?: string | null
