@@ -200,6 +200,15 @@ export function PatientProfileBuilderTab({
     "Hazme preguntas",
     "Escribo yo primero",
     "Ya tengo informes subidos, analízalos",
+    "Explorar diagnóstico diferencial",
+  ];
+
+  const DIAGNOSTIC_CHIPS = [
+    "¿Qué criterios DSM-5 aplican aquí?",
+    "¿Qué diagnósticos debería descartar?",
+    "¿Qué test me ayudaría a confirmar esto?",
+    "¿Podría haber comorbilidad?",
+    "Dame tu hipótesis diagnóstica completa",
   ];
 
   const openingMessage = `Hola, soy tu asistente para construir el perfil clínico de ${patientName || "este paciente"}. Puedo ayudarte de dos formas: haciéndote preguntas sobre el paciente, o puedes escribirme libremente lo que ya sabes y yo lo estructuro. ¿Por dónde quieres empezar?`;
