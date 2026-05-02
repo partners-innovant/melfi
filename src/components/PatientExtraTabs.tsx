@@ -12,9 +12,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw,
+  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw, Paperclip,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { extractPdfText, extractTxtText } from "@/lib/pdf";
 
 const ADULT_BUCKET = "adult-files";
 
@@ -40,9 +41,11 @@ type Msg = { role: "user" | "assistant"; content: string; proposals?: Proposal[]
 export function PatientProfileBuilderTab({
   patientId,
   onProfileUpdated,
+  embedded = false,
 }: {
   patientId: string;
   onProfileUpdated?: () => void;
+  embedded?: boolean;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -51,6 +54,9 @@ export function PatientProfileBuilderTab({
   const [patientName, setPatientName] = useState<string>("");
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [analyzingFile, setAnalyzingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -196,6 +202,111 @@ export function PatientProfileBuilderTab({
     });
   }
 
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result as string;
+        const idx = r.indexOf(",");
+        resolve(idx >= 0 ? r.slice(idx + 1) : r);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function detectKind(file: File): "text" | "image" | "audio" | null {
+    const t = file.type.toLowerCase();
+    const ext = file.name.toLowerCase().split(".").pop() ?? "";
+    if (t.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return "image";
+    if (t.startsWith("audio/") || ["mp3", "m4a", "ogg", "wav", "webm", "mp4"].includes(ext)) return "audio";
+    if (
+      t === "application/pdf" || ext === "pdf" ||
+      t.includes("wordprocessingml") || ext === "docx" ||
+      t.startsWith("text/") || ext === "txt"
+    ) return "text";
+    return null;
+  }
+
+  async function analyzeFile(file: File) {
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("El archivo supera 25MB");
+      return;
+    }
+    const kind = detectKind(file);
+    if (!kind) {
+      toast.error("Tipo de archivo no soportado");
+      return;
+    }
+    setAnalyzingFile(true);
+    setPendingFile(null);
+
+    // Optimistic chat bubbles
+    const placeholder = `📎 Analizando ${file.name}...`;
+    const userTag =
+      kind === "image" ? "📎 Imagen subida"
+      : kind === "audio" ? "📎 Audio subido"
+      : "📎 Documento subido";
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: `${userTag}: ${file.name}` },
+      { role: "assistant", content: placeholder },
+    ]);
+
+    try {
+      const ext = file.name.toLowerCase().split(".").pop() ?? "";
+      let payload: any = {
+        patient_id: patientId,
+        filename: file.name,
+        mime_type: file.type || "application/octet-stream",
+        kind,
+      };
+
+      if (kind === "text") {
+        let text = "";
+        if (ext === "pdf" || file.type === "application/pdf") {
+          text = await extractPdfText(file);
+        } else if (ext === "docx" || file.type.includes("wordprocessingml")) {
+          toast.error("DOCX aún no soportado en navegador. Convierte a PDF o TXT.");
+          setMessages((m) => m.slice(0, -2));
+          setAnalyzingFile(false);
+          return;
+        } else {
+          text = await extractTxtText(file);
+        }
+        if (!text.trim()) {
+          toast.error("No se pudo extraer texto del documento");
+          setMessages((m) => m.slice(0, -2));
+          setAnalyzingFile(false);
+          return;
+        }
+        payload.text_content = text.slice(0, 60000);
+      } else {
+        payload.base64_content = await fileToBase64(file);
+      }
+
+      const { data, error } = await supabase.functions.invoke("analyze-patient-file", { body: payload });
+      if (error) throw error;
+      const analysis: string = data?.assistant_message ?? data?.analysis ?? "";
+      setMessages((m) => {
+        const copy = [...m];
+        copy[copy.length - 1] = { role: "assistant", content: analysis };
+        return copy;
+      });
+      if (data?.suggest_profile_update) {
+        toast.success("Análisis listo. Puedes agregarlo al perfil clínico.");
+      } else {
+        toast.success("Análisis completado");
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al analizar el archivo");
+      setMessages((m) => m.slice(0, -2));
+    } finally {
+      setAnalyzingFile(false);
+    }
+  }
+
+
   const SUGGESTIONS = [
     "Hazme preguntas",
     "Escribo yo primero",
@@ -261,7 +372,10 @@ export function PatientProfileBuilderTab({
   }
 
   return (
-    <Card className="p-0 overflow-hidden flex flex-col" style={{ height: "calc(100vh - 280px)", minHeight: 500 }}>
+    <Card
+      className={embedded ? "p-0 overflow-hidden flex flex-col h-full rounded-none border-0 shadow-none" : "p-0 overflow-hidden flex flex-col"}
+      style={embedded ? undefined : { height: "calc(100vh - 280px)", minHeight: 500 }}
+    >
       <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
         <Wand2 className="h-4 w-4 text-primary" />
         <h3 className="font-semibold text-sm">Constructor de Perfil con IA</h3>
@@ -361,7 +475,48 @@ export function PatientProfileBuilderTab({
             ))}
           </div>
         )}
+        {pendingFile && (
+          <div className="flex items-center gap-2 p-2 rounded-md border border-border bg-muted/40">
+            <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium truncate">{pendingFile.name}</div>
+              <div className="text-[10px] text-muted-foreground">{(pendingFile.size / 1024).toFixed(0)} KB</div>
+            </div>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setPendingFile(null)} disabled={analyzingFile}>
+              <X className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => pendingFile && analyzeFile(pendingFile)}
+              disabled={analyzingFile}
+            >
+              {analyzingFile ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Analizar"}
+            </Button>
+          </div>
+        )}
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.txt,.docx,.png,.jpg,.jpeg,.webp,.gif,.mp3,.m4a,.ogg,.wav,.webm,.mp4,application/pdf,text/plain,image/*,audio/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setPendingFile(f);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending || analyzingFile}
+            size="icon"
+            variant="outline"
+            className="self-end h-11 w-11 shrink-0"
+            title="Adjuntar archivo (PDF, imagen, audio)"
+          >
+            <Paperclip className="h-4 w-4" />
+          </Button>
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -373,19 +528,19 @@ export function PatientProfileBuilderTab({
             }}
             placeholder="Cuéntame sobre el paciente o pide algo específico..."
             className="min-h-[44px] max-h-32 resize-none flex-1"
-            disabled={sending}
+            disabled={sending || analyzingFile}
           />
           <Button
             onClick={() => send("Dame tu hipótesis diagnóstica completa basada en toda la información disponible.", { mode: "suggest_diagnosis" })}
-            disabled={sending}
+            disabled={sending || analyzingFile}
             size="sm"
             variant="outline"
             className="self-end h-11 gap-1.5 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 text-xs"
             title="Sugerir diagnóstico"
           >
-            <Sparkles className="h-3.5 w-3.5" />💡 Sugerir diagnóstico
+            <Sparkles className="h-3.5 w-3.5" />💡 Sugerir
           </Button>
-          <Button onClick={() => send()} disabled={sending || !input.trim()} size="icon" className="self-end h-11 w-11">
+          <Button onClick={() => send()} disabled={sending || analyzingFile || !input.trim()} size="icon" className="self-end h-11 w-11">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>

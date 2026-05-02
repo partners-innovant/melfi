@@ -14,7 +14,8 @@ import { PatientForm } from "./Patients";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
-import { PatientProfileBuilderTab, PatientDocumentsTab } from "@/components/PatientExtraTabs";
+import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
+import PatientProfileBuilderPanel from "@/components/PatientProfileBuilderPanel";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 
 export default function PatientDetail() {
@@ -26,7 +27,7 @@ export default function PatientDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState("builder");
+  const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
 
   async function load() {
@@ -129,16 +130,11 @@ export default function PatientDetail() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex flex-wrap h-auto w-full justify-start">
-          <TabsTrigger value="builder">Constructor de Perfil</TabsTrigger>
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
           <TabsTrigger value="documents">Documentos e Informes</TabsTrigger>
           <TabsTrigger value="history">Consultas</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="builder" className="mt-4">
-          <PatientProfileBuilderTab patientId={patient.id} onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }} />
-        </TabsContent>
 
         <TabsContent value="documents" className="mt-4">
           <PatientDocumentsTab patientId={patient.id} />
@@ -196,6 +192,11 @@ export default function PatientDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PatientProfileBuilderPanel
+        patientId={patient.id}
+        onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
+      />
     </div>
   );
 }
