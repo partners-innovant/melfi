@@ -258,16 +258,21 @@ export default function PatientDetail() {
       </div>
 
       {/* Profile Builder side panel — animates width, never overlays.
+          Width adapts to sidebar state (400px expanded / 560px collapsed) on xl+.
           On <1200px (xl breakpoint) the parent stacks vertically and this becomes a full-width block. */}
       <div
         className={
-          "transition-[width,height] duration-300 ease-out overflow-hidden " +
-          "xl:h-full " +
-          (builderOpen
-            ? "xl:w-[400px] h-[70vh] xl:h-full"
-            : "xl:w-0 h-0")
+          "transition-all duration-300 ease-out overflow-hidden xl:h-full " +
+          (builderOpen ? "h-[70vh] xl:h-full" : "h-0 xl:h-full")
         }
-        style={{ flexShrink: 0 }}
+        style={{
+          flexShrink: 0,
+          width: builderOpen
+            ? typeof window !== "undefined" && window.innerWidth >= 1280
+              ? `${builderWidthPx}px`
+              : "100%"
+            : 0,
+        }}
       >
         {builderOpen && (
           <PatientProfileBuilderPanel
