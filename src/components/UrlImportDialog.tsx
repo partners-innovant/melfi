@@ -8,8 +8,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Link2, Loader2, CheckCircle2, AlertCircle, Globe2 } from "lucide-react";
+import { Link2, Loader2, CheckCircle2, AlertCircle, Globe2, AlertTriangle } from "lucide-react";
 import { chunkText } from "@/lib/pdf";
+import { findDuplicateByUrl, deleteDocumentAndChunks, formatDate, type DuplicateDoc } from "@/lib/duplicates";
 
 type Status = "queued" | "downloading" | "processing" | "done" | "error";
 
