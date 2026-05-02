@@ -334,15 +334,29 @@ function ArticleCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {article.has_free_pdf ? (
-            <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-              🟢 PDF disponible
-            </Badge>
-          ) : (
-            <Badge className="text-[10px] bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 hover:bg-blue-500/15">
-              🔵 Solo abstract
-            </Badge>
-          )}
+          {(() => {
+            const status: PubMedPdfStatus =
+              article.pdf_status ?? (article.has_free_pdf ? "available" : article.pmc_id ? "abstract_only" : "no_open_access");
+            if (status === "available") {
+              return (
+                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
+                  🟢 PDF disponible
+                </Badge>
+              );
+            }
+            if (status === "abstract_only") {
+              return (
+                <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
+                  🟡 Solo abstract
+                </Badge>
+              );
+            }
+            return (
+              <Badge className="text-[10px] bg-muted text-muted-foreground border-border hover:bg-muted">
+                ⚪ Sin acceso libre
+              </Badge>
+            );
+          })()}
         </div>
       </div>
 
