@@ -44,13 +44,67 @@ export default function Patients() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [transferredMap, setTransferredMap] = useState<Record<string, string>>({}); // patientId -> ISO date received
+  const [incoming, setIncoming] = useState<IncomingTransfer[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]"));
+    } catch {
+      return new Set();
+    }
+  });
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from("patients")
       .select("id, first_name, last_name, birth_date, diagnosis")
       .order("created_at", { ascending: false });
     setPatients((data as Patient[]) ?? []);
+
+    if (user) {
+      // Transfers received by this therapist
+      const { data: trs } = await supabase
+        .from("patient_transfers")
+        .select("id, new_patient_id, transferred_at, from_psychologist_id, snapshot")
+        .eq("to_psychologist_id", user.id)
+        .order("transferred_at", { ascending: false });
+
+      const map: Record<string, string> = {};
+      const incomingList: IncomingTransfer[] = [];
+      const fromIds = Array.from(
+        new Set((trs ?? []).map((t: any) => t.from_psychologist_id).filter(Boolean)),
+      );
+      let fromProfiles: Record<string, { first_name: string; last_name: string }> = {};
+      if (fromIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", fromIds);
+        (profs ?? []).forEach((p: any) => {
+          fromProfiles[p.id] = { first_name: p.first_name, last_name: p.last_name };
+        });
+      }
+
+      (trs ?? []).forEach((t: any) => {
+        if (t.new_patient_id) map[t.new_patient_id] = t.transferred_at;
+        const from = fromProfiles[t.from_psychologist_id];
+        const patientName = t.snapshot?.patient
+          ? `${t.snapshot.patient.first_name ?? ""} ${t.snapshot.patient.last_name ?? ""}`.trim()
+          : "Paciente transferido";
+        incomingList.push({
+          id: t.id,
+          new_patient_id: t.new_patient_id,
+          transferred_at: t.transferred_at,
+          from_first_name: from?.first_name ?? null,
+          from_last_name: from?.last_name ?? null,
+          patient_name: patientName,
+        });
+      });
+      setTransferredMap(map);
+      setIncoming(incomingList);
+    }
+
     setLoading(false);
   }
 
