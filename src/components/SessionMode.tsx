@@ -491,9 +491,13 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         </div>
       </div>
 
-      {/* End-session dialog */}
+      {/* End-session dialog — must render above the z-[9999] fullscreen overlay */}
       <Dialog open={endOpen} onOpenChange={(o) => { if (!generating && !saving) setEndOpen(o); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto z-[10001]"
+          style={{ zIndex: 10001 }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           {endStep === 1 ? (
             <>
               <DialogHeader><DialogTitle>Complementar sesión</DialogTitle></DialogHeader>
