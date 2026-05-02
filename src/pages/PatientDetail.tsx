@@ -30,6 +30,7 @@ export default function PatientDetail() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   async function load() {
     if (!id) return;
