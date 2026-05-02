@@ -317,7 +317,10 @@ function ClassifyCard({
 }) {
   return (
     <Card className="p-3 space-y-2">
-      <div className="font-medium text-sm truncate" title={card.title}>{card.title}</div>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="font-medium text-sm truncate flex-1 min-w-0" title={card.title}>{card.title}</div>
+        <ViewDocumentLink storagePath={card.storagePath} sourceUrl={card.sourceUrl} />
+      </div>
 
       {card.status === "analyzing" && (
         <div className="space-y-2 pt-1">
