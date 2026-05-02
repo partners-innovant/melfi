@@ -124,8 +124,9 @@ export default function ChildDetail() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid grid-cols-5 md:grid-cols-10 w-full">
+        <TabsList className="grid grid-cols-5 md:grid-cols-11 w-full">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="team">Equipo</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
           <TabsTrigger value="notes">Apuntes</TabsTrigger>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
