@@ -106,6 +106,15 @@ export default function Assistant() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [history, setHistory] = useState<ConversationItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Filters
+  const ALL_AREAS: string[] = Array.from(CLINICAL_AREAS);
+  const [yearFrom, setYearFrom] = useState<number | null>(null);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>(ALL_AREAS);
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [sourcesInitialized, setSourcesInitialized] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const patientsMap = useMemo(
