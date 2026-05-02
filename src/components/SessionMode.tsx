@@ -622,6 +622,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     setRecState("idle"); setRecElapsed(0);
     setSuppressRecDisclaimer(false);
     setActiveTab("suggestions"); setTranscriptEditable(false);
+    setSummaryBlocks([]); setAnalyzedSuggestions([]); setSessionInsight("");
+    setTranscriptionCount(0); setLastAnalyzedAt(null); setChunkCount(0);
+    unprocessedChunksRef.current = [];
   }
 
   const elapsedMs = startedAt ? now - startedAt : 0;
