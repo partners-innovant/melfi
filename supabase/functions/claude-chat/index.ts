@@ -191,6 +191,15 @@ ${(behaviors ?? []).map((b: any) => `- ${b.tracking_date} · ${b.behavior_name}:
 
 ${latestWisc ? `Última evaluación WISC (${latestWisc.version}, ${latestWisc.evaluation_date}): CIT=${latestWisc.cit ?? "—"}, ICV=${latestWisc.icv ?? "—"}, IRP=${latestWisc.irp ?? "—"}, IMT=${latestWisc.imt ?? "—"}, IVP=${latestWisc.ivp ?? "—"}${latestWisc.irf ? `, IRF=${latestWisc.irf}` : ""}` : "Sin evaluaciones WISC registradas."}
 
+Otros tests/evaluaciones registrados:
+${(childTests ?? []).map((t: any) => `- ${t.evaluation_date} · ${t.test_name}${t.results_structured ? ` · datos: ${JSON.stringify(t.results_structured).slice(0, 200)}` : ""}${t.results_raw ? ` · obs: ${String(t.results_raw).slice(0, 200)}` : ""}`).join("\n") || "- (sin tests adicionales)"}
+
+Documentos e informes externos del paciente:
+${(childDocs ?? []).map((d: any) => `- ${d.document_date ?? "s/f"} · ${d.title}${d.document_type ? ` (${d.document_type})` : ""}${d.professional_name ? ` — ${d.professional_name}${d.professional_role ? `, ${d.professional_role}` : ""}` : ""}${d.notes ? ` · ${String(d.notes).slice(0, 150)}` : ""}`).join("\n") || "- (sin documentos)"}
+
+Últimos apuntes de sesión (máx. 5):
+${(childNotes ?? []).map((n: any) => `- Sesión #${n.session_number ?? "—"} (${n.session_date})${n.emotional_state ? ` · estado: ${n.emotional_state}` : ""}\n  Notas: ${String(n.refined_notes ?? n.raw_notes ?? "").slice(0, 350)}${n.techniques_used ? `\n  Técnicas: ${n.techniques_used}` : ""}${n.next_session_plan ? `\n  Plan: ${String(n.next_session_plan).slice(0, 150)}` : ""}`).join("\n") || "- (sin apuntes)"}
+
 Comunicaciones recientes:
 ${(comms ?? []).map((m: any) => `- ${m.contact_date} ${m.contact_type ?? ""} con ${m.contact_with ?? "—"}: ${m.summary.slice(0, 120)}`).join("\n") || "- (ninguna)"}
 
