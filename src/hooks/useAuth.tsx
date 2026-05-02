@@ -12,6 +12,10 @@ interface Profile {
   is_admin: boolean;
   google_calendar_token?: any;
   google_calendar_id?: string | null;
+  avatar_url?: string | null;
+  specialty?: string | null;
+  city?: string | null;
+  region?: string | null;
 }
 
 interface AuthCtx {
