@@ -554,7 +554,8 @@ interface QueueItem {
   sourceInstitution: string;
   sourceInstitutionType: string;
   // Track which fields were auto-filled by the AI
-  autoFilled: { docType: boolean; clinicalAreas: boolean; sourceInstitution: boolean };
+  autoFilled: { title: boolean; author: boolean; year: boolean; docType: boolean; clinicalAreas: boolean; sourceInstitution: boolean };
+  analysisFailed?: boolean;
   status: QueueStatus;
   progress: number;
   statusText: string;
