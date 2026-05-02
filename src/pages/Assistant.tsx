@@ -269,6 +269,9 @@ export default function Assistant() {
           patient_id: patientId !== NONE ? patientId : null,
           patient_kind: patientKind,
           document_type: docType !== ALL ? docType : null,
+          year_from: yearFrom,
+          clinical_areas: areasActive ? selectedAreas : null,
+          source_institutions: sourcesActive ? selectedSources : null,
           conversation_id: conversationId,
         }),
       });
