@@ -541,23 +541,79 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       style={{ width: "100vw", height: "100vh" }}
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b bg-card">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold">
-            {patientName.split(" ").map(n => n[0]).slice(0, 2).join("")}
-          </div>
-          <div>
-            <div className="font-semibold">{patientName}</div>
-            <div className="text-xs text-muted-foreground">
-              Sesión #{sessionNumber ?? "—"} · {new Date().toLocaleDateString("es-CL")}
+      <div className="px-6 py-3 border-b bg-card space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold">
+              {patientName.split(" ").map(n => n[0]).slice(0, 2).join("")}
+            </div>
+            <div>
+              <div className="font-semibold">{patientName}</div>
+              <div className="text-xs text-muted-foreground">
+                Sesión #{sessionNumber ?? "—"} · {new Date().toLocaleDateString("es-CL")}
+              </div>
             </div>
           </div>
+          <div className="flex items-center gap-4">
+            {recState !== "idle" && (
+              <div className="flex items-center gap-1.5 text-xs font-semibold">
+                <span className={`h-2.5 w-2.5 rounded-full bg-red-500 ${recState === "recording" ? "animate-pulse" : ""}`} />
+                <span className={recState === "recording" ? "text-red-600" : "text-amber-600"}>
+                  {recState === "recording" ? `REC ${fmtTime(recElapsed)}` : `EN PAUSA ${fmtTime(recElapsed)}`}
+                </span>
+              </div>
+            )}
+            <div className="font-mono text-2xl tabular-nums">{fmtTime(elapsedMs)}</div>
+            <Button variant="destructive" onClick={openEndFlow} className="gap-2">
+              <Square className="h-4 w-4" /> Finalizar sesión
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="font-mono text-2xl tabular-nums">{fmtTime(elapsedMs)}</div>
-          <Button variant="destructive" onClick={openEndFlow} className="gap-2">
-            <Square className="h-4 w-4" /> Finalizar sesión
-          </Button>
+        {/* Recording control bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {recState === "idle" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={requestStartLiveRecording}
+              disabled={!sessionId}
+              className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-500/10 hover:text-red-700"
+            >
+              <Circle className="h-3.5 w-3.5 fill-red-500 text-red-500" /> Grabar sesión
+            </Button>
+          )}
+          {recState === "recording" && (
+            <>
+              <Badge variant="destructive" className="gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                GRABANDO {fmtTime(recElapsed)}
+              </Badge>
+              <Button size="sm" variant="outline" onClick={pauseLiveRecording} className="gap-1.5">
+                <Pause className="h-3.5 w-3.5" /> Pausar
+              </Button>
+              <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
+                <Square className="h-3.5 w-3.5" /> Detener
+              </Button>
+            </>
+          )}
+          {recState === "paused" && (
+            <>
+              <Badge variant="outline" className="gap-1.5 border-amber-500 text-amber-600">
+                ⏸ EN PAUSA {fmtTime(recElapsed)}
+              </Badge>
+              <Button size="sm" variant="outline" onClick={resumeLiveRecording} className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-500/10">
+                <Play className="h-3.5 w-3.5" /> Reanudar
+              </Button>
+              <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
+                <Square className="h-3.5 w-3.5" /> Detener
+              </Button>
+            </>
+          )}
+          {transcribing && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
+            </span>
+          )}
         </div>
       </div>
 
