@@ -664,6 +664,11 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       toast.error(`Falta el título en: ${missingTitle.file.name}`);
       return;
     }
+    const unresolved = ready.find((it) => it.duplicate && (!it.dupAction || it.dupAction === "pending"));
+    if (unresolved) {
+      toast.error(`Resuelve el aviso de duplicado en: ${unresolved.file.name}`);
+      return;
+    }
     setBusy(true);
     let success = 0;
     let failed = 0;
@@ -695,7 +700,9 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
     }
   }
 
-  const readyCount = items.filter((it) => it.status === "ready").length;
+  const readyCount = items.filter(
+    (it) => it.status === "ready" && (!it.duplicate || (it.dupAction && it.dupAction !== "pending")),
+  ).length;
   const doneCount = items.filter((it) => it.status === "done").length;
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
