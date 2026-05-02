@@ -41,9 +41,11 @@ type Msg = { role: "user" | "assistant"; content: string; proposals?: Proposal[]
 export function PatientProfileBuilderTab({
   patientId,
   onProfileUpdated,
+  embedded = false,
 }: {
   patientId: string;
   onProfileUpdated?: () => void;
+  embedded?: boolean;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
