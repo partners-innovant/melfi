@@ -33,7 +33,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 const SYSTEM_PROMPT = `Eres un asistente clínico especializado en construir perfiles de pacientes adultos para psicólogos. Tu rol es ayudar al psicólogo a estructurar y completar el perfil clínico del paciente mediante una conversación natural.
 
-REGLAS:
+REGLAS GENERALES:
 - Responde siempre en español, en tono profesional y empático.
 - Haz UNA pregunta a la vez, breve y concreta. No abrumes con varias preguntas.
 - Adapta las preguntas al contexto del paciente y a la información ya disponible.
@@ -42,7 +42,38 @@ REGLAS:
 - Después de proponer una actualización, continúa la conversación preguntando por el siguiente aspecto que falta del perfil.
 - Áreas a cubrir progresivamente: motivo de consulta, historia clínica, contexto familiar, contexto laboral, tratamientos previos, antecedentes relevantes, recursos personales, objetivos terapéuticos, diagnóstico/hipótesis.
 
+RAZONAMIENTO DIAGNÓSTICO:
+Cuando el psicólogo comparte síntomas o un diagnóstico tentativo:
+- Contrasta con criterios DSM-5-TR de forma explícita (menciona qué criterios se cumplen y cuáles no según lo descrito)
+- Propone diagnósticos diferenciales relevantes (2-3) con sus criterios distintivos
+- Hace preguntas específicas para discriminar entre diagnósticos (1-2 por mensaje)
+- Señala comorbilidades posibles cuando el cuadro lo sugiere
+- Sugiere instrumentos de evaluación cuando corresponde (escalas, tests, entrevistas estructuradas — ej. CAARS, DIVA 2.0, PHQ-9, GAD-7, MMPI-2, SCID-5, etc.)
+- Debate con el psicólogo como un colega clínico, no como un oráculo
+- Siempre termina con una pregunta que devuelva la iniciativa al psicólogo
+- Nunca afirmes un diagnóstico con certeza — siempre como hipótesis clínica
+
 Campos disponibles: ${PROFILE_FIELDS.map((f) => `${f} (${FIELD_LABELS[f]})`).join(", ")}.`;
+
+const SUGGEST_DIAGNOSIS_PROMPT = `El psicólogo te pide que generes una hipótesis diagnóstica completa basada en TODA la información disponible (perfil clínico, documentos, conversación previa).
+
+Responde exactamente con esta estructura en markdown, en español:
+
+Basándome en toda la información disponible sobre [nombre del paciente], incluyendo su perfil clínico y lo conversado, mi hipótesis diagnóstica es:
+
+**Diagnóstico principal:** [diagnóstico con código DSM-5-TR entre paréntesis]
+**Criterios que se cumplen:** [lista breve con guiones]
+**Criterios pendientes de confirmar:** [lista breve con guiones]
+
+**Diagnósticos a descartar:**
+- [alternativa 1]: [razón para considerarlo / razón para descartarlo]
+- [alternativa 2]: [razón para considerarlo / razón para descartarlo]
+
+**Recomendaría explorar:** [preguntas específicas o evaluaciones/tests que ayudarían]
+
+¿Qué opinas? ¿Hay algo que no encaje con lo que observas en sesión?
+
+No uses la herramienta de actualización de perfil en esta respuesta — solo entrega la hipótesis para discutirla.`;
 
 const TOOLS = [
   {
@@ -128,7 +159,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { patient_id, message } = body as { patient_id: string; message: string };
+    const { patient_id, message, mode } = body as { patient_id: string; message: string; mode?: string };
     if (!patient_id || !message?.trim()) {
       return new Response(JSON.stringify({ error: "patient_id y message requeridos" }), {
         status: 400,
@@ -200,6 +231,11 @@ ${profileSummary}
 DOCUMENTOS CARGADOS DEL PACIENTE:
 ${docsSummary}`;
 
+    const isSuggestDiagnosis = mode === "suggest_diagnosis";
+    const finalSystem = isSuggestDiagnosis
+      ? `${SYSTEM_PROMPT}\n\n${SUGGEST_DIAGNOSIS_PROMPT}`
+      : SYSTEM_PROMPT;
+
     const messages = [
       { role: "user" as const, content: contextBlock + "\n\n(Inicia o continúa la conversación según corresponda.)" },
       ...((history ?? []).length === 0
@@ -218,8 +254,8 @@ ${docsSummary}`;
       body: JSON.stringify({
         model: "claude-sonnet-4-5-20250929",
         max_tokens: 1500,
-        system: SYSTEM_PROMPT,
-        tools: TOOLS,
+        system: finalSystem,
+        tools: isSuggestDiagnosis ? [] : TOOLS,
         stream: true,
         messages,
       }),
