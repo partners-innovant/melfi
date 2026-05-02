@@ -90,6 +90,8 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptEditable, setTranscriptEditable] = useState(false);
   const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
+  const [chunkCount, setChunkCount] = useState(0);
+  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
 
   const liveRecorderRef = useRef<MediaRecorder | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
