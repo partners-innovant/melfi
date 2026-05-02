@@ -95,9 +95,14 @@ export default function PatientDetail() {
               <p className="text-sm text-muted-foreground">{patient.diagnosis ?? "Sin diagnóstico registrado"}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
-            <Pencil className="h-3.5 w-3.5" />Editar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)} className="gap-1.5">
+              <Send className="h-3.5 w-3.5" />Transferir a otro terapeuta
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
+              <Pencil className="h-3.5 w-3.5" />Editar
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
