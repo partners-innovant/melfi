@@ -166,7 +166,15 @@ export default function ChildDetail() {
             )}
           </Card>
 
-          <ExtendedNotesEditor table="child_patients" rowId={child.id} initialValue={child.extended_notes ?? null} />
+          <ExtendedNotesEditor
+            table="child_patients"
+            rowId={child.id}
+            initialValue={child.extended_notes ?? null}
+            currentMainNotes={child.notes ?? null}
+            onMainNotesUpdated={(newNotes) => {
+              setChild((c: any) => c ? { ...c, notes: newNotes, extended_notes: null } : c);
+            }}
+          />
 
           <MedicationsSection kind="child" patientId={child.id} />
 
