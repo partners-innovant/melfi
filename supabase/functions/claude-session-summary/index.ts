@@ -149,6 +149,7 @@ Genera el resumen, feedback y plan según las tres secciones requeridas.`;
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
+        // Using Sonnet — clinical reasoning required
         model: "claude-sonnet-4-5",
         max_tokens: 4000,
         system: SYSTEM_PROMPT,
