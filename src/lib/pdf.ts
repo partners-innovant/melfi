@@ -54,6 +54,46 @@ export async function extractTxtText(file: File): Promise<string> {
   return await file.text();
 }
 
+/** Render every page of a PDF to a base64-encoded PNG (no data: prefix). */
+export async function renderPdfPagesToBase64(
+  file: File,
+  opts: { scale?: number; onProgress?: (current: number, total: number) => void } = {},
+): Promise<{ pageNumber: number; base64: string }[]> {
+  const { scale = 1.5, onProgress } = opts;
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: buf }).promise;
+  const pages: { pageNumber: number; base64: string }[] = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("No se pudo crear contexto canvas");
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const blob: Blob = await new Promise((resolve, reject) =>
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob falló"))), "image/png"),
+    );
+    const base64 = await blobToBase64(blob);
+    pages.push({ pageNumber: i, base64 });
+    onProgress?.(i, pdf.numPages);
+  }
+  return pages;
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer();
+  // Encode in chunks to avoid call-stack limits with btoa
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 export interface Chunk {
   index: number;
   content: string;
