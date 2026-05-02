@@ -881,34 +881,100 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   </div>
                 )}
 
-                <SuggestionGroup
-                  icon={<MessageCircle className="h-4 w-4" />}
-                  title="Preguntas sugeridas"
-                  tone="blue"
-                  items={suggestions.questions}
-                  onUse={(t) => markUsed("question", t)}
-                />
-                <SuggestionGroup
-                  icon={<Eye className="h-4 w-4" />}
-                  title="Patrones observados"
-                  tone="purple"
-                  items={suggestions.patterns}
-                  onUse={(t) => markUsed("pattern", t)}
-                />
-                <SuggestionGroup
-                  icon={<Lightbulb className="h-4 w-4" />}
-                  title="Intervenciones"
-                  tone="teal"
-                  items={suggestions.interventions}
-                  onUse={(t) => markUsed("intervention", t)}
-                />
-                <SuggestionGroup
-                  icon={<AlertTriangle className="h-4 w-4" />}
-                  title="No explorado"
-                  tone="amber"
-                  items={suggestions.unexplored}
-                  onUse={(t) => markUsed("unexplored", t)}
-                />
+                {sessionInsight && (
+                  <div className="rounded-md border border-teal-400/40 bg-teal-500/10 p-3 text-sm">
+                    <div className="font-semibold mb-1">💡 Insight de sesión</div>
+                    <div className="text-muted-foreground">{sessionInsight}</div>
+                    {lastAnalyzedAt && (
+                      <div className="text-[10px] text-muted-foreground/80 mt-1">
+                        Última transcripción: {clockFromTimestamp(lastAnalyzedAt)}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {analyzedSuggestions.length > 0 ? (
+                  <div className="space-y-2">
+                    {analyzedSuggestions.map((s) => {
+                      const tone =
+                        s.type === "question" ? "border-blue-400/40 bg-blue-500/10"
+                        : s.type === "pattern" ? "border-purple-400/40 bg-purple-500/10"
+                        : s.type === "alert" ? "border-amber-400/40 bg-amber-500/10"
+                        : "border-teal-400/40 bg-teal-500/10";
+                      const addressedClass = s.addressed ? "ring-2 ring-amber-400 bg-amber-500/15 border-amber-400/60" : "";
+                      const kind: UsedSuggestion["kind"] =
+                        s.type === "question" ? "question"
+                        : s.type === "pattern" ? "pattern"
+                        : s.type === "alert" ? "unexplored"
+                        : "intervention";
+                      return (
+                        <div key={s.id} className={`p-2.5 rounded-md border text-sm ${tone} ${addressedClass}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="text-[10px] uppercase tracking-wide font-semibold opacity-70 mb-0.5">
+                                {s.type}
+                                {s.addressed && (
+                                  <Badge variant="outline" className="ml-2 border-amber-500 text-amber-700 text-[10px]">
+                                    🎙️ Detectado en conversación
+                                  </Badge>
+                                )}
+                              </div>
+                              <div>{s.text}</div>
+                              {s.rationale && (
+                                <div className="text-[11px] text-muted-foreground mt-1 italic">{s.rationale}</div>
+                              )}
+                            </div>
+                          </div>
+                          {s.addressed && (
+                            <div className="mt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  markUsed(kind, s.text);
+                                  setAnalyzedSuggestions((prev) => prev.filter((x) => x.id !== s.id));
+                                }}
+                                className="gap-1.5 h-7"
+                              >
+                                <Check className="h-3.5 w-3.5" /> Marcar como usado
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <>
+                    <SuggestionGroup
+                      icon={<MessageCircle className="h-4 w-4" />}
+                      title="Preguntas sugeridas"
+                      tone="blue"
+                      items={suggestions.questions}
+                      onUse={(t) => markUsed("question", t)}
+                    />
+                    <SuggestionGroup
+                      icon={<Eye className="h-4 w-4" />}
+                      title="Patrones observados"
+                      tone="purple"
+                      items={suggestions.patterns}
+                      onUse={(t) => markUsed("pattern", t)}
+                    />
+                    <SuggestionGroup
+                      icon={<Lightbulb className="h-4 w-4" />}
+                      title="Intervenciones"
+                      tone="teal"
+                      items={suggestions.interventions}
+                      onUse={(t) => markUsed("intervention", t)}
+                    />
+                    <SuggestionGroup
+                      icon={<AlertTriangle className="h-4 w-4" />}
+                      title="No explorado"
+                      tone="amber"
+                      items={suggestions.unexplored}
+                      onUse={(t) => markUsed("unexplored", t)}
+                    />
+                  </>
+                )}
 
                 {usedSuggestions.length > 0 && (
                   <div>
