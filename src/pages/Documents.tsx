@@ -182,6 +182,15 @@ export default function Documents() {
         </div>
         <div className="flex items-center gap-2">
           <RecommendDocumentsButton />
+          {isAdmin && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setPubmedOpen(true)}
+            >
+              🔬 PubMed
+            </Button>
+          )}
           <UrlImportDialog
             isAdmin={isAdmin}
             onImported={load}
@@ -203,6 +212,8 @@ export default function Documents() {
           </Dialog>
         </div>
       </header>
+
+      <PubMedSearchDialog open={pubmedOpen} onOpenChange={setPubmedOpen} onImported={load} />
 
       {/* Filter bar */}
       <Card className="p-3 mb-4 flex flex-wrap items-center gap-2">
