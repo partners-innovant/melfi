@@ -735,7 +735,48 @@ export default function AdminDocuments() {
                     renderValue={(v) => LANG_LABELS[v as LangCode] ?? "—"}
                   />
                 </TableCell>
-                <TableCell className="text-center text-sm tabular-nums">{d.chunk_count}</TableCell>
+                <TableCell className="text-center text-sm tabular-nums">
+                  {reprocessing.has(d.id) ? (
+                    <span className="inline-flex items-center gap-1 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> …
+                    </span>
+                  ) : d.chunk_count === 0 ? (
+                    <TooltipProvider delayDuration={150}>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="text-destructive font-semibold">0</span>
+                        {reprocessErrors[d.id] ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => reprocessSingle(d)}
+                                disabled={!d.storage_path}
+                                className="text-[11px] text-destructive hover:underline inline-flex items-center gap-0.5"
+                              >
+                                <X className="h-3 w-3" /> Error
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-[320px] text-xs">
+                              {reprocessErrors[d.id]}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => reprocessSingle(d)}
+                            disabled={!d.storage_path}
+                            title={d.storage_path ? "Re-procesar documento" : "Sin archivo en storage"}
+                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5 disabled:opacity-50 disabled:no-underline"
+                          >
+                            <RotateCw className="h-3 w-3" /> Re-procesar
+                          </button>
+                        )}
+                      </div>
+                    </TooltipProvider>
+                  ) : (
+                    d.chunk_count
+                  )}
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="text-[10px]">{d.import_source ?? "upload"}</Badge>
                 </TableCell>
