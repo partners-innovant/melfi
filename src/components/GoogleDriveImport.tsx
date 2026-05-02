@@ -18,7 +18,8 @@ import * as pdfjs from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
-type Status = "pending" | "downloading" | "analyzing" | "uploading" | "done" | "error";
+type Status = "pending" | "checking" | "downloading" | "analyzing" | "uploading" | "done" | "error";
+type DupAction = "pending" | "replace" | "keep_both";
 
 interface DriveFile {
   id: string;
@@ -34,6 +35,8 @@ interface QueueItem {
   progress: number;
   statusText: string;
   error?: string;
+  duplicate?: DuplicateDoc | null;
+  dupAction?: DupAction;
 }
 
 declare global {
