@@ -67,6 +67,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const mainPad = collapsed ? "md:pl-16" : "md:pl-64";
 
   return (
+    <SidebarStateContext.Provider value={{ collapsed, setCollapsed }}>
     <TooltipProvider delayDuration={150}>
       <div className="flex min-h-screen w-full bg-surface">
         <ProfileCompletionModal />
