@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import ProfileCompletionModal from "@/components/ProfileCompletionModal";
 import FeedbackButton from "@/components/FeedbackButton";
+import { SidebarStateContext } from "@/components/sidebar-state";
 
 const baseItems = [
   { to: "/", label: "Inicio", icon: LayoutDashboard, end: true },
