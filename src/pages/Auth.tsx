@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Brain } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
+import { AuthEthicalDisclaimer } from "@/components/EthicalDisclaimer";
 
 export default function Auth() {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ export default function Auth() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -32,6 +34,10 @@ export default function Auth() {
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleGoogle() {
+    if (!acceptedDisclaimer) {
+      toast.error("Debes aceptar el aviso ético para continuar.");
+      return;
+    }
     setGoogleLoading(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
@@ -48,6 +54,10 @@ export default function Auth() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!acceptedDisclaimer) {
+      toast.error("Debes aceptar el aviso ético para continuar.");
+      return;
+    }
     setLoading(true);
     try {
       // Whitelist pre-check (signup or signin)
@@ -142,7 +152,7 @@ export default function Auth() {
             variant="outline"
             className="w-full gap-2"
             onClick={handleGoogle}
-            disabled={googleLoading}
+            disabled={googleLoading || !acceptedDisclaimer}
           >
             <GoogleIcon />
             {googleLoading ? "Conectando..." : "Continuar con Google"}
@@ -190,7 +200,8 @@ export default function Auth() {
               <Label htmlFor="pwd">Contraseña</Label>
               <Input id="pwd" type="password" required minLength={6} value={form.password} onChange={(e) => update("password", e.target.value)} />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <AuthEthicalDisclaimer checked={acceptedDisclaimer} onChange={setAcceptedDisclaimer} />
+            <Button type="submit" className="w-full" disabled={loading || !acceptedDisclaimer}>
               {loading ? "..." : mode === "signin" ? "Entrar" : "Crear cuenta"}
             </Button>
           </form>
