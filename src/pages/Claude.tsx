@@ -469,6 +469,11 @@ export default function Claude() {
                 </div>
               </SheetContent>
             </Sheet>
+            <ImportMemoryDialog
+              open={importOpen}
+              onOpenChange={setImportOpen}
+              onImported={loadMemory}
+            />
             {messages.length > 0 && (
               <Button size="sm" variant="outline" onClick={exportConversation}>
                 <Download className="h-4 w-4" /> Exportar
