@@ -360,4 +360,3 @@ function StatusIcon({ status }: { status: Status }) {
   if (status === "skipped") return <X className="h-4 w-4 text-muted-foreground shrink-0" />;
   return <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />;
 }
-}
