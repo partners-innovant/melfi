@@ -152,7 +152,7 @@ export default function Auth() {
             variant="outline"
             className="w-full gap-2"
             onClick={handleGoogle}
-            disabled={googleLoading}
+            disabled={googleLoading || !acceptedDisclaimer}
           >
             <GoogleIcon />
             {googleLoading ? "Conectando..." : "Continuar con Google"}
