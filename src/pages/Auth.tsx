@@ -17,6 +17,7 @@ export default function Auth() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
   const [form, setForm] = useState({
     email: "",
     password: "",
