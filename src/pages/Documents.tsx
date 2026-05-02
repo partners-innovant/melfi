@@ -21,6 +21,9 @@ import {
 } from "@/components/ui/sheet";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { ChevronsUpDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle, Filter } from "lucide-react";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
@@ -847,7 +850,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
   return (
-    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="w-[90vw] max-w-[1200px] sm:max-w-[1200px] max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Subir documentos</DialogTitle>
       </DialogHeader>
@@ -1002,8 +1005,9 @@ function QueueRow({
       )}
 
       {(item.status === "ready" || item.status === "done") && (
-        <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 pt-1">
-          <div className="sm:col-span-3">
+        <div className="space-y-2 pt-1">
+          {/* Row 1: Título (full width) */}
+          <div>
             <Label className="text-xs">Título *</Label>
             <Input
               value={item.title}
@@ -1012,45 +1016,77 @@ function QueueRow({
               className="h-8 text-sm"
             />
           </div>
-          <div className="sm:col-span-2">
-            <Label className="text-xs">Autor</Label>
-            <Input
-              value={item.author}
-              onChange={(e) => onChange({ author: e.target.value })}
-              disabled={!editable || disabled}
-              className="h-8 text-sm"
-            />
+
+          {/* Row 1b: Autor + Año (auxiliary) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Autor</Label>
+              <Input
+                value={item.author}
+                onChange={(e) => onChange({ author: e.target.value })}
+                disabled={!editable || disabled}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Año</Label>
+              <Input
+                value={item.year}
+                onChange={(e) => onChange({ year: e.target.value })}
+                disabled={!editable || disabled}
+                className="h-8 text-sm"
+              />
+            </div>
           </div>
+
+          {/* Row 2: Tipo (1/3) | Fuente / Institución (2/3) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div>
+              <Label className="text-xs">Tipo</Label>
+              <Select
+                value={item.docType}
+                onValueChange={(v) => onChange({ docType: v as DocType })}
+                disabled={!editable || disabled}
+              >
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Fuente / Institución</Label>
+              <SourceInstitutionPicker
+                value={item.sourceInstitution}
+                onChange={(name, type) =>
+                  onChange({
+                    sourceInstitution: name,
+                    sourceInstitutionType: type ?? item.sourceInstitutionType,
+                  })
+                }
+                disabled={!editable || disabled}
+              />
+            </div>
+          </div>
+
+          {/* Row 3: Áreas clínicas (full width multi-select with chips) */}
           <div>
-            <Label className="text-xs">Año</Label>
-            <Input
-              value={item.year}
-              onChange={(e) => onChange({ year: e.target.value })}
+            <Label className="text-xs">Área(s) clínica(s)</Label>
+            <ClinicalAreasPicker
+              value={item.clinicalAreas}
+              onChange={(areas) => onChange({ clinicalAreas: areas })}
               disabled={!editable || disabled}
-              className="h-8 text-sm"
             />
           </div>
-          <div className="sm:col-span-3">
-            <Label className="text-xs">Tipo</Label>
-            <Select
-              value={item.docType}
-              onValueChange={(v) => onChange({ docType: v as DocType })}
-              disabled={!editable || disabled}
-            >
-              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+
           {isAdmin && (
-            <div className="sm:col-span-3 flex items-end gap-2 pb-1">
+            <div className="flex items-center gap-2 pt-1">
               <Switch
                 checked={item.isGlobal}
                 onCheckedChange={(v) => onChange({ isGlobal: v })}
                 disabled={!editable || disabled}
               />
-              <span className="text-xs text-muted-foreground">Global</span>
+              <span className="text-xs text-muted-foreground">Documento global</span>
             </div>
           )}
         </div>
@@ -1069,4 +1105,185 @@ function StatusIcon({ status }: { status: QueueStatus }) {
   if (status === "ready")
     return <CheckCircle2 className="h-4 w-4 mt-0.5 text-muted-foreground" />;
   return <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />;
+}
+
+function ClinicalAreasPicker({
+  value, onChange, disabled,
+}: {
+  value: string[];
+  onChange: (areas: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = new Set(value);
+
+  function toggle(area: string) {
+    const next = new Set(selected);
+    if (next.has(area)) {
+      next.delete(area);
+    } else {
+      if (next.size >= MAX_CLINICAL_AREAS) {
+        toast.error(`Máximo ${MAX_CLINICAL_AREAS} áreas clínicas`);
+        return;
+      }
+      next.add(area);
+    }
+    onChange(Array.from(next));
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1 min-h-[28px] items-center">
+        {value.length === 0 && (
+          <span className="text-xs text-muted-foreground">Sin áreas seleccionadas</span>
+        )}
+        {value.map((a) => (
+          <span
+            key={a}
+            className={`text-[11px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${clinicalAreaColor(a)}`}
+          >
+            {clinicalAreaLabel(a)}
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => toggle(a)}
+                className="hover:opacity-70"
+                aria-label={`Quitar ${clinicalAreaLabel(a)}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </span>
+        ))}
+      </div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className="h-8 text-xs justify-between w-full sm:w-auto"
+          >
+            <span>Agregar / quitar áreas ({value.length}/{MAX_CLINICAL_AREAS})</span>
+            <ChevronsUpDown className="h-3 w-3 opacity-50 ml-2" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[360px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Buscar área clínica..." className="h-8" />
+            <CommandList className="max-h-72">
+              <CommandEmpty>Sin resultados.</CommandEmpty>
+              <CommandGroup heading="Categorías NICE">
+                {CLINICAL_AREAS_NICE.map((a) => {
+                  const isSel = selected.has(a);
+                  return (
+                    <CommandItem key={a} value={CLINICAL_AREA_LABELS[a]} onSelect={() => toggle(a)}>
+                      <Check className={`mr-2 h-4 w-4 ${isSel ? "opacity-100" : "opacity-0"}`} />
+                      {CLINICAL_AREA_LABELS[a]}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+              <CommandGroup heading="Categorías transversales">
+                {CLINICAL_AREAS_TRANSVERSAL.map((a) => {
+                  const isSel = selected.has(a);
+                  return (
+                    <CommandItem key={a} value={CLINICAL_AREA_LABELS[a]} onSelect={() => toggle(a)}>
+                      <Check className={`mr-2 h-4 w-4 ${isSel ? "opacity-100" : "opacity-0"}`} />
+                      {CLINICAL_AREA_LABELS[a]}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function SourceInstitutionPicker({
+  value, onChange, disabled,
+}: {
+  value: string;
+  onChange: (name: string, type?: SourceInstitutionType) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const grouped = SOURCE_INSTITUTIONS.reduce<Record<string, typeof SOURCE_INSTITUTIONS>>((acc, s) => {
+    (acc[s.group] ??= []).push(s);
+    return acc;
+  }, {});
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="h-8 text-sm justify-between w-full font-normal"
+        >
+          <span className="truncate">
+            {value ? `${sourceIconFor(value)} ${value}` : "Seleccionar fuente o escribir..."}
+          </span>
+          <ChevronsUpDown className="h-3 w-3 opacity-50 ml-2 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[360px] p-0" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Buscar o escribir fuente..."
+            className="h-8"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const v = (e.currentTarget.value ?? "").trim();
+                if (v) {
+                  onChange(v, "otro");
+                  setOpen(false);
+                }
+              }
+            }}
+          />
+          <CommandList className="max-h-72">
+            <CommandEmpty>
+              <div className="text-xs text-muted-foreground p-2">
+                Pulsa Enter para usar el texto escrito como fuente personalizada.
+              </div>
+            </CommandEmpty>
+            {value && (
+              <CommandGroup heading="Acción">
+                <CommandItem
+                  value="__clear__"
+                  onSelect={() => { onChange("", undefined); setOpen(false); }}
+                >
+                  <X className="mr-2 h-4 w-4" /> Quitar fuente
+                </CommandItem>
+              </CommandGroup>
+            )}
+            {Object.entries(grouped).map(([group, items]) => (
+              <CommandGroup key={group} heading={group}>
+                {items.map((s) => (
+                  <CommandItem
+                    key={s.name}
+                    value={s.name}
+                    onSelect={() => { onChange(s.name, s.type); setOpen(false); }}
+                  >
+                    <Check
+                      className={`mr-2 h-4 w-4 ${value.toLowerCase() === s.name.toLowerCase() ? "opacity-100" : "opacity-0"}`}
+                    />
+                    <span className="mr-1">{s.icon}</span> {s.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
