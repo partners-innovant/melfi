@@ -20,7 +20,17 @@ interface Patient {
   last_name: string;
   birth_date: string | null;
   diagnosis: string | null;
+  session_day: string | null;
+  session_time: string | null;
 }
+
+const DAY_LABELS: Record<string, string> = {
+  lunes: "Lunes", martes: "Martes", miercoles: "Miércoles", jueves: "Jueves",
+  viernes: "Viernes", sabado: "Sábado", domingo: "Domingo",
+};
+const DAY_ORDER: Record<string, number> = {
+  lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6, domingo: 7,
+};
 
 interface IncomingTransfer {
   id: string;
