@@ -875,20 +875,21 @@ function renderAnswerHtml(text: string, citations: Citation[]): string {
   const closeList = () => {
     if (listType) { out.push(`</${listType}>`); listType = null; }
   };
+  const PBA = "page-break-inside:avoid;break-inside:avoid;";
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (!line.trim()) { closeList(); continue; }
     const num = line.match(/^\s*(\d+)[.)]\s+(.*)$/);
     const bul = line.match(/^\s*[-*•]\s+(.*)$/);
     if (num) {
-      if (listType !== "ol") { closeList(); out.push('<ol style="margin:6px 0 6px 20px;padding:0;">'); listType = "ol"; }
-      out.push(`<li style="margin:2px 0;">${num[2]}</li>`);
+      if (listType !== "ol") { closeList(); out.push('<ol style="margin:8px 0 8px 22px;padding:0;">'); listType = "ol"; }
+      out.push(`<li style="margin:4px 0;${PBA}">${num[2]}</li>`);
     } else if (bul) {
-      if (listType !== "ul") { closeList(); out.push('<ul style="margin:6px 0 6px 20px;padding:0;list-style:disc;">'); listType = "ul"; }
-      out.push(`<li style="margin:2px 0;">${bul[1]}</li>`);
+      if (listType !== "ul") { closeList(); out.push('<ul style="margin:8px 0 8px 22px;padding:0;list-style:disc;">'); listType = "ul"; }
+      out.push(`<li style="margin:4px 0;${PBA}">${bul[1]}</li>`);
     } else {
       closeList();
-      out.push(`<p style="margin:6px 0;">${line}</p>`);
+      out.push(`<p style="margin:8px 0;${PBA}">${line}</p>`);
     }
   }
   closeList();
@@ -910,86 +911,102 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
   const YELLOW_BG = "#fef3c7";
 
   const answerHtml = renderAnswerHtml(assistant.content, citations);
+  const PBA = "page-break-inside:avoid;break-inside:avoid;";
 
-  const citationsHtml = citations.length === 0 ? "" : `
-    <h2 style="color:${TEAL_DARK};font-size:14px;font-weight:700;margin:24px 0 10px 0;">Fuentes citadas:</h2>
-    <div style="display:flex;flex-direction:column;gap:10px;">
-      ${citations.map((c, i) => `
-        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;background:#ffffff;">
-          <div style="display:flex;gap:8px;align-items:baseline;">
-            <span style="color:${TEAL};font-weight:700;font-size:12px;">[${i + 1}]</span>
-            <div style="font-weight:700;color:#111827;font-size:12px;">${escapeHtml(c.document_title || "Sin título")}</div>
-          </div>
-          <div style="color:${GRAY};font-size:11px;margin-top:2px;">
-            ${escapeHtml(c.author || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}
-          </div>
-          ${c.excerpt ? `<div style="margin-top:6px;background:${YELLOW_BG};padding:6px 8px;border-radius:4px;font-style:italic;color:#1f2937;font-size:11px;line-height:1.45;">"${escapeHtml(c.excerpt)}"</div>` : ""}
-        </div>
-      `).join("")}
+  // A4 @ 96dpi = 794 x 1123px. Margins 60px all sides.
+  const PAGE_W = 794;
+  const PAGE_H = 1123;
+  const MARGIN = 60;
+  const CONTENT_W = PAGE_W - MARGIN * 2; // 674
+
+  const headerHtml = `
+    <div data-pdf-section style="${PBA}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="font-size:24px;font-weight:800;color:${TEAL};letter-spacing:-0.02em;">Psicoasist</div>
+        <div style="font-size:11px;color:${GRAY};text-align:right;line-height:1.5;">${escapeHtml(dateStr)}</div>
+      </div>
+      ${patientName ? `<div style="margin-top:8px;font-size:13px;color:#374151;">Consulta sobre: <strong>${escapeHtml(patientName)}</strong></div>` : ""}
+      <hr style="border:none;border-top:2px solid ${TEAL};margin:16px 0 20px 0;" />
+    </div>
+    <div data-pdf-section style="${PBA}">
+      <h2 style="color:${TEAL_DARK};font-size:16px;font-weight:700;margin:0 0 8px 0;">Pregunta:</h2>
+      <div style="font-size:13px;line-height:1.7;color:#111827;margin-bottom:20px;white-space:pre-wrap;">${escapeHtml(question)}</div>
+    </div>
+    <div data-pdf-section style="${PBA}">
+      <h2 style="color:${TEAL_DARK};font-size:16px;font-weight:700;margin:0 0 8px 0;">Respuesta:</h2>
     </div>
   `;
 
-  const container = document.createElement("div");
-  // Render off-screen but fully laid-out at A4 width (~794px @ 96dpi).
-  container.style.cssText = `position:fixed;left:-10000px;top:0;width:794px;background:#ffffff;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;padding:48px;box-sizing:border-box;`;
-  container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-      <div style="font-size:22px;font-weight:800;color:${TEAL};letter-spacing:-0.02em;">Psicoasist</div>
-      <div style="font-size:11px;color:${GRAY};text-align:right;">${escapeHtml(dateStr)}</div>
+  const citationsHtml = citations.length === 0 ? "" : `
+    <div data-pdf-section style="${PBA}">
+      <h2 style="color:${TEAL_DARK};font-size:16px;font-weight:700;margin:24px 0 12px 0;">Fuentes citadas:</h2>
     </div>
-    ${patientName ? `<div style="margin-top:6px;font-size:12px;color:#374151;">Consulta sobre: <strong>${escapeHtml(patientName)}</strong></div>` : ""}
-    <hr style="border:none;border-top:2px solid ${TEAL};margin:14px 0 18px 0;" />
+    ${citations.map((c, i) => `
+      <div data-pdf-section style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;background:#ffffff;margin-bottom:12px;${PBA}">
+        <div style="display:flex;gap:8px;align-items:baseline;">
+          <span style="color:${TEAL};font-weight:700;font-size:11px;">[${i + 1}]</span>
+          <div style="font-weight:700;color:#111827;font-size:11px;">${escapeHtml(c.document_title || "Sin título")}</div>
+        </div>
+        <div style="color:${GRAY};font-size:11px;margin-top:4px;line-height:1.7;">
+          ${escapeHtml(c.author || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}
+        </div>
+        ${c.excerpt ? `<div style="margin-top:8px;background:${YELLOW_BG};padding:10px 12px;border-radius:4px;font-style:italic;color:#1f2937;font-size:11px;line-height:1.7;">"${escapeHtml(c.excerpt)}"</div>` : ""}
+      </div>
+    `).join("")}
+  `;
 
-    <h2 style="color:${TEAL_DARK};font-size:13px;font-weight:700;margin:0 0 6px 0;">Pregunta:</h2>
-    <div style="font-size:12px;line-height:1.55;color:#111827;margin-bottom:18px;white-space:pre-wrap;">${escapeHtml(question)}</div>
-
-    <h2 style="color:${TEAL_DARK};font-size:13px;font-weight:700;margin:0 0 6px 0;">Respuesta:</h2>
-    <div style="font-size:12px;line-height:1.6;color:#111827;">${answerHtml}</div>
-
-    ${citationsHtml}
-
-    <div style="margin-top:30px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:${GRAY};">
+  const footerHtml = `
+    <div data-pdf-section style="margin-top:30px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:${GRAY};${PBA}">
       <span><strong style="color:${TEAL};">Generado por Psicoasist</strong></span>
       <span style="text-align:right;max-width:60%;">Las respuestas se basan únicamente en documentos clínicos verificados</span>
     </div>
   `;
+
+  const container = document.createElement("div");
+  container.style.cssText = `position:fixed;left:-10000px;top:0;width:${CONTENT_W}px;background:#ffffff;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;font-size:13px;line-height:1.7;box-sizing:border-box;`;
+  // Wrap answer paragraphs as individual sections for pagination
+  const answerWrapped = `<div data-pdf-section style="${PBA}font-size:13px;line-height:1.7;color:#111827;">${answerHtml}</div>`;
+  container.innerHTML = headerHtml + answerWrapped + citationsHtml + footerHtml;
   document.body.appendChild(container);
 
   try {
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
-    });
-
+    // Capture each top-level section individually to avoid mid-content cuts
+    const sections = Array.from(container.querySelectorAll<HTMLElement>(":scope > [data-pdf-section]"));
     const pdf = new jsPDF({ unit: "pt", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
+    const ptPageW = pdf.internal.pageSize.getWidth();
+    const ptPageH = pdf.internal.pageSize.getHeight();
+    const ptMargin = 60 * (ptPageW / PAGE_W); // scale 60px → pt
+    const ptContentW = ptPageW - ptMargin * 2;
+    const ptContentH = ptPageH - ptMargin * 2;
 
-    // Fit canvas width to PDF page width.
-    const imgW = pageW;
-    const imgH = (canvas.height * imgW) / canvas.width;
+    const rendered: { data: string; ptH: number }[] = [];
+    for (const sec of sections) {
+      const c = await html2canvas(sec, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
+      const ptH = (c.height * ptContentW) / c.width;
+      rendered.push({ data: c.toDataURL("image/jpeg", 0.92), ptH });
+    }
 
-    const totalPages = Math.max(1, Math.ceil(imgH / pageH));
-    let position = 0;
-    for (let p = 0; p < totalPages; p++) {
-      if (p > 0) pdf.addPage();
-      pdf.addImage(
-        canvas.toDataURL("image/jpeg", 0.92),
-        "JPEG",
-        0,
-        position,
-        imgW,
-        imgH,
-      );
-      position -= pageH;
+    let cursorY = ptMargin;
+    let pageNum = 1;
+    const pageStarts: number[] = [pageNum];
+    for (const { data, ptH } of rendered) {
+      if (cursorY + ptH > ptMargin + ptContentH && cursorY > ptMargin) {
+        pdf.addPage();
+        pageNum++;
+        pageStarts.push(pageNum);
+        cursorY = ptMargin;
+      }
+      pdf.addImage(data, "JPEG", ptMargin, cursorY, ptContentW, ptH);
+      cursorY += ptH;
+    }
 
-      // Page number footer overlay if multi-page
-      if (totalPages > 1) {
+    const totalPages = pageNum;
+    if (totalPages > 1) {
+      for (let p = 1; p <= totalPages; p++) {
+        pdf.setPage(p);
         pdf.setFontSize(9);
         pdf.setTextColor(120, 120, 120);
-        pdf.text(`Página ${p + 1} de ${totalPages}`, pageW / 2, pageH - 16, { align: "center" });
+        pdf.text(`Página ${p} de ${totalPages}`, ptPageW / 2, ptPageH - 20, { align: "center" });
       }
     }
 
