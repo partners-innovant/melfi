@@ -1106,3 +1106,184 @@ function StatusIcon({ status }: { status: QueueStatus }) {
     return <CheckCircle2 className="h-4 w-4 mt-0.5 text-muted-foreground" />;
   return <FileText className="h-4 w-4 mt-0.5 text-muted-foreground" />;
 }
+
+function ClinicalAreasPicker({
+  value, onChange, disabled,
+}: {
+  value: string[];
+  onChange: (areas: string[]) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = new Set(value);
+
+  function toggle(area: string) {
+    const next = new Set(selected);
+    if (next.has(area)) {
+      next.delete(area);
+    } else {
+      if (next.size >= MAX_CLINICAL_AREAS) {
+        toast.error(`Máximo ${MAX_CLINICAL_AREAS} áreas clínicas`);
+        return;
+      }
+      next.add(area);
+    }
+    onChange(Array.from(next));
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1 min-h-[28px] items-center">
+        {value.length === 0 && (
+          <span className="text-xs text-muted-foreground">Sin áreas seleccionadas</span>
+        )}
+        {value.map((a) => (
+          <span
+            key={a}
+            className={`text-[11px] px-2 py-0.5 rounded-full border inline-flex items-center gap-1 ${clinicalAreaColor(a)}`}
+          >
+            {clinicalAreaLabel(a)}
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => toggle(a)}
+                className="hover:opacity-70"
+                aria-label={`Quitar ${clinicalAreaLabel(a)}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </span>
+        ))}
+      </div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className="h-8 text-xs justify-between w-full sm:w-auto"
+          >
+            <span>Agregar / quitar áreas ({value.length}/{MAX_CLINICAL_AREAS})</span>
+            <ChevronsUpDown className="h-3 w-3 opacity-50 ml-2" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[360px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Buscar área clínica..." className="h-8" />
+            <CommandList className="max-h-72">
+              <CommandEmpty>Sin resultados.</CommandEmpty>
+              <CommandGroup heading="Categorías NICE">
+                {CLINICAL_AREAS_NICE.map((a) => {
+                  const isSel = selected.has(a);
+                  return (
+                    <CommandItem key={a} value={CLINICAL_AREA_LABELS[a]} onSelect={() => toggle(a)}>
+                      <Check className={`mr-2 h-4 w-4 ${isSel ? "opacity-100" : "opacity-0"}`} />
+                      {CLINICAL_AREA_LABELS[a]}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+              <CommandGroup heading="Categorías transversales">
+                {CLINICAL_AREAS_TRANSVERSAL.map((a) => {
+                  const isSel = selected.has(a);
+                  return (
+                    <CommandItem key={a} value={CLINICAL_AREA_LABELS[a]} onSelect={() => toggle(a)}>
+                      <Check className={`mr-2 h-4 w-4 ${isSel ? "opacity-100" : "opacity-0"}`} />
+                      {CLINICAL_AREA_LABELS[a]}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function SourceInstitutionPicker({
+  value, onChange, disabled,
+}: {
+  value: string;
+  onChange: (name: string, type?: SourceInstitutionType) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const grouped = SOURCE_INSTITUTIONS.reduce<Record<string, typeof SOURCE_INSTITUTIONS>>((acc, s) => {
+    (acc[s.group] ??= []).push(s);
+    return acc;
+  }, {});
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="h-8 text-sm justify-between w-full font-normal"
+        >
+          <span className="truncate">
+            {value ? `${sourceIconFor(value)} ${value}` : "Seleccionar fuente o escribir..."}
+          </span>
+          <ChevronsUpDown className="h-3 w-3 opacity-50 ml-2 shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[360px] p-0" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Buscar o escribir fuente..."
+            className="h-8"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const v = (e.currentTarget.value ?? "").trim();
+                if (v) {
+                  onChange(v, "otro");
+                  setOpen(false);
+                }
+              }
+            }}
+          />
+          <CommandList className="max-h-72">
+            <CommandEmpty>
+              <div className="text-xs text-muted-foreground p-2">
+                Pulsa Enter para usar el texto escrito como fuente personalizada.
+              </div>
+            </CommandEmpty>
+            {value && (
+              <CommandGroup heading="Acción">
+                <CommandItem
+                  value="__clear__"
+                  onSelect={() => { onChange("", undefined); setOpen(false); }}
+                >
+                  <X className="mr-2 h-4 w-4" /> Quitar fuente
+                </CommandItem>
+              </CommandGroup>
+            )}
+            {Object.entries(grouped).map(([group, items]) => (
+              <CommandGroup key={group} heading={group}>
+                {items.map((s) => (
+                  <CommandItem
+                    key={s.name}
+                    value={s.name}
+                    onSelect={() => { onChange(s.name, s.type); setOpen(false); }}
+                  >
+                    <Check
+                      className={`mr-2 h-4 w-4 ${value.toLowerCase() === s.name.toLowerCase() ? "opacity-100" : "opacity-0"}`}
+                    />
+                    <span className="mr-1">{s.icon}</span> {s.name}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
