@@ -255,6 +255,183 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     setAudioUrl(null);
   }
 
+  // ===== Live recording during session =====
+  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => {
+      const s = String(r.result ?? "");
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+
+  function pickMimeType(): string {
+    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+    if (typeof MediaRecorder === "undefined") return "audio/webm";
+    for (const c of candidates) {
+      try { if ((MediaRecorder as any).isTypeSupported?.(c)) return c; } catch { /* ignore */ }
+    }
+    return "";
+  }
+
+  async function processChunk(blob: Blob) {
+    if (!blob || blob.size < 2000) return; // skip tiny chunks
+    setTranscribing(true);
+    try {
+      const audio = await blobToBase64(blob);
+      const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
+      const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
+      const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
+        body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
+      });
+      if (error) throw error;
+      const segs: any[] = (data as any)?.segments ?? [];
+      if (!segs.length) return;
+      const now = Date.now();
+      const enriched: TranscriptSegment[] = segs
+        .filter((s) => s && typeof s.text === "string" && s.text.trim())
+        .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
+      if (!enriched.length) return;
+      const next = [...transcriptRef.current, ...enriched];
+      transcriptRef.current = next;
+      setTranscript(next);
+      // Persist
+      const sid = sessionIdRef.current;
+      if (sid) {
+        supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
+      }
+      // Suggestion-detection
+      checkSuggestionsUsed(enriched.map((e) => `${e.speaker}: ${e.text}`).join("\n"));
+    } catch (e: any) {
+      console.error("transcribe chunk failed", e);
+      // Soft-fail: do not interrupt the session
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  async function checkSuggestionsUsed(transcription: string) {
+    const all = suggestionsRef.current.questions
+      .map((t) => ({ kind: "question" as const, text: t }))
+      .concat(suggestionsRef.current.interventions.map((t) => ({ kind: "intervention" as const, text: t })));
+    for (const sug of all) {
+      const key = sug.text.toLowerCase().trim();
+      if (checkedSuggestionsRef.current.has(key)) continue;
+      checkedSuggestionsRef.current.add(key);
+      try {
+        const { data, error } = await supabase.functions.invoke("check-suggestion-used", {
+          body: { transcription, suggestion: sug.text },
+        });
+        if (error) continue;
+        const used = !!(data as any)?.used;
+        const conf = Number((data as any)?.confidence ?? 0);
+        if (used && conf >= 0.75) {
+          markUsed(sug.kind, sug.text);
+          toast.success(`✓ Detectado: "${sug.text.slice(0, 50)}${sug.text.length > 50 ? "…" : ""}"`);
+        } else {
+          // Allow re-checking later if not detected this time
+          checkedSuggestionsRef.current.delete(key);
+        }
+      } catch {
+        checkedSuggestionsRef.current.delete(key);
+      }
+    }
+  }
+
+  function startLiveTimer() {
+    if (liveTimerRef.current) window.clearInterval(liveTimerRef.current);
+    liveTimerRef.current = window.setInterval(() => {
+      const paused = livePausedAccumRef.current;
+      setRecElapsed(Date.now() - liveStartRef.current - paused);
+    }, 500);
+  }
+  function stopLiveTimer() {
+    if (liveTimerRef.current) { window.clearInterval(liveTimerRef.current); liveTimerRef.current = null; }
+  }
+
+  async function actuallyStartLiveRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      liveStreamRef.current = stream;
+      const mime = pickMimeType();
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      liveMimeRef.current = mr.mimeType || mime || "audio/webm";
+      liveChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          liveChunksRef.current.push(e.data);
+          // Process every chunk that arrives (timeslice = 30s)
+          processChunk(e.data);
+        }
+      };
+      mr.onerror = (ev) => { console.error("MediaRecorder error", ev); toast.error("Error de grabación"); };
+      mr.start(30000); // 30s timeslice
+      liveRecorderRef.current = mr;
+      liveStartRef.current = Date.now();
+      livePausedAccumRef.current = 0;
+      setRecElapsed(0);
+      setRecState("recording");
+      startLiveTimer();
+      setActiveTab("transcript");
+      toast.success("🔴 Grabación iniciada");
+    } catch (e: any) {
+      toast.error("No se pudo acceder al micrófono: " + (e?.message ?? ""));
+    }
+  }
+
+  function requestStartLiveRecording() {
+    if (suppressRecDisclaimer) { actuallyStartLiveRecording(); return; }
+    setShowRecDisclaimer(true);
+  }
+
+  function pauseLiveRecording() {
+    const mr = liveRecorderRef.current;
+    if (!mr || mr.state !== "recording") return;
+    try { mr.pause(); } catch { /* ignore */ }
+    livePauseStartRef.current = Date.now();
+    stopLiveTimer();
+    setRecState("paused");
+  }
+  function resumeLiveRecording() {
+    const mr = liveRecorderRef.current;
+    if (!mr || mr.state !== "paused") return;
+    try { mr.resume(); } catch { /* ignore */ }
+    livePausedAccumRef.current += Date.now() - livePauseStartRef.current;
+    startLiveTimer();
+    setRecState("recording");
+  }
+  async function stopLiveRecording() {
+    const mr = liveRecorderRef.current;
+    stopLiveTimer();
+    if (mr && mr.state !== "inactive") {
+      try {
+        await new Promise<void>((resolve) => {
+          mr.addEventListener("stop", () => resolve(), { once: true });
+          try { mr.stop(); } catch { resolve(); }
+        });
+      } catch { /* ignore */ }
+    }
+    liveStreamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+    liveStreamRef.current = null;
+    liveRecorderRef.current = null;
+    // Clear audio chunks from memory
+    liveChunksRef.current = [];
+    setRecState("idle");
+  }
+
+  // Cleanup on unmount / close
+  useEffect(() => {
+    return () => {
+      stopLiveTimer();
+      const mr = liveRecorderRef.current;
+      if (mr && mr.state !== "inactive") { try { mr.stop(); } catch { /* ignore */ } }
+      liveStreamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+      liveChunksRef.current = [];
+    };
+  }, []);
+
   function openEndFlow() {
     setEndStep(1);
     setEndOpen(true);
