@@ -84,6 +84,11 @@ export default function Auth() {
           setLoading(false);
           return;
         }
+        if (form.rut && !validateRUT(form.rut)) {
+          toast.error("El RUT ingresado no es válido");
+          setLoading(false);
+          return;
+        }
         const { error } = await supabase.auth.signUp({
           email: form.email,
           password: form.password,
