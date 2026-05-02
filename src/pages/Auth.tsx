@@ -34,6 +34,10 @@ export default function Auth() {
   const update = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleGoogle() {
+    if (!acceptedDisclaimer) {
+      toast.error("Debes aceptar el aviso ético para continuar.");
+      return;
+    }
     setGoogleLoading(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
