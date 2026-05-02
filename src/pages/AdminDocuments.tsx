@@ -220,22 +220,19 @@ export default function AdminDocuments() {
       return;
     }
 
-    // Fetch chunk counts in batch
-    const ids = (docs ?? []).map((d) => d.id);
+    // Fetch chunk counts via aggregated DB function (LEFT JOIN + COUNT) to
+    // avoid the 1000-row default limit that previously caused docs with many
+    // siblings in the same batch to incorrectly report 0 chunks.
     const counts: Record<string, number> = {};
-    if (ids.length) {
-      // Run in parallel chunks of 100 ids each to keep queries small
-      await Promise.all(
-        chunk(ids, 100).map(async (batch) => {
-          const { data } = await supabase
-            .from("document_chunks")
-            .select("document_id")
-            .in("document_id", batch);
-          for (const r of data ?? []) {
-            counts[r.document_id] = (counts[r.document_id] ?? 0) + 1;
-          }
-        }),
-      );
+    {
+      const { data: countRows, error: countErr } = await supabase
+        .rpc("admin_document_chunk_counts");
+      if (countErr) {
+        console.warn("[admin-docs] chunk count rpc failed:", countErr);
+      }
+      for (const r of (countRows ?? []) as Array<{ document_id: string; chunk_count: number }>) {
+        counts[r.document_id] = Number(r.chunk_count) || 0;
+      }
     }
 
     setRows(
