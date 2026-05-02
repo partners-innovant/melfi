@@ -12,7 +12,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2,
+  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -48,20 +48,47 @@ export function PatientProfileBuilderTab({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [patientName, setPatientName] = useState<string>("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("patient_profile_chat")
-      .select("role, content")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: true });
-    setMessages((data ?? []) as Msg[]);
+    const [{ data: chat }, { data: p }] = await Promise.all([
+      supabase
+        .from("patient_profile_chat")
+        .select("role, content")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: true }),
+      supabase.from("patients").select("first_name, last_name").eq("id", patientId).maybeSingle(),
+    ]);
+    setMessages((chat ?? []) as Msg[]);
+    if (p) setPatientName(`${p.first_name} ${p.last_name}`.trim());
     setLoading(false);
   }, [patientId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleReset() {
+    setResetting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("patient_profile_chat")
+        .delete()
+        .eq("patient_id", patientId)
+        .eq("psychologist_id", user!.id);
+      if (error) throw error;
+      setMessages([]);
+      setResetOpen(false);
+      toast.success("Conversación reiniciada");
+    } catch (e: any) {
+      toast.error(e.message ?? "No se pudo reiniciar");
+    } finally {
+      setResetting(false);
+    }
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -170,11 +197,12 @@ export function PatientProfileBuilderTab({
   }
 
   const SUGGESTIONS = [
-    "Empecemos con el motivo de consulta",
+    "Hazme preguntas",
+    "Escribo yo primero",
     "Ya tengo informes subidos, analízalos",
-    "Quiero completar el contexto familiar",
-    "Trabajemos los objetivos terapéuticos",
   ];
+
+  const openingMessage = `Hola, soy tu asistente para construir el perfil clínico de ${patientName || "este paciente"}. Puedo ayudarte de dos formas: haciéndote preguntas sobre el paciente, o puedes escribirme libremente lo que ya sabes y yo lo estructuro. ¿Por dónde quieres empezar?`;
 
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -229,16 +257,30 @@ export function PatientProfileBuilderTab({
         <Wand2 className="h-4 w-4 text-primary" />
         <h3 className="font-semibold text-sm">Constructor de Perfil con IA</h3>
         <Badge variant="secondary" className="ml-auto text-[10px]">Claude Sonnet</Badge>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 gap-1.5 text-xs border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
+          onClick={() => setResetOpen(true)}
+          disabled={loading || sending}
+        >
+          <RotateCcw className="h-3 w-3" />↺ Reiniciar
+        </Button>
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4">
         {loading ? (
           <div className="text-center text-sm text-muted-foreground py-8">Cargando conversación...</div>
         ) : messages.length === 0 ? (
-          <div className="text-center text-sm text-muted-foreground py-8 space-y-3">
-            <Sparkles className="h-8 w-8 mx-auto text-primary/60" />
-            <p>Te ayudaré a construir el perfil clínico de este paciente paso a paso.</p>
-            <div className="flex flex-wrap gap-2 justify-center pt-2">
+          <div className="space-y-4">
+            <div className="flex justify-start">
+              <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[85%] text-sm">
+                <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1">
+                  <ReactMarkdown>{openingMessage}</ReactMarkdown>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-2">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
@@ -358,6 +400,30 @@ export function PatientProfileBuilderTab({
             <Button onClick={confirmAddToProfile} disabled={confirming || summaryLoading || !summaryText.trim()}>
               {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               Confirmar y agregar al perfil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetOpen} onOpenChange={(o) => { if (!resetting) setResetOpen(o); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Reiniciar conversación?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Se eliminará el historial de esta conversación. La información ya guardada en el perfil del paciente no se verá afectada.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetting}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleReset}
+              disabled={resetting}
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Reiniciar
             </Button>
           </DialogFooter>
         </DialogContent>
