@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ImprovePromptButton } from "@/components/ImprovePromptButton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
