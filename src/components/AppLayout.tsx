@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog } from "lucide-react";
+import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ import FeedbackButton from "@/components/FeedbackButton";
 const baseItems = [
   { to: "/", label: "Inicio", icon: LayoutDashboard, end: true },
   { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
+  { to: "/claude", label: "Claude", icon: Sparkles },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/calendar", label: "Calendario", icon: Calendar },
