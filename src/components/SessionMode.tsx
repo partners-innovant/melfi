@@ -968,6 +968,54 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Recording disclaimer modal */}
+      <Dialog open={showRecDisclaimer} onOpenChange={setShowRecDisclaimer}>
+        <DialogContent
+          className="max-w-lg max-h-[90vh] overflow-y-auto z-[10001]"
+          style={{ zIndex: 10001 }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" /> Aviso de grabación
+            </DialogTitle>
+            <DialogDescription>
+              Antes de grabar esta sesión, asegúrate de que:
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="text-sm space-y-2 list-disc pl-5">
+            <li>El paciente ha sido informado y ha dado su consentimiento para la grabación.</li>
+            <li>El audio será procesado por inteligencia artificial para generar una transcripción automática.</li>
+            <li>La transcripción se usará para completar los apuntes de esta sesión.</li>
+            <li>El audio original será eliminado permanentemente una vez que confirmes el resumen post-sesión.</li>
+            <li>La transcripción quedará almacenada como parte del registro clínico de esta sesión.</li>
+          </ul>
+          <p className="text-sm text-muted-foreground">
+            Al continuar, confirmas que cuentas con el consentimiento del paciente.
+          </p>
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <Checkbox
+              checked={suppressRecDisclaimer}
+              onCheckedChange={(v) => setSuppressRecDisclaimer(!!v)}
+            />
+            No mostrar de nuevo en esta sesión
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRecDisclaimer(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { setShowRecDisclaimer(false); actuallyStartLiveRecording(); }}
+              className="gap-2"
+            >
+              <Circle className="h-4 w-4 fill-white" />
+              El paciente ha dado su consentimiento — Comenzar grabación
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
