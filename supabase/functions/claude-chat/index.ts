@@ -113,6 +113,9 @@ Deno.serve(async (req) => {
       document_type,
       clinical_area,
       source_institution,
+      year_from,
+      clinical_areas,
+      source_institutions,
       query_embedding,
       conversation_id,
       stream: wantStream = true,
@@ -134,6 +137,9 @@ Deno.serve(async (req) => {
       p_document_type: document_type || null,
       p_clinical_area: clinical_area || null,
       p_source_institution: source_institution || null,
+      p_year_from: typeof year_from === "number" ? year_from : null,
+      p_clinical_areas: Array.isArray(clinical_areas) && clinical_areas.length > 0 ? clinical_areas : null,
+      p_source_institutions: Array.isArray(source_institutions) && source_institutions.length > 0 ? source_institutions : null,
     });
     if (matchErr) {
       console.error(`[claude-chat:${reqId}] match_chunks error`, matchErr);
