@@ -609,7 +609,7 @@ interface UploadResults {
   errors: { name: string; error: string }[];
 }
 
-function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
+function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAdmin: boolean; prefill?: PubMedUploadPrefill | null }) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<UploadResults | null>(null);
