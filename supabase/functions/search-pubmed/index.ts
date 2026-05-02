@@ -49,11 +49,19 @@ async function handleSearch(body: Record<string, unknown>): Promise<Response> {
   const pageSize = Math.min(Number(body.retmax ?? 15), 30);
 
   const searchQuery = buildSearchQuery(query, onlyFree, years, language);
-  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(searchQuery)}&format=json&pageSize=${pageSize}&sort=RELEVANCE&resultType=core`;
+  // Note: do NOT pass sort=RELEVANCE — EuropePMC silently returns 0 results when set.
+  // Relevance is the default ordering when sort is omitted.
+  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(searchQuery)}&format=json&pageSize=${pageSize}&resultType=core`;
+  console.log("[search-pubmed] query:", searchQuery, "url:", url);
 
   const res = await fetch(url, { headers: { "User-Agent": UA } });
-  if (!res.ok) throw new Error(`EuropePMC search ${res.status}`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("[search-pubmed] EuropePMC error", res.status, txt.slice(0, 300));
+    return jsonResponse({ error: `EuropePMC API error: ${res.status}`, articles: [] });
+  }
   const data = await res.json();
+  console.log("[search-pubmed] hitCount:", data?.hitCount, "results:", data?.resultList?.result?.length ?? 0);
 
   const articles = (data?.resultList?.result ?? []).map((article: Record<string, unknown>) => {
     const hasPdf = article.hasPDF === "Y";
