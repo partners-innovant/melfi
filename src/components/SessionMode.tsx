@@ -997,7 +997,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
                     {recState === "idle"
                       ? 'La transcripción aparecerá aquí. Pulsa "🔴 Grabar sesión" para empezar.'
-                      : "Escuchando… los segmentos aparecerán cada ~10 segundos."}
+                      : 'Pulsa "✨ Transcribir y analizar" cuando quieras transcribir el audio acumulado.'}
                   </div>
                 ) : (
                   transcript.map((seg, i) => {
