@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { EMOTIONAL_STATES } from "@/components/SessionsTab";
 import ReactMarkdown from "react-markdown";
 
-type TranscriptSegment = { speaker: "Terapeuta" | "Paciente" | "Hablante" | string; text: string; t: number };
+type TranscriptSegment = { speaker: "Terapeuta" | "Paciente" | "Hablante" | "Error" | string; text: string; t: number; error?: boolean };
 type RecState = "idle" | "recording" | "paused";
 
 type Entry = { t: number; text: string };
