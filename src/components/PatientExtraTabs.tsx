@@ -176,6 +176,53 @@ export function PatientProfileBuilderTab({
     "Trabajemos los objetivos terapéuticos",
   ];
 
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryText, setSummaryText] = useState("");
+  const [summaryMsgCount, setSummaryMsgCount] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+
+  async function generateSummary() {
+    setSummaryLoading(true);
+    setSummaryOpen(true);
+    setSummaryText("");
+    try {
+      const { data, error } = await supabase.functions.invoke("summarize-profile-chat", {
+        body: { patient_id: patientId },
+      });
+      if (error) throw error;
+      setSummaryText(data.summary ?? "");
+      setSummaryMsgCount(data.message_count ?? messages.length);
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al generar resumen");
+      setSummaryOpen(false);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  async function confirmAddToProfile() {
+    if (!summaryText.trim()) return;
+    setConfirming(true);
+    try {
+      const { data: current } = await supabase.from("patients").select("notes").eq("id", patientId).maybeSingle();
+      const now = new Date();
+      const stamp = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}/${now.getFullYear()} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+      const block = `--- Agregado desde Constructor de Perfil — ${stamp} ---\n${summaryText.trim()}`;
+      const newNotes = current?.notes ? `${current.notes}\n\n${block}` : block;
+      const { error } = await supabase.from("patients").update({ notes: newNotes }).eq("id", patientId);
+      if (error) throw error;
+      toast.success("✓ Información agregada al perfil clínico");
+      setSummaryOpen(false);
+      setSummaryText("");
+      onProfileUpdated?.();
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <Card className="p-0 overflow-hidden flex flex-col" style={{ height: "calc(100vh - 280px)", minHeight: 500 }}>
       <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
@@ -248,24 +295,73 @@ export function PatientProfileBuilderTab({
         )}
       </div>
 
-      <div className="border-t border-border p-3 flex gap-2 bg-background">
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          placeholder="Cuéntame sobre el paciente o pide algo específico..."
-          className="min-h-[44px] max-h-32 resize-none flex-1"
-          disabled={sending}
-        />
-        <Button onClick={() => send()} disabled={sending || !input.trim()} size="icon" className="self-end h-11 w-11">
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+      <div className="border-t border-border p-3 space-y-2 bg-background">
+        <div className="flex gap-2">
+          <Textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            placeholder="Cuéntame sobre el paciente o pide algo específico..."
+            className="min-h-[44px] max-h-32 resize-none flex-1"
+            disabled={sending}
+          />
+          <Button onClick={() => send()} disabled={sending || !input.trim()} size="icon" className="self-end h-11 w-11">
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
+        {messages.length >= 3 && (
+          <Button
+            onClick={generateSummary}
+            disabled={summaryLoading}
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+          >
+            {summaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Agregar al perfil clínico
+          </Button>
+        )}
       </div>
+
+      <Dialog open={summaryOpen} onOpenChange={(o) => { if (!confirming) setSummaryOpen(o); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              Resumen del Constructor de Perfil
+            </DialogTitle>
+          </DialogHeader>
+          {summaryLoading ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-3 text-primary" />
+              Generando resumen clínico...
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Textarea
+                value={summaryText}
+                onChange={(e) => setSummaryText(e.target.value)}
+                className="min-h-[300px] border-2 border-primary/40 focus-visible:ring-primary"
+              />
+              <p className="text-xs text-muted-foreground">
+                Basado en {summaryMsgCount} mensajes de conversación
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSummaryOpen(false)} disabled={confirming}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmAddToProfile} disabled={confirming || summaryLoading || !summaryText.trim()}>
+              {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Confirmar y agregar al perfil
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
