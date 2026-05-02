@@ -18,8 +18,6 @@ const baseItems = [
   { to: "/documents", label: "Documentos", icon: FileText },
 ];
 
-const STORAGE_KEY = "sidebar:collapsed";
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -28,14 +26,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     : "";
   const avatarUrl = (profile as any)?.avatar_url as string | null | undefined;
 
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(STORAGE_KEY) === "1";
-  });
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
-  }, [collapsed]);
+  // Sidebar always starts expanded on mount; only the user's explicit toggle
+  // collapses it during the session. No persistence across reloads/logins.
+  const [collapsed, setCollapsed] = useState<boolean>(false);
 
   const [newCount, setNewCount] = useState(0);
 
