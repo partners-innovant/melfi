@@ -1357,3 +1357,185 @@ function ImportSourceButton({ url }: { url: string }) {
     </Button>
   );
 }
+
+// ============================== Filter Bar ==============================
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 2000 + 1 }, (_, i) => CURRENT_YEAR - i);
+
+function FilterBar({
+  yearFrom, setYearFrom,
+  allAreas, selectedAreas, setSelectedAreas,
+  availableSources, selectedSources, setSelectedSources,
+  anyActive, onReset,
+}: {
+  yearFrom: number | null;
+  setYearFrom: (v: number | null) => void;
+  allAreas: string[];
+  selectedAreas: string[];
+  setSelectedAreas: (v: string[]) => void;
+  availableSources: string[];
+  selectedSources: string[];
+  setSelectedSources: (v: string[]) => void;
+  anyActive: boolean;
+  onReset: () => void;
+}) {
+  const yearActive = yearFrom !== null;
+  const areasActive = selectedAreas.length !== allAreas.length;
+  const sourcesActive = selectedSources.length !== availableSources.length;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              yearActive
+                ? "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/40"
+                : "bg-muted text-muted-foreground border-border hover:bg-accent",
+            )}
+          >
+            <Filter className="h-3 w-3" />
+            {yearActive ? `Desde ${yearFrom}` : "Todos los años"}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1 max-h-72 overflow-y-auto" align="start">
+          <button
+            onClick={() => setYearFrom(null)}
+            className={cn(
+              "w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent",
+              yearFrom === null && "bg-accent font-medium",
+            )}
+          >
+            Todos los años
+          </button>
+          {YEAR_OPTIONS.map((y) => (
+            <button
+              key={y}
+              onClick={() => setYearFrom(y)}
+              className={cn(
+                "w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent",
+                yearFrom === y && "bg-accent font-medium",
+              )}
+            >
+              Desde {y}
+            </button>
+          ))}
+        </PopoverContent>
+      </Popover>
+
+      <MultiPill
+        active={areasActive}
+        labelAll="Todas las áreas"
+        labelActive={`${selectedAreas.length} áreas`}
+        items={allAreas}
+        getLabel={(v) => CLINICAL_AREA_LABELS[v as ClinicalArea] ?? v}
+        selected={selectedAreas}
+        onChange={setSelectedAreas}
+      />
+
+      <MultiPill
+        active={sourcesActive}
+        labelAll="Todas las fuentes"
+        labelActive={`${selectedSources.length} fuentes`}
+        items={availableSources}
+        getLabel={(v) => v}
+        selected={selectedSources}
+        onChange={setSelectedSources}
+        emptyHint="No hay fuentes disponibles"
+      />
+
+      {anyActive && (
+        <button
+          onClick={onReset}
+          className="ml-auto text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 underline-offset-2 hover:underline"
+        >
+          Restablecer filtros
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MultiPill({
+  active, labelAll, labelActive, items, getLabel, selected, onChange, emptyHint,
+}: {
+  active: boolean;
+  labelAll: string;
+  labelActive: string;
+  items: string[];
+  getLabel: (v: string) => string;
+  selected: string[];
+  onChange: (v: string[]) => void;
+  emptyHint?: string;
+}) {
+  function toggle(v: string) {
+    if (selected.includes(v)) onChange(selected.filter((x) => x !== v));
+    else onChange([...selected, v]);
+  }
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            active
+              ? "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/40"
+              : "bg-muted text-muted-foreground border-border hover:bg-accent",
+          )}
+        >
+          <Filter className="h-3 w-3" />
+          {active ? labelActive : labelAll}
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2 max-h-80 overflow-y-auto" align="start">
+        {items.length === 0 ? (
+          <div className="text-xs text-muted-foreground p-2">{emptyHint ?? "Sin opciones"}</div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between px-1 pb-2 border-b border-border mb-1">
+              <button onClick={() => onChange(items)} className="text-[11px] text-teal-600 hover:underline">Todos</button>
+              <button onClick={() => onChange([])} className="text-[11px] text-muted-foreground hover:underline">Ninguno</button>
+            </div>
+            {items.map((v) => (
+              <label
+                key={v}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm"
+              >
+                <Checkbox checked={selected.includes(v)} onCheckedChange={() => toggle(v)} />
+                <span className="truncate">{getLabel(v)}</span>
+              </label>
+            ))}
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function FilterIndicator({
+  yearFrom, areasCount, allAreasCount, sourcesCount, allSourcesCount,
+}: {
+  yearFrom: number | null;
+  areasCount: number;
+  allAreasCount: number;
+  sourcesCount: number;
+  allSourcesCount: number;
+}) {
+  const yearActive = yearFrom !== null;
+  const areasActive = areasCount !== allAreasCount;
+  const sourcesActive = sourcesCount !== allSourcesCount;
+  if (!yearActive && !areasActive && !sourcesActive) return null;
+  const parts: string[] = [];
+  if (yearActive) parts.push(`desde ${yearFrom}`);
+  if (areasActive) parts.push(`${areasCount} ${areasCount === 1 ? "área" : "áreas"}`);
+  if (sourcesActive) parts.push(`${sourcesCount} ${sourcesCount === 1 ? "fuente" : "fuentes"}`);
+  return (
+    <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
+      <Filter className="h-3 w-3" />
+      Buscando en documentos {parts.join(" · ")}
+    </div>
+  );
+}
