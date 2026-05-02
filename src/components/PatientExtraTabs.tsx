@@ -142,9 +142,10 @@ export function PatientProfileBuilderTab({
   }
 
   async function applyProposal(messageIdx: number, proposal: Proposal) {
+    const update: Record<string, string> = { [proposal.field]: proposal.value };
     const { error } = await supabase
       .from("patients")
-      .update({ [proposal.field]: proposal.value })
+      .update(update as never)
       .eq("id", patientId);
     if (error) return toast.error(error.message);
     toast.success(`${proposal.label} actualizado`);
