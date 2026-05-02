@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { RutInput } from "@/components/RutInput";
+import { validateRUT } from "@/lib/rut";
 
 export default function ProfileCompletionModal() {
   const { user, profile, needsProfileCompletion, refreshProfile } = useAuth();
