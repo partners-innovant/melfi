@@ -159,12 +159,15 @@ Deno.serve(async (req) => {
         .from("child_patients").select("*")
         .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
       if (c) {
-        const [{ data: goals }, { data: behaviors }, { data: wisc }, { data: comms }, { data: meds }] = await Promise.all([
+        const [{ data: goals }, { data: behaviors }, { data: wisc }, { data: comms }, { data: meds }, { data: childDocs }, { data: childNotes }, { data: childTests }] = await Promise.all([
           supabase.from("intervention_goals").select("title, status, estimated_date").eq("child_patient_id", patient_id).order("created_at", { ascending: false }).limit(10),
           supabase.from("behavioral_tracking").select("behavior_name, score, tracking_date").eq("child_patient_id", patient_id).order("tracking_date", { ascending: false }).limit(20),
           supabase.from("wisc_evaluations").select("version, evaluation_date, cit, icv, irp, imt, ivp, irf").eq("child_patient_id", patient_id).order("evaluation_date", { ascending: false }).limit(1),
           supabase.from("communication_log").select("contact_date, contact_type, contact_with, summary").eq("child_patient_id", patient_id).order("contact_date", { ascending: false }).limit(5),
           supabase.from("child_patient_medications").select("name, dose, frequency, prescribed_by").eq("child_patient_id", patient_id).eq("is_active", true).order("created_at", { ascending: false }),
+          supabase.from("child_documents").select("title, document_type, professional_name, professional_role, document_date, notes").eq("child_patient_id", patient_id).order("document_date", { ascending: false, nullsFirst: false }).limit(10),
+          supabase.from("child_session_notes").select("session_number, session_date, emotional_state, raw_notes, refined_notes, techniques_used, next_session_plan").eq("child_patient_id", patient_id).order("session_date", { ascending: false }).limit(5),
+          supabase.from("child_tests").select("test_name, test_type, evaluation_date, results_structured, results_raw, generated_report").eq("child_patient_id", patient_id).order("evaluation_date", { ascending: false }).limit(10),
         ]);
         const latestWisc = wisc?.[0];
         const medsLine = (meds && meds.length > 0)
@@ -187,6 +190,15 @@ Puntuaciones conductuales recientes:
 ${(behaviors ?? []).map((b: any) => `- ${b.tracking_date} · ${b.behavior_name}: ${b.score}/5`).join("\n") || "- (sin registros)"}
 
 ${latestWisc ? `Última evaluación WISC (${latestWisc.version}, ${latestWisc.evaluation_date}): CIT=${latestWisc.cit ?? "—"}, ICV=${latestWisc.icv ?? "—"}, IRP=${latestWisc.irp ?? "—"}, IMT=${latestWisc.imt ?? "—"}, IVP=${latestWisc.ivp ?? "—"}${latestWisc.irf ? `, IRF=${latestWisc.irf}` : ""}` : "Sin evaluaciones WISC registradas."}
+
+Otros tests/evaluaciones registrados:
+${(childTests ?? []).map((t: any) => `- ${t.evaluation_date} · ${t.test_name}${t.results_structured ? ` · datos: ${JSON.stringify(t.results_structured).slice(0, 200)}` : ""}${t.results_raw ? ` · obs: ${String(t.results_raw).slice(0, 200)}` : ""}`).join("\n") || "- (sin tests adicionales)"}
+
+Documentos e informes externos del paciente:
+${(childDocs ?? []).map((d: any) => `- ${d.document_date ?? "s/f"} · ${d.title}${d.document_type ? ` (${d.document_type})` : ""}${d.professional_name ? ` — ${d.professional_name}${d.professional_role ? `, ${d.professional_role}` : ""}` : ""}${d.notes ? ` · ${String(d.notes).slice(0, 150)}` : ""}`).join("\n") || "- (sin documentos)"}
+
+Últimos apuntes de sesión (máx. 5):
+${(childNotes ?? []).map((n: any) => `- Sesión #${n.session_number ?? "—"} (${n.session_date})${n.emotional_state ? ` · estado: ${n.emotional_state}` : ""}\n  Notas: ${String(n.refined_notes ?? n.raw_notes ?? "").slice(0, 350)}${n.techniques_used ? `\n  Técnicas: ${n.techniques_used}` : ""}${n.next_session_plan ? `\n  Plan: ${String(n.next_session_plan).slice(0, 150)}` : ""}`).join("\n") || "- (sin apuntes)"}
 
 Comunicaciones recientes:
 ${(comms ?? []).map((m: any) => `- ${m.contact_date} ${m.contact_type ?? ""} con ${m.contact_with ?? "—"}: ${m.summary.slice(0, 120)}`).join("\n") || "- (ninguna)"}

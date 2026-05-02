@@ -58,6 +58,13 @@ const SUGGESTIONS = [
   "¿Qué protocolos existen para el tratamiento del TDAH en adultos?",
 ];
 
+const CHILD_SUGGESTIONS = [
+  "¿Qué actividades lúdicas recomiendas para trabajar [objetivo actual]?",
+  "¿Cómo interpreto los resultados del último test?",
+  "¿Qué incluir en el informe para el colegio?",
+  "¿Cómo involucrar más a los apoderados en el proceso?",
+];
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
@@ -436,7 +443,7 @@ export default function Assistant() {
                 autoFocus
               />
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {SUGGESTIONS.map((s) => (
+                {(patientKind === "child" ? CHILD_SUGGESTIONS : SUGGESTIONS).map((s) => (
                   <button
                     key={s}
                     onClick={() => { setInput(s); }}
