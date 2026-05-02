@@ -420,7 +420,97 @@ export default function AdminDocuments() {
       toast.error(`Error: ${e?.message ?? "no se pudo clasificar"}`, { id: tid });
     } finally {
       setSingleClassifyId(null);
+  }
+
+  async function reprocessDoc(d: DocRow): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+    if (!d.storage_path) return { ok: false, error: "El documento no tiene archivo en storage" };
+    setReprocessing((s) => { const n = new Set(s); n.add(d.id); return n; });
+    setReprocessErrors((e) => { const n = { ...e }; delete n[d.id]; return n; });
+    try {
+      // Download file
+      const { data: blob, error: dlErr } = await supabase.storage.from("documents").download(d.storage_path);
+      if (dlErr || !blob) throw new Error(dlErr?.message ?? "No se pudo descargar el archivo");
+
+      // Extract text
+      const lower = d.storage_path.toLowerCase();
+      const isPdf = lower.endsWith(".pdf") || blob.type === "application/pdf";
+      const file = new File([blob], d.storage_path.split("/").pop() ?? "doc", { type: blob.type });
+      const text = isPdf ? await extractPdfText(file) : await extractTxtText(file);
+      if (!text.trim()) throw new Error("No se pudo extraer texto del archivo");
+
+      const chunks = chunkText(text);
+      if (chunks.length === 0) throw new Error("No se generaron fragmentos");
+
+      // Clear any existing chunks for this document first
+      await supabase.from("document_chunks").delete().eq("document_id", d.id);
+
+      // Embed in batches and insert
+      const batchSize = 8;
+      for (let i = 0; i < chunks.length; i += batchSize) {
+        const batch = chunks.slice(i, i + batchSize);
+        const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
+          body: { input: batch.map((c) => c.content), input_type: "document" },
+        });
+        if (embErr) throw embErr;
+        if (embData?.error) throw new Error(embData.error);
+        const embeddings: number[][] = embData.embeddings;
+        const insertRows = batch.map((c, idx) => ({
+          document_id: d.id,
+          psychologist_id: d.is_global ? d.psychologist_id ?? profile!.id : profile!.id,
+          chunk_index: c.index,
+          content: c.content,
+          page_number: c.page_number,
+          embedding: embeddings[idx] as any,
+          clinical_areas: d.clinical_areas ?? [],
+          source_institution: d.source_institution ?? null,
+          source_institution_type: d.source_institution_type ?? null,
+          document_type: d.document_type,
+          is_global: d.is_global,
+        }));
+        const { error: insErr } = await supabase.from("document_chunks").insert(insertRows);
+        if (insErr) throw insErr;
+      }
+
+      setRows((rs) => rs.map((r) => (r.id === d.id ? { ...r, chunk_count: chunks.length } : r)));
+      return { ok: true, count: chunks.length };
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      setReprocessErrors((er) => ({ ...er, [d.id]: msg }));
+      return { ok: false, error: msg };
+    } finally {
+      setReprocessing((s) => { const n = new Set(s); n.delete(d.id); return n; });
     }
+  }
+
+  async function reprocessSingle(d: DocRow) {
+    const tid = toast.loading(`↻ Re-procesando "${d.title}"...`);
+    const res = await reprocessDoc(d);
+    if (res.ok) {
+      toast.success(`✅ ${res.count} fragmentos indexados`, { id: tid });
+    } else {
+      toast.error(`❌ ${res.error}`, { id: tid });
+    }
+  }
+
+  async function reprocessSelectedNoChunks() {
+    const targets = rows.filter((r) => selected.has(r.id) && r.chunk_count === 0);
+    if (targets.length === 0) {
+      toast.info("Ningún documento seleccionado tiene 0 chunks");
+      return;
+    }
+    const tid = toast.loading(`Re-procesando ${targets.length} documento(s)...`);
+    let ok = 0;
+    let fail = 0;
+    for (const d of targets) {
+      const res = await reprocessDoc(d);
+      if (res.ok) ok++; else fail++;
+    }
+    if (fail === 0) {
+      toast.success(`✅ ${ok} documento(s) re-procesado(s)`, { id: tid });
+    } else {
+      toast.warning(`Completado: ${ok} ok, ${fail} con error`, { id: tid });
+    }
+  }
   }
 
   async function openViewer(d: DocRow) {
