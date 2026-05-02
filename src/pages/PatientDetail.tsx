@@ -15,6 +15,7 @@ import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
 import { PatientProfileBuilderTab, PatientDocumentsTab } from "@/components/PatientExtraTabs";
+import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -107,7 +108,14 @@ export default function PatientDetail() {
 
         {patient.notes && (
           <div className="mt-4 pt-4 border-t border-border">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1">Notas</div>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
+              <ConsolidateNotesButton
+                patientId={patient.id}
+                notes={patient.notes}
+                onConsolidated={(newNotes) => setPatient((p: any) => p ? { ...p, notes: newNotes } : p)}
+              />
+            </div>
             <p className="text-sm whitespace-pre-wrap">{patient.notes}</p>
           </div>
         )}
