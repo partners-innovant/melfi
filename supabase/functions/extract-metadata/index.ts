@@ -3,6 +3,26 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const CLINICAL_AREAS = [
+  "addiction","alcohol_use_disorders","anxiety","attention_deficit_disorder","autism",
+  "bipolar_disorder","delirium","dementia","depression","drug_misuse","eating_disorders",
+  "mental_health_services","personality_disorders","psychosis_and_schizophrenia",
+  "self_harm","suicide_prevention","intervenciones_psicoterapias","neuropsicologia_evaluacion",
+  "psicologia_desarrollo","salud_mental_perinatal","salud_mental_laboral","psicologia_salud",
+  "etica_deontologia","trauma_estres","trastornos_disociativos","disfunciones_sexuales",
+  "trastornos_sueno","trastornos_neurocognitivos","otro",
+];
+
+const DOC_TYPES = [
+  "articulo_cientifico","guia_clinica","manual_diagnostico","libro_academico",
+  "codigo_etico","informe_consenso","otro",
+];
+
+const INSTITUTION_TYPES = [
+  "organizacion_internacional","asociacion_profesional","gobierno_ministerio",
+  "universidad","revista_cientifica","autor_independiente","otro",
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -17,7 +37,23 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const snippet = text.slice(0, 500);
+    const snippet = text.slice(0, 1000);
+
+    const userPrompt = `Analiza este fragmento de documento clínico psicológico. Responde SOLO con este JSON exacto sin texto adicional:
+
+{
+  "document_type": "articulo_cientifico|guia_clinica|manual_diagnostico|libro_academico|codigo_etico|informe_consenso|otro",
+  "clinical_areas": ["1 to 3 values from: ${CLINICAL_AREAS.join(", ")}"],
+  "source_institution": "exact institution name or null",
+  "source_institution_type": "organizacion_internacional|asociacion_profesional|gobierno_ministerio|universidad|revista_cientifica|autor_independiente|otro",
+  "title": "suggested title or null",
+  "author": "main author or null",
+  "year": "publication year or null",
+  "language": "español|ingles|otro"
+}
+
+FRAGMENTO:
+${snippet}`;
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -31,33 +67,40 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "Extraes metadatos bibliográficos de fragmentos iniciales de documentos académicos o clínicos. Devuelve siempre cadenas vacías si no estás seguro.",
+              "Eres un clasificador de documentos clínicos psicológicos. Responde siempre con JSON válido sin texto adicional ni markdown.",
           },
-          {
-            role: "user",
-            content: `Extrae el título, autor(es) y año de publicación del siguiente fragmento. Si no aparece alguno, deja el campo vacío.\n\n---\n${snippet}\n---`,
-          },
+          { role: "user", content: userPrompt },
         ],
         tools: [
           {
             type: "function",
             function: {
-              name: "return_metadata",
-              description: "Devuelve los metadatos extraídos del documento",
+              name: "return_classification",
+              description: "Devuelve la clasificación clínica del documento",
               parameters: {
                 type: "object",
                 properties: {
-                  title: { type: "string", description: "Título del documento" },
-                  author: { type: "string", description: "Autor o autores, separados por coma" },
-                  year: { type: "string", description: "Año de publicación, 4 dígitos" },
+                  document_type: { type: "string", enum: DOC_TYPES },
+                  clinical_areas: {
+                    type: "array",
+                    items: { type: "string", enum: CLINICAL_AREAS },
+                    minItems: 1,
+                    maxItems: 3,
+                  },
+                  source_institution: { type: ["string", "null"] },
+                  source_institution_type: { type: ["string", "null"], enum: [...INSTITUTION_TYPES, null] },
+                  title: { type: ["string", "null"] },
+                  author: { type: ["string", "null"] },
+                  year: { type: ["string", "null"] },
+                  language: { type: "string", enum: ["español", "ingles", "otro"] },
                 },
-                required: ["title", "author", "year"],
+                required: ["document_type", "clinical_areas"],
                 additionalProperties: false,
               },
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "return_metadata" } },
+        tool_choice: { type: "function", function: { name: "return_classification" } },
       }),
     });
 
@@ -81,10 +124,25 @@ Deno.serve(async (req) => {
 
     const data = await resp.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    let meta = { title: "", author: "", year: "" };
+    let meta: Record<string, unknown> = {
+      title: "",
+      author: "",
+      year: "",
+      document_type: "",
+      clinical_areas: [],
+      source_institution: null,
+      source_institution_type: null,
+      language: null,
+    };
     if (toolCall?.function?.arguments) {
       try {
-        meta = JSON.parse(toolCall.function.arguments);
+        const parsed = JSON.parse(toolCall.function.arguments);
+        meta = { ...meta, ...parsed };
+        // Normalize: empty -> "" / null
+        meta.title = meta.title ?? "";
+        meta.author = meta.author ?? "";
+        meta.year = meta.year ?? "";
+        if (!Array.isArray(meta.clinical_areas)) meta.clinical_areas = [];
       } catch (e) {
         console.error("Could not parse tool args:", toolCall.function.arguments);
       }
