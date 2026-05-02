@@ -501,6 +501,13 @@ export default function Assistant() {
                 busy={busy}
                 autoFocus
               />
+              <FilterIndicator
+                yearFrom={yearFrom}
+                areasCount={selectedAreas.length}
+                allAreasCount={ALL_AREAS.length}
+                sourcesCount={selectedSources.length}
+                allSourcesCount={availableSources.length}
+              />
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(patientKind === "child" ? CHILD_SUGGESTIONS : SUGGESTIONS).map((s) => (
                   <button
