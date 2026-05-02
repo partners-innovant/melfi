@@ -378,6 +378,11 @@ export default function GoogleDriveImport({
   async function processAll() {
     const pending = items.filter((it) => it.status === "pending");
     if (pending.length === 0) return;
+    const unresolved = pending.find((it) => it.duplicate && (!it.dupAction || it.dupAction === "pending"));
+    if (unresolved) {
+      toast.error(`Resuelve el aviso de duplicado en: ${unresolved.name}`);
+      return;
+    }
     cancelRef.current = false;
     setBusy(true);
     try {
