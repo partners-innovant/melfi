@@ -252,6 +252,10 @@ export default function AdminTherapists() {
   }
 
   async function saveEdit(id: string) {
+    if (editForm.rut && !validateRUT(editForm.rut)) {
+      toast.error("El RUT ingresado no es válido");
+      return;
+    }
     const { error } = await supabase
       .from("profiles")
       .update({
