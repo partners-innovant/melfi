@@ -855,11 +855,18 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
-          source_url: item.file.name,
-          import_source: 'upload',
+          source_url: item.pubmedPrefill?.source_url || item.file.name,
+          import_source: item.pubmedPrefill ? 'pubmed' : 'upload',
           clinical_areas: item.clinicalAreas,
           source_institution: item.sourceInstitution || null,
           source_institution_type: item.sourceInstitutionType || null,
+          ...(item.pubmedPrefill ? {
+            pubmed_id: item.pubmedPrefill.pubmed_id,
+            pmc_id: item.pubmedPrefill.pmc_id,
+            europepmc_id: item.pubmedPrefill.europepmc_id,
+            europepmc_source: item.pubmedPrefill.europepmc_source,
+            abstract: item.pubmedPrefill.abstract || null,
+          } : {}),
         } as any)
         .select()
         .single();
