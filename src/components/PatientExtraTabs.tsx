@@ -404,6 +404,30 @@ export function PatientProfileBuilderTab({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={resetOpen} onOpenChange={(o) => { if (!resetting) setResetOpen(o); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Reiniciar conversación?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Se eliminará el historial de esta conversación. La información ya guardada en el perfil del paciente no se verá afectada.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetting}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleReset}
+              disabled={resetting}
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Reiniciar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
