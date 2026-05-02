@@ -243,6 +243,14 @@ export default function PatientDetail() {
           start_date: patient.start_date,
         }}
       />
+
+      <SessionMode
+        open={sessionModeOpen}
+        onClose={() => setSessionModeOpen(false)}
+        patientId={patient.id}
+        patientName={`${patient.first_name} ${patient.last_name}`}
+        onSessionSaved={() => { load(); setRefreshKey((k) => k + 1); setTab("sessions"); }}
+      />
     </div>
   );
 }
