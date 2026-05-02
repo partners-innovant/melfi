@@ -22,8 +22,14 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle } from "lucide-react";
+import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle, Filter } from "lucide-react";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
+import {
+  CLINICAL_AREAS, CLINICAL_AREAS_NICE, CLINICAL_AREAS_TRANSVERSAL,
+  CLINICAL_AREA_LABELS, MAX_CLINICAL_AREAS, clinicalAreaColor, clinicalAreaLabel,
+  SOURCE_INSTITUTIONS, SOURCE_INSTITUTION_TYPE_LABELS, sourceIconFor,
+  type ClinicalArea, type SourceInstitutionType,
+} from "@/lib/clinical-areas";
 import { extractPdfTextAndMeta, extractTxtText, chunkText } from "@/lib/pdf";
 import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
@@ -44,6 +50,9 @@ interface Doc {
   created_at: string;
   import_source?: ImportSource | null;
   source_url?: string | null;
+  clinical_areas?: string[] | null;
+  source_institution?: string | null;
+  source_institution_type?: string | null;
 }
 
 const IMPORT_SOURCE_META: Record<ImportSource, { icon: string; label: string }> = {
