@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
 import { ChildDocumentsTab, ChildSessionNotesTab, ChildTestsTab } from "@/components/ChildExtraTabs";
+import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 
 const BEHAVIOR_COLORS = ["hsl(174 72% 46%)", "hsl(38 92% 50%)", "hsl(260 70% 60%)", "hsl(210 80% 55%)", "hsl(340 75% 55%)", "hsl(150 60% 45%)"];
 
