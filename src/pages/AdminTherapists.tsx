@@ -299,6 +299,13 @@ export default function AdminTherapists() {
     fetchAll();
   }
 
+  async function openHistory(t: Therapist) {
+    setHistoryTarget(t);
+    setHistoryUserId(null);
+    const { data } = await supabase.rpc("get_user_id_by_email", { _email: t.email });
+    setHistoryUserId((data as string | null) ?? null);
+  }
+
   function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
