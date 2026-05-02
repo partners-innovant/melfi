@@ -1002,8 +1002,9 @@ function QueueRow({
       )}
 
       {(item.status === "ready" || item.status === "done") && (
-        <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 pt-1">
-          <div className="sm:col-span-3">
+        <div className="space-y-2 pt-1">
+          {/* Row 1: Título (full width) */}
+          <div>
             <Label className="text-xs">Título *</Label>
             <Input
               value={item.title}
@@ -1012,45 +1013,77 @@ function QueueRow({
               className="h-8 text-sm"
             />
           </div>
-          <div className="sm:col-span-2">
-            <Label className="text-xs">Autor</Label>
-            <Input
-              value={item.author}
-              onChange={(e) => onChange({ author: e.target.value })}
-              disabled={!editable || disabled}
-              className="h-8 text-sm"
-            />
+
+          {/* Row 1b: Autor + Año (auxiliary) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Autor</Label>
+              <Input
+                value={item.author}
+                onChange={(e) => onChange({ author: e.target.value })}
+                disabled={!editable || disabled}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Año</Label>
+              <Input
+                value={item.year}
+                onChange={(e) => onChange({ year: e.target.value })}
+                disabled={!editable || disabled}
+                className="h-8 text-sm"
+              />
+            </div>
           </div>
+
+          {/* Row 2: Tipo (1/3) | Fuente / Institución (2/3) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div>
+              <Label className="text-xs">Tipo</Label>
+              <Select
+                value={item.docType}
+                onValueChange={(v) => onChange({ docType: v as DocType })}
+                disabled={!editable || disabled}
+              >
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-2">
+              <Label className="text-xs">Fuente / Institución</Label>
+              <SourceInstitutionPicker
+                value={item.sourceInstitution}
+                onChange={(name, type) =>
+                  onChange({
+                    sourceInstitution: name,
+                    sourceInstitutionType: type ?? item.sourceInstitutionType,
+                  })
+                }
+                disabled={!editable || disabled}
+              />
+            </div>
+          </div>
+
+          {/* Row 3: Áreas clínicas (full width multi-select with chips) */}
           <div>
-            <Label className="text-xs">Año</Label>
-            <Input
-              value={item.year}
-              onChange={(e) => onChange({ year: e.target.value })}
+            <Label className="text-xs">Área(s) clínica(s)</Label>
+            <ClinicalAreasPicker
+              value={item.clinicalAreas}
+              onChange={(areas) => onChange({ clinicalAreas: areas })}
               disabled={!editable || disabled}
-              className="h-8 text-sm"
             />
           </div>
-          <div className="sm:col-span-3">
-            <Label className="text-xs">Tipo</Label>
-            <Select
-              value={item.docType}
-              onValueChange={(v) => onChange({ docType: v as DocType })}
-              disabled={!editable || disabled}
-            >
-              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+
           {isAdmin && (
-            <div className="sm:col-span-3 flex items-end gap-2 pb-1">
+            <div className="flex items-center gap-2 pt-1">
               <Switch
                 checked={item.isGlobal}
                 onCheckedChange={(v) => onChange({ isGlobal: v })}
                 disabled={!editable || disabled}
               />
-              <span className="text-xs text-muted-foreground">Global</span>
+              <span className="text-xs text-muted-foreground">Documento global</span>
             </div>
           )}
         </div>
