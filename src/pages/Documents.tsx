@@ -1047,6 +1047,19 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   );
 }
 
+function FieldLabel({ text, ai }: { text: string; ai?: boolean }) {
+  return (
+    <Label className="text-xs flex items-center gap-1.5">
+      <span>{text}</span>
+      {ai && (
+        <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 px-1.5 py-0 text-[10px] font-medium leading-4">
+          <Sparkles className="h-2.5 w-2.5" /> IA
+        </span>
+      )}
+    </Label>
+  );
+}
+
 function QueueRow({
   item, isAdmin, disabled, onChange, onRemove,
 }: {
