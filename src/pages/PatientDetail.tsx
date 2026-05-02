@@ -34,6 +34,7 @@ export default function PatientDetail() {
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [sessionModeOpen, setSessionModeOpen] = useState(false);
 
   async function load() {
     if (!id) return;
