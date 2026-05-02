@@ -47,12 +47,15 @@ function buildEventBody(sess: any, patientName: string) {
   const dur = sess.duration_minutes ?? 50;
   const startISO = new Date(`${startDate}T${time}:00`);
   const endISO = new Date(startISO.getTime() + dur * 60_000);
-  return {
-    summary: `Sesión #${sess.session_number} — ${patientName}`,
-    description: sess.pre_session_notes || "",
+  const body: Record<string, unknown> = {
+    summary: `Sesión — ${patientName}`,
     start: { dateTime: startISO.toISOString() },
     end: { dateTime: endISO.toISOString() },
   };
+  const notes = sess.pre_session_notes || sess.post_session_notes || "";
+  if (notes) body.description = notes;
+  if (sess.location) body.location = sess.location;
+  return body;
 }
 
 Deno.serve(async (req) => {
@@ -153,7 +156,7 @@ Deno.serve(async (req) => {
     const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 
     if (action === "push_session") {
-      const { sessionId } = body;
+      const { sessionId, location, notes: extraNotes } = body;
       const { data: sess, error } = await admin.from("sessions").select("*").eq("id", sessionId).eq("psychologist_id", userId).maybeSingle();
       if (error || !sess) {
         return new Response(JSON.stringify({ error: "session_not_found" }), {
@@ -170,7 +173,10 @@ Deno.serve(async (req) => {
         if (c) patientName = `${c.first_name} ${c.last_name}`;
       }
 
-      const eventBody = buildEventBody(sess, patientName);
+      const eventBody = buildEventBody(
+        { ...sess, location, pre_session_notes: extraNotes ?? sess.pre_session_notes },
+        patientName,
+      );
       const isUpdate = !!sess.google_event_id;
       const url = isUpdate ? `${baseUrl}/${encodeURIComponent(sess.google_event_id)}` : baseUrl;
       const res = await fetch(url, {
@@ -180,8 +186,15 @@ Deno.serve(async (req) => {
       });
       const j = await res.json();
       if (!res.ok) {
-        return new Response(JSON.stringify({ error: "google_api", detail: j }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const reason = j?.error?.message || j?.error_description || `http_${res.status}`;
+        const isAuth = res.status === 401;
+        return new Response(JSON.stringify({
+          error: isAuth ? "token_expired" : "google_api",
+          status: res.status,
+          reason: String(reason),
+          detail: j,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (!isUpdate && j.id) {
@@ -208,16 +221,23 @@ Deno.serve(async (req) => {
     }
 
     if (action === "pull") {
-      const { timeMin, timeMax } = body;
+      // Defaults follow the spec: first day of current month → end of month + 2 weeks.
+      const now = new Date();
+      const defaultMin = new Date(now.getFullYear(), now.getMonth(), 1);
+      const defaultMax = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      defaultMax.setDate(defaultMax.getDate() + 14);
+      const timeMin = body.timeMin ? new Date(body.timeMin) : defaultMin;
+      const timeMax = body.timeMax ? new Date(body.timeMax) : defaultMax;
+
       const params = new URLSearchParams({
-        timeMin: new Date(timeMin).toISOString(),
-        timeMax: new Date(timeMax).toISOString(),
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
         singleEvents: "true",
         orderBy: "startTime",
         maxResults: "250",
       });
       const fetchUrl = `${baseUrl}?${params.toString()}`;
-      console.log("[calendar-sync] pull", { userId, calendarId, timeMin, timeMax });
+      console.log("[calendar-sync] pull", { userId, calendarId, timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString() });
       const res = await fetch(fetchUrl, {
         headers: { Authorization: `Bearer ${token.access_token}` },
       });
@@ -225,9 +245,10 @@ Deno.serve(async (req) => {
       if (!res.ok) {
         const reason = j?.error?.message || j?.error_description || j?.error || `http_${res.status}`;
         console.error("[calendar-sync] google api error", res.status, JSON.stringify(j));
-        // Return 200 with error payload so the supabase-js client surfaces it cleanly
+        // Treat 401 as an expired/revoked token explicitly so the UI can prompt reconnect.
+        const isAuth = res.status === 401 || /invalid_grant|invalid credential/i.test(String(reason));
         return new Response(JSON.stringify({
-          error: "google_api",
+          error: isAuth ? "token_expired" : "google_api",
           status: res.status,
           reason: String(reason),
           detail: j,
@@ -240,12 +261,18 @@ Deno.serve(async (req) => {
       const events = (j.items ?? []).map((e: any) => ({
         id: e.id,
         summary: e.summary ?? "(sin título)",
+        description: e.description ?? null,
+        location: e.location ?? null,
         start: e.start?.dateTime ?? e.start?.date,
         end: e.end?.dateTime ?? e.end?.date,
         htmlLink: e.htmlLink,
         allDay: !!e.start?.date,
       }));
-      return new Response(JSON.stringify({ events }), {
+      return new Response(JSON.stringify({
+        events,
+        synced_at: new Date().toISOString(),
+        range: { timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString() },
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

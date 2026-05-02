@@ -44,7 +44,21 @@ interface GEvent {
   end: string;
   htmlLink?: string;
   allDay?: boolean;
+  description?: string | null;
+  location?: string | null;
   source: "google";
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return "hace unos segundos";
+  if (m < 60) return `hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d} d`;
 }
 
 // ---------- date helpers ----------
@@ -81,10 +95,18 @@ export default function Calendar() {
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [, forceTick] = useState(0);
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
   const [activeGEvent, setActiveGEvent] = useState<GEvent | null>(null);
   const [newOpen, setNewOpen] = useState(false);
   const [newPrefill, setNewPrefill] = useState<{ date: string; time: string } | null>(null);
+
+  // Refresh "hace X min" label every 30s
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Handle ?gcal=connected | error in URL after OAuth roundtrip
   useEffect(() => {
@@ -114,36 +136,53 @@ export default function Calendar() {
   const loadGoogleEvents = useCallback(async (opts?: { showToast?: boolean }) => {
     if (!googleConnected) { setGEvents([]); return; }
     try {
+      // Always pull a wide window: first day of current month → end of month + 2 weeks
+      // (per spec). The visible-week / visible-month grid filters down from there.
+      const now = new Date();
+      const wideMin = new Date(now.getFullYear(), now.getMonth(), 1);
+      const wideMax = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      wideMax.setDate(wideMax.getDate() + 14);
+
       const { data, error } = await supabase.functions.invoke("calendar-sync", {
-        body: { action: "pull", timeMin: range.start.toISOString(), timeMax: range.end.toISOString() },
+        body: { action: "pull", timeMin: wideMin.toISOString(), timeMax: wideMax.toISOString() },
       });
+
       if (error) {
-        const msg = (error as any)?.message ?? "Error desconocido";
-        console.error("[calendar-sync] invoke error", error);
-        if (msg.includes("401") || msg.toLowerCase().includes("token_expired")) {
+        // Try to read the structured body the function returned (FunctionsHttpError exposes .context)
+        let detail: any = null;
+        try {
+          const ctx = (error as any).context;
+          if (ctx?.json) detail = await ctx.json();
+          else if (ctx?.text) detail = { reason: await ctx.text() };
+        } catch { /* ignore */ }
+        const msg = detail?.reason || detail?.error || (error as any)?.message || "Error desconocido";
+        console.error("[calendar-sync] invoke error", error, detail);
+        if (detail?.error === "token_expired" || /401|token_expired|invalid_grant/i.test(msg)) {
           setTokenExpired(true);
-          if (opts?.showToast) toast.error("Tu sesión de Google expiró. Reconecta para sincronizar.");
+          if (opts?.showToast) toast.error("Tu conexión con Google Calendar expiró. Reconecta tu cuenta.");
         } else if (opts?.showToast) {
-          toast.error(`Error al sincronizar Google Calendar: ${msg}`);
+          toast.error(`Google Calendar: ${msg}`);
         }
         setGEvents([]); return;
       }
-      // Edge function may return a structured error payload with status 200
+
       const payload = data as any;
       if (payload?.error) {
         console.error("[calendar-sync] api error payload", payload);
-        if (payload.status === 401 || payload.error === "token_expired") {
+        if (payload.error === "token_expired" || payload.status === 401) {
           setTokenExpired(true);
-          if (opts?.showToast) toast.error("Tu sesión de Google expiró. Reconecta para sincronizar.");
+          if (opts?.showToast) toast.error("Tu conexión con Google Calendar expiró. Reconecta tu cuenta.");
         } else if (opts?.showToast) {
           toast.error(`Google Calendar: ${payload.reason || payload.error}`);
         }
         setGEvents(payload.events ?? []);
         return;
       }
+
       setTokenExpired(false);
       const items = (payload?.events ?? []).map((e: any) => ({ ...e, source: "google" as const }));
       setGEvents(items);
+      setLastSyncedAt(payload?.synced_at ?? new Date().toISOString());
       if (opts?.showToast) {
         toast.success(`Sincronizado: ${items.length} evento${items.length === 1 ? "" : "s"} de Google`);
       }
@@ -152,7 +191,7 @@ export default function Calendar() {
       if (opts?.showToast) toast.error(`Error al sincronizar: ${e?.message ?? e}`);
       setGEvents([]);
     }
-  }, [googleConnected, range.start, range.end]);
+  }, [googleConnected]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -273,10 +312,18 @@ export default function Calendar() {
           <Button variant="outline" size="icon" onClick={prev} aria-label="Anterior"><ChevronLeft className="h-4 w-4" /></Button>
           <Button variant="outline" onClick={goToday}>Hoy</Button>
           <Button variant="outline" size="icon" onClick={next} aria-label="Siguiente"><ChevronRight className="h-4 w-4" /></Button>
-          {googleConnected && !tokenExpired && (
-            <Button variant="outline" onClick={manualSync} disabled={syncing} className="gap-2">
-              <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />Sincronizar
-            </Button>
+          {googleConnected && (
+            <div className="flex items-center gap-2">
+              {lastSyncedAt && !tokenExpired && (
+                <span className="text-xs text-muted-foreground hidden md:inline">
+                  Última sincronización: {relativeTime(lastSyncedAt)}
+                </span>
+              )}
+              <Button variant="outline" onClick={manualSync} disabled={syncing} className="gap-2">
+                <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+                {syncing ? "Sincronizando…" : "Sincronizar"}
+              </Button>
+            </div>
           )}
           <Button onClick={() => openNewAt(new Date())} className="gap-2"><Plus className="h-4 w-4" />Nueva sesión</Button>
         </div>
@@ -300,8 +347,8 @@ export default function Calendar() {
       {googleConnected && tokenExpired && (
         <Card className="p-3 border-dashed bg-amber-500/10 border-amber-500/30 flex items-center gap-3 text-sm flex-wrap">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <div className="flex-1">Tu sesión de Google expiró o fue revocada. Reconecta para continuar sincronizando.</div>
-          <Button size="sm" onClick={connectGoogle} disabled={connecting}>Reconectar Google Calendar</Button>
+          <div className="flex-1">Tu conexión con Google Calendar expiró. Reconecta tu cuenta para seguir sincronizando.</div>
+          <Button size="sm" onClick={connectGoogle} disabled={connecting}>Reconectar</Button>
         </Card>
       )}
 
@@ -375,23 +422,40 @@ export default function Calendar() {
       {/* Google event detail */}
       <Dialog open={!!activeGEvent} onOpenChange={(o) => !o && setActiveGEvent(null)}>
         <DialogContent className="max-w-md">
-          {activeGEvent && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{activeGEvent.summary}</DialogTitle>
-                <DialogDescription>
-                  {new Date(activeGEvent.start).toLocaleString("es-CL", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
-                </DialogDescription>
-              </DialogHeader>
-              <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0 w-fit">Google Calendar</Badge>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setActiveGEvent(null)}>Cerrar</Button>
-                {activeGEvent.htmlLink && (
-                  <Button onClick={() => window.open(activeGEvent.htmlLink!, "_blank")}>Abrir en Google</Button>
-                )}
-              </DialogFooter>
-            </>
-          )}
+          {activeGEvent && (() => {
+            const startD = new Date(activeGEvent.start);
+            const endD = activeGEvent.end ? new Date(activeGEvent.end) : null;
+            const durMin = endD ? Math.max(0, Math.round((endD.getTime() - startD.getTime()) / 60_000)) : null;
+            const fmtTime = (d: Date) => d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{activeGEvent.summary}</DialogTitle>
+                  <DialogDescription>
+                    {startD.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                    {!activeGEvent.allDay && (
+                      <> · {fmtTime(startD)}{endD ? `–${fmtTime(endD)}` : ""}{durMin != null ? ` · ${durMin} min` : ""}</>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 text-sm">
+                  <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0 w-fit">Google Calendar</Badge>
+                  {activeGEvent.location && (
+                    <div><span className="text-muted-foreground">Ubicación:</span> {activeGEvent.location}</div>
+                  )}
+                  {activeGEvent.description && (
+                    <div className="whitespace-pre-wrap text-muted-foreground">{activeGEvent.description}</div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setActiveGEvent(null)}>Cerrar</Button>
+                  {activeGEvent.htmlLink && (
+                    <Button onClick={() => window.open(activeGEvent.htmlLink!, "_blank")}>Abrir en Google</Button>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
@@ -614,6 +678,7 @@ function NewSessionModal({
   const [time, setTime] = useState("10:00");
   const [duration, setDuration] = useState(50);
   const [notes, setNotes] = useState("");
+  const [location, setLocation] = useState("");
   const [adults, setAdults] = useState<PatientLite[]>([]);
   const [kids, setKids] = useState<ChildLite[]>([]);
   const [saving, setSaving] = useState(false);
@@ -624,6 +689,7 @@ function NewSessionModal({
     setTime(prefill?.time ?? "10:00");
     setDuration(50);
     setNotes("");
+    setLocation("");
     setPatientId("");
     (async () => {
       const [{ data: a }, { data: c }] = await Promise.all([
@@ -656,11 +722,21 @@ function NewSessionModal({
 
     // Push to Google if connected
     if (googleConnected) {
-      const { error: pushErr } = await supabase.functions.invoke("calendar-sync", {
-        body: { action: "push_session", sessionId: data.id },
+      const { data: pushData, error: pushErr } = await supabase.functions.invoke("calendar-sync", {
+        body: {
+          action: "push_session",
+          sessionId: data.id,
+          location: location || undefined,
+          notes: notes || undefined,
+        },
       });
-      if (pushErr) toast.warning("Sesión guardada, pero no se pudo publicar en Google Calendar");
-      else toast.success(`Sesión #${data.session_number} programada y sincronizada`);
+      const pushPayload = pushData as any;
+      if (pushErr || pushPayload?.error) {
+        const msg = pushPayload?.reason || pushPayload?.error || (pushErr as any)?.message || "Error desconocido";
+        toast.warning(`Sesión guardada, pero no se publicó en Google: ${msg}`);
+      } else {
+        toast.success(`Sesión #${data.session_number} programada y sincronizada con Google`);
+      }
     } else {
       toast.success(`Sesión #${data.session_number} programada`);
     }
@@ -718,6 +794,15 @@ function NewSessionModal({
               <Label>Duración (min)</Label>
               <Input type="number" value={duration} onChange={(e) => setDuration(parseInt(e.target.value) || 50)} />
             </div>
+          </div>
+
+          <div>
+            <Label>Ubicación</Label>
+            <Input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Sala 3, Av. Apoquindo 123, link de videollamada…"
+            />
           </div>
 
           <div>
