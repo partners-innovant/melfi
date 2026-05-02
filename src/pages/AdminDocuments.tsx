@@ -1758,3 +1758,169 @@ function chunk<T>(arr: T[], size: number): T[][] {
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
 }
+
+// ---------- Column filter components ----------
+function ColTextFilter({ value, onChange, placeholder, type, compact }: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className="relative">
+      <Input
+        type={type ?? "text"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={cn("h-7 text-[12px] px-2", compact ? "w-full" : "w-full", value && "pr-6")}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ColSelectFilter({ value, onChange, options }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  const isActive = value !== ANY;
+  return (
+    <div className="relative">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className={cn("h-7 text-[12px] px-2", isActive && "pr-7")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="max-h-[400px]">
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {isActive && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onChange(ANY); }}
+          className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ColAreasFilter({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const all = [...CLINICAL_AREAS_NICE, ...CLINICAL_AREAS_TRANSVERSAL];
+  const isActive = value.length > 0;
+  function toggle(a: string) {
+    onChange(value.includes(a) ? value.filter((x) => x !== a) : [...value, a]);
+  }
+  return (
+    <div className="relative">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "h-7 text-[12px] px-2 w-full text-left rounded-md border border-input bg-background hover:bg-accent/50",
+              isActive && "pr-7",
+            )}
+          >
+            {value.length === 0 ? "Todas" : `${value.length} área(s)`}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[280px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Buscar área…" className="h-8 text-xs" />
+            <CommandList className="max-h-[300px]">
+              <CommandEmpty>Sin resultados</CommandEmpty>
+              <CommandGroup>
+                {all.map((a) => (
+                  <CommandItem key={a} value={a} onSelect={() => toggle(a)} className="text-xs">
+                    <Checkbox checked={value.includes(a)} className="mr-2" />
+                    {clinicalAreaLabel(a)}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {isActive && (
+        <button
+          type="button"
+          onClick={() => onChange([])}
+          className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ColDateRangeFilter({ from, to, onFromChange, onToChange }: {
+  from: Date | undefined;
+  to: Date | undefined;
+  onFromChange: (d: Date | undefined) => void;
+  onToChange: (d: Date | undefined) => void;
+}) {
+  const isActive = !!(from || to);
+  return (
+    <div className="flex items-center gap-1">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="h-7 text-[11px] px-2 rounded-md border border-input bg-background hover:bg-accent/50 inline-flex items-center gap-1 flex-1 min-w-0"
+          >
+            <CalendarIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{from ? formatDateFn(from, "dd-MM-yy") : "Desde"}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={from} onSelect={onFromChange} initialFocus className={cn("p-3 pointer-events-auto")} />
+        </PopoverContent>
+      </Popover>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="h-7 text-[11px] px-2 rounded-md border border-input bg-background hover:bg-accent/50 inline-flex items-center gap-1 flex-1 min-w-0"
+          >
+            <CalendarIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{to ? formatDateFn(to, "dd-MM-yy") : "Hasta"}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar mode="single" selected={to} onSelect={onToChange} initialFocus className={cn("p-3 pointer-events-auto")} />
+        </PopoverContent>
+      </Popover>
+      {isActive && (
+        <button
+          type="button"
+          onClick={() => { onFromChange(undefined); onToChange(undefined); }}
+          className="text-muted-foreground hover:text-foreground"
+          aria-label="Limpiar"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
