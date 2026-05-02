@@ -299,10 +299,16 @@ function ArticleCard({
   async function handleImport() {
     setImporting(true);
     try {
-      const target = await importPubMedArticle(article, isAdmin, setStatusText);
+      const { target, usedPdf } = await importPubMedArticle(article, isAdmin, setStatusText);
       setDone(true);
       onImported(target);
-      toast.success("✅ Importado correctamente");
+      if (usedPdf) {
+        toast.success("✅ Importado correctamente");
+      } else {
+        toast.success("✅ Importado correctamente", {
+          description: "ℹ️ PDF no disponible en acceso libre — se importó el abstract del artículo",
+        });
+      }
     } catch (e) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "Error al importar");
