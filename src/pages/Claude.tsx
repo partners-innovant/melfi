@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ImprovePromptButton } from "@/components/ImprovePromptButton";
 import {
   Sheet,
   SheetContent,
@@ -67,6 +68,8 @@ export default function Claude() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const emptyTaRef = useRef<HTMLTextAreaElement>(null);
+  const ongoingTaRef = useRef<HTMLTextAreaElement>(null);
   // Snapshot of messages used for memory updates (used in beforeunload)
   const messagesRef = useRef<Msg[]>([]);
   const updatedThisSessionRef = useRef(false);
@@ -490,6 +493,7 @@ export default function Claude() {
             <div className="w-full max-w-2xl space-y-3">
               <div className="relative">
                 <Textarea
+                  ref={emptyTaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -500,8 +504,11 @@ export default function Claude() {
                   }}
                   placeholder="Escribe tu mensaje..."
                   rows={3}
-                  className="resize-none pr-12"
+                  className="resize-none pr-12 pb-9"
                 />
+                <div className="absolute bottom-2 left-3">
+                  <ImprovePromptButton value={input} onChange={setInput} textareaRef={emptyTaRef} disabled={streaming} />
+                </div>
                 <Button
                   size="icon"
                   className="absolute bottom-2 right-2 h-8 w-8"
@@ -578,6 +585,7 @@ export default function Claude() {
               <div className="max-w-3xl mx-auto">
                 <div className="relative">
                   <Textarea
+                    ref={ongoingTaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -588,8 +596,11 @@ export default function Claude() {
                     }}
                     placeholder="Escribe tu mensaje..."
                     rows={2}
-                    className="resize-none pr-12"
+                    className="resize-none pr-12 pb-9"
                   />
+                  <div className="absolute bottom-2 left-3">
+                    <ImprovePromptButton value={input} onChange={setInput} textareaRef={ongoingTaRef} disabled={streaming} />
+                  </div>
                   <Button
                     size="icon"
                     className="absolute bottom-2 right-2 h-8 w-8"

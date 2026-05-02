@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ImprovePromptButton } from "@/components/ImprovePromptButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -58,6 +59,7 @@ export function PatientProfileBuilderTab({
   const [analyzingFile, setAnalyzingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const builderTaRef = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -517,19 +519,25 @@ export function PatientProfileBuilderTab({
           >
             <Paperclip className="h-4 w-4" />
           </Button>
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            placeholder="Cuéntame sobre el paciente o pide algo específico..."
-            className="min-h-[44px] max-h-32 resize-none flex-1"
-            disabled={sending || analyzingFile}
-          />
+          <div className="relative flex-1">
+            <Textarea
+              ref={builderTaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Cuéntame sobre el paciente o pide algo específico..."
+              className="min-h-[44px] max-h-32 resize-none w-full pb-8"
+              disabled={sending || analyzingFile}
+            />
+            <div className="absolute bottom-1.5 right-2">
+              <ImprovePromptButton value={input} onChange={setInput} textareaRef={builderTaRef} disabled={sending || analyzingFile} />
+            </div>
+          </div>
           <Button
             onClick={() => send("Dame tu hipótesis diagnóstica completa basada en toda la información disponible.", { mode: "suggest_diagnosis" })}
             disabled={sending || analyzingFile}

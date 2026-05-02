@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ImprovePromptButton } from "@/components/ImprovePromptButton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
@@ -803,22 +804,29 @@ function InputBox({
   busy: boolean;
   autoFocus?: boolean;
 }) {
+  const taRef = useRef<HTMLTextAreaElement>(null);
   return (
     <div className="flex gap-2 items-end">
-      <Textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Pregunta clínica..."
-        className="min-h-[52px] max-h-40 resize-none rounded-2xl"
-        autoFocus={autoFocus}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            onSend();
-          }
-        }}
-        disabled={busy}
-      />
+      <div className="relative flex-1">
+        <Textarea
+          ref={taRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Pregunta clínica..."
+          className="min-h-[52px] max-h-40 resize-none rounded-2xl pb-8"
+          autoFocus={autoFocus}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              onSend();
+            }
+          }}
+          disabled={busy}
+        />
+        <div className="absolute bottom-2 right-3">
+          <ImprovePromptButton value={value} onChange={onChange} textareaRef={taRef} disabled={busy} />
+        </div>
+      </div>
       <Button onClick={onSend} disabled={busy || !value.trim()} size="icon" className="h-12 w-12 flex-shrink-0 rounded-2xl">
         <Send className="h-4 w-4" />
       </Button>
