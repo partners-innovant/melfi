@@ -11,15 +11,14 @@ export default function PatientProfileBuilderPanel({
   patientId: string;
   onProfileUpdated?: () => void;
 }) {
-  const storageKey = `profileBuilder:open:${patientId}`;
-  const [open, setOpen] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(storageKey) === "1";
-  });
+  // Always default to open when navigating to a patient page.
+  // The user can close it during the session, but it reopens on next visit.
+  const [open, setOpen] = useState<boolean>(true);
 
   useEffect(() => {
-    window.localStorage.setItem(storageKey, open ? "1" : "0");
-  }, [open, storageKey]);
+    setOpen(true);
+  }, [patientId]);
+
 
   return (
     <>
