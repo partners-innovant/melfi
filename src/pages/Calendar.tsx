@@ -722,11 +722,21 @@ function NewSessionModal({
 
     // Push to Google if connected
     if (googleConnected) {
-      const { error: pushErr } = await supabase.functions.invoke("calendar-sync", {
-        body: { action: "push_session", sessionId: data.id },
+      const { data: pushData, error: pushErr } = await supabase.functions.invoke("calendar-sync", {
+        body: {
+          action: "push_session",
+          sessionId: data.id,
+          location: location || undefined,
+          notes: notes || undefined,
+        },
       });
-      if (pushErr) toast.warning("Sesión guardada, pero no se pudo publicar en Google Calendar");
-      else toast.success(`Sesión #${data.session_number} programada y sincronizada`);
+      const pushPayload = pushData as any;
+      if (pushErr || pushPayload?.error) {
+        const msg = pushPayload?.reason || pushPayload?.error || (pushErr as any)?.message || "Error desconocido";
+        toast.warning(`Sesión guardada, pero no se publicó en Google: ${msg}`);
+      } else {
+        toast.success(`Sesión #${data.session_number} programada y sincronizada con Google`);
+      }
     } else {
       toast.success(`Sesión #${data.session_number} programada`);
     }
