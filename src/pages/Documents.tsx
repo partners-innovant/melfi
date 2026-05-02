@@ -38,6 +38,7 @@ import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
 import UrlImportDialog from "@/components/UrlImportDialog";
 import { findDuplicateByTitle, deleteDocumentAndChunks, nextAvailableTitle, formatDate, type DuplicateDoc } from "@/lib/duplicates";
+import { PubMedSearchDialog } from "@/components/PubMedSearchDialog";
 
 type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search';
 
@@ -71,6 +72,7 @@ export default function Documents() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<Doc | null>(null);
+  const [pubmedOpen, setPubmedOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -182,6 +184,15 @@ export default function Documents() {
         </div>
         <div className="flex items-center gap-2">
           <RecommendDocumentsButton />
+          {isAdmin && (
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setPubmedOpen(true)}
+            >
+              🔬 PubMed
+            </Button>
+          )}
           <UrlImportDialog
             isAdmin={isAdmin}
             onImported={load}
@@ -203,6 +214,8 @@ export default function Documents() {
           </Dialog>
         </div>
       </header>
+
+      <PubMedSearchDialog open={pubmedOpen} onOpenChange={setPubmedOpen} onImported={load} />
 
       {/* Filter bar */}
       <Card className="p-3 mb-4 flex flex-wrap items-center gap-2">

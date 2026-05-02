@@ -617,6 +617,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          abstract: string | null
           author: string | null
           clinical_areas: string[]
           created_at: string
@@ -625,8 +626,10 @@ export type Database = {
           import_source: string | null
           is_global: boolean
           language: string | null
+          pmc_id: string | null
           processing_mode: string | null
           psychologist_id: string
+          pubmed_id: string | null
           source_institution: string | null
           source_institution_type: string | null
           source_url: string | null
@@ -635,6 +638,7 @@ export type Database = {
           year: string | null
         }
         Insert: {
+          abstract?: string | null
           author?: string | null
           clinical_areas?: string[]
           created_at?: string
@@ -643,8 +647,10 @@ export type Database = {
           import_source?: string | null
           is_global?: boolean
           language?: string | null
+          pmc_id?: string | null
           processing_mode?: string | null
           psychologist_id: string
+          pubmed_id?: string | null
           source_institution?: string | null
           source_institution_type?: string | null
           source_url?: string | null
@@ -653,6 +659,7 @@ export type Database = {
           year?: string | null
         }
         Update: {
+          abstract?: string | null
           author?: string | null
           clinical_areas?: string[]
           created_at?: string
@@ -661,8 +668,10 @@ export type Database = {
           import_source?: string | null
           is_global?: boolean
           language?: string | null
+          pmc_id?: string | null
           processing_mode?: string | null
           psychologist_id?: string
+          pubmed_id?: string | null
           source_institution?: string | null
           source_institution_type?: string | null
           source_url?: string | null
