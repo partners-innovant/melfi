@@ -26,6 +26,8 @@ Responde SIEMPRE con este JSON exacto, sin texto adicional fuera del JSON:
       "author": "autor si está disponible",
       "year": "año si está disponible",
       "page_number": "número de página aproximado",
+      "document_type": "tipo de documento (clave, ej. guia_clinica)",
+      "source_institution": "institución exacta o null",
       "excerpt": "el fragmento exacto del texto original en el idioma del paper que respalda la afirmación"
     }
   ]
@@ -109,6 +111,8 @@ Deno.serve(async (req) => {
       patient_id,
       patient_kind = "adult",
       document_type,
+      clinical_area,
+      source_institution,
       query_embedding,
       conversation_id,
       stream: wantStream = true,
@@ -128,6 +132,8 @@ Deno.serve(async (req) => {
       match_count: 5,
       p_psychologist_id: user.id,
       p_document_type: document_type || null,
+      p_clinical_area: clinical_area || null,
+      p_source_institution: source_institution || null,
     });
     if (matchErr) {
       console.error(`[claude-chat:${reqId}] match_chunks error`, matchErr);
@@ -141,7 +147,7 @@ Deno.serve(async (req) => {
     const docIds = [...new Set((chunks ?? []).map((c: any) => c.document_id))];
     const { data: docs } = await supabase
       .from("documents")
-      .select("id, title, author, year, document_type")
+      .select("id, title, author, year, document_type, source_institution, source_institution_type, clinical_areas")
       .in("id", docIds);
     const docMap = new Map((docs ?? []).map((d: any) => [d.id, d]));
 
@@ -223,7 +229,8 @@ Notas clínicas: ${p.notes ?? "ninguna"}
     } else {
       chunks.forEach((c: any, i: number) => {
         const d = docMap.get(c.document_id) as any;
-        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
+        const inst = d?.source_institution ? ` — Fuente: ${d.source_institution}` : "";
+        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
       });
     }
 
