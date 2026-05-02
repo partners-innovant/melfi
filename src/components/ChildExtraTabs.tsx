@@ -12,12 +12,13 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileText, Trash2, Eye, Sparkles, Brain, Download, Calendar as CalIcon, ChevronDown, ChevronRight,
+  Plus, FileText, Trash2, Eye, Sparkles, Brain, Download, Calendar as CalIcon, ChevronDown, ChevronRight, Loader2, FileDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContainer,
 } from "recharts";
+import jsPDF from "jspdf";
 
 // ===================== Shared =====================
 const BUCKET = "child-files";
