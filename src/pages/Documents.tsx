@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,7 +38,7 @@ import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
 import UrlImportDialog from "@/components/UrlImportDialog";
 import { findDuplicateByTitle, deleteDocumentAndChunks, nextAvailableTitle, formatDate, type DuplicateDoc } from "@/lib/duplicates";
-import { PubMedSearchDialog } from "@/components/PubMedSearchDialog";
+import { PubMedSearchDialog, type PubMedUploadPrefill } from "@/components/PubMedSearchDialog";
 
 type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search';
 
@@ -73,6 +73,7 @@ export default function Documents() {
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<Doc | null>(null);
   const [pubmedOpen, setPubmedOpen] = useState(false);
+  const [uploadPrefill, setUploadPrefill] = useState<PubMedUploadPrefill | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -206,16 +207,28 @@ export default function Documents() {
             }}
           />
           <GoogleDriveImport isAdmin={isAdmin} onImported={load} />
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setUploadPrefill(null); }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Upload className="h-4 w-4" />Subir documentos</Button>
             </DialogTrigger>
-            <UploadDialog onClose={() => { setOpen(false); load(); }} isAdmin={isAdmin} />
+            <UploadDialog
+              onClose={() => { setOpen(false); setUploadPrefill(null); load(); }}
+              isAdmin={isAdmin}
+              prefill={uploadPrefill}
+            />
           </Dialog>
         </div>
       </header>
 
-      <PubMedSearchDialog open={pubmedOpen} onOpenChange={setPubmedOpen} onImported={load} />
+      <PubMedSearchDialog
+        open={pubmedOpen}
+        onOpenChange={setPubmedOpen}
+        onRequestUpload={(p) => {
+          setUploadPrefill(p);
+          setPubmedOpen(false);
+          setOpen(true);
+        }}
+      />
 
       {/* Filter bar */}
       <Card className="p-3 mb-4 flex flex-wrap items-center gap-2">
@@ -587,6 +600,7 @@ interface QueueItem {
   duplicate?: DuplicateDoc | null;
   dupAction?: DupAction;
   chunksCount?: number;
+  pubmedPrefill?: PubMedUploadPrefill | null;
 }
 
 interface UploadResults {
@@ -596,7 +610,7 @@ interface UploadResults {
   errors: { name: string; error: string }[];
 }
 
-function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
+function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAdmin: boolean; prefill?: PubMedUploadPrefill | null }) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<UploadResults | null>(null);
@@ -723,6 +737,12 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
     }
   }
 
+  // Use prefill once: applied to the first file picked after the dialog opens.
+  const prefillRef = useRef<PubMedUploadPrefill | null>(prefill ?? null);
+  useEffect(() => {
+    prefillRef.current = prefill ?? null;
+  }, [prefill]);
+
   function onPickFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const next: QueueItem[] = Array.from(files).map((file) => ({
@@ -746,6 +766,11 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
     }));
     setItems((prev) => [...prev, ...next]);
 
+    // Consume prefill on first file in this batch (PubMed flow).
+    const consumedPrefill = prefillRef.current;
+    const prefillTargetId = consumedPrefill ? next[0].id : null;
+    if (consumedPrefill) prefillRef.current = null;
+
     // Parallel classification with concurrency limit of 3 to avoid rate limits.
     (async () => {
       const CONCURRENCY = 3;
@@ -762,6 +787,22 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         workers.push(runWorker());
       }
       await Promise.all(workers);
+
+      // After analysis, override fields with PubMed prefill (user picks them as canonical).
+      if (consumedPrefill && prefillTargetId) {
+        update(prefillTargetId, {
+          title: consumedPrefill.title || undefined,
+          author: consumedPrefill.author || undefined,
+          year: consumedPrefill.year || undefined,
+          sourceInstitution: consumedPrefill.source_institution,
+          sourceInstitutionType: consumedPrefill.source_institution_type,
+          pubmedPrefill: consumedPrefill,
+          autoFilled: {
+            title: true, author: !!consumedPrefill.author, year: !!consumedPrefill.year,
+            docType: true, clinicalAreas: false, sourceInstitution: true,
+          },
+        });
+      }
     })();
   }
 
@@ -814,11 +855,18 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
-          source_url: item.file.name,
-          import_source: 'upload',
+          source_url: item.pubmedPrefill?.source_url || item.file.name,
+          import_source: item.pubmedPrefill ? 'pubmed' : 'upload',
           clinical_areas: item.clinicalAreas,
           source_institution: item.sourceInstitution || null,
           source_institution_type: item.sourceInstitutionType || null,
+          ...(item.pubmedPrefill ? {
+            pubmed_id: item.pubmedPrefill.pubmed_id,
+            pmc_id: item.pubmedPrefill.pmc_id,
+            europepmc_id: item.pubmedPrefill.europepmc_id,
+            europepmc_source: item.pubmedPrefill.europepmc_source,
+            abstract: item.pubmedPrefill.abstract || null,
+          } : {}),
         } as any)
         .select()
         .single();
