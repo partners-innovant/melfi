@@ -567,6 +567,20 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       const chunks = chunkText(text);
       if (chunks.length === 0) throw new Error("No se pudo extraer texto del archivo");
 
+      // Apply duplicate action chosen by the user.
+      let finalTitle = item.title;
+      if (item.duplicate) {
+        if (item.dupAction === "replace") {
+          update(item.id, { statusText: "Eliminando documento previo..." });
+          await deleteDocumentAndChunks(item.duplicate);
+        } else if (item.dupAction === "keep_both") {
+          update(item.id, { statusText: "Calculando título único..." });
+          finalTitle = await nextAvailableTitle(item.title);
+        } else {
+          throw new Error("Resuelve el aviso de duplicado antes de subir");
+        }
+      }
+
       // Upload original file to storage (path: <userId>/<uuid>.<ext>)
       const ext = item.file.name.toLowerCase().endsWith(".pdf") ? "pdf"
         : item.file.name.toLowerCase().endsWith(".txt") ? "txt"
@@ -585,12 +599,13 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         .from("documents")
         .insert({
           psychologist_id: userId,
-          title: item.title,
+          title: finalTitle,
           author: item.author || null,
           year: item.year || null,
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
+          source_url: item.file.name,
           import_source: 'upload',
         } as any)
         .select()
