@@ -710,6 +710,44 @@ export type Database = {
           },
         ]
       }
+      general_chat_memory: {
+        Row: {
+          created_at: string
+          id: string
+          key_facts: Json
+          memory_summary: string | null
+          preferences: Json
+          psychologist_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_facts?: Json
+          memory_summary?: string | null
+          preferences?: Json
+          psychologist_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_facts?: Json
+          memory_summary?: string | null
+          preferences?: Json
+          psychologist_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "general_chat_memory_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       general_conversations: {
         Row: {
           created_at: string
