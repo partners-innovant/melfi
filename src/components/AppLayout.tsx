@@ -312,5 +312,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
       </div>
     </TooltipProvider>
+    </SidebarStateContext.Provider>
   );
 }
