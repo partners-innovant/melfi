@@ -491,6 +491,8 @@ export default function AdminDocuments() {
       source_institution: d.source_institution,
       source_institution_type: d.source_institution_type,
       language: d.language,
+      storage_path: d.storage_path,
+      source_url: d.source_url,
     };
   }
 
