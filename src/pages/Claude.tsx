@@ -585,6 +585,7 @@ export default function Claude() {
               <div className="max-w-3xl mx-auto">
                 <div className="relative">
                   <Textarea
+                    ref={ongoingTaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -595,8 +596,11 @@ export default function Claude() {
                     }}
                     placeholder="Escribe tu mensaje..."
                     rows={2}
-                    className="resize-none pr-12"
+                    className="resize-none pr-12 pb-9"
                   />
+                  <div className="absolute bottom-2 left-3">
+                    <ImprovePromptButton value={input} onChange={setInput} textareaRef={ongoingTaRef} disabled={streaming} />
+                  </div>
                   <Button
                     size="icon"
                     className="absolute bottom-2 right-2 h-8 w-8"
