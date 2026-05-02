@@ -375,12 +375,12 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       mr.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           liveChunksRef.current.push(e.data);
-          // Process every chunk that arrives (timeslice = 30s)
+          // Process every chunk that arrives (timeslice = 10s)
           processChunk(e.data);
         }
       };
       mr.onerror = (ev) => { console.error("MediaRecorder error", ev); toast.error("Error de grabación"); };
-      mr.start(30000); // 30s timeslice
+      mr.start(10000); // 10s timeslice — more responsive real-time transcription
       liveRecorderRef.current = mr;
       liveStartRef.current = Date.now();
       livePausedAccumRef.current = 0;
