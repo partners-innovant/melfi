@@ -207,16 +207,28 @@ export default function Documents() {
             }}
           />
           <GoogleDriveImport isAdmin={isAdmin} onImported={load} />
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setUploadPrefill(null); }}>
             <DialogTrigger asChild>
               <Button className="gap-2"><Upload className="h-4 w-4" />Subir documentos</Button>
             </DialogTrigger>
-            <UploadDialog onClose={() => { setOpen(false); load(); }} isAdmin={isAdmin} />
+            <UploadDialog
+              onClose={() => { setOpen(false); setUploadPrefill(null); load(); }}
+              isAdmin={isAdmin}
+              prefill={uploadPrefill}
+            />
           </Dialog>
         </div>
       </header>
 
-      <PubMedSearchDialog open={pubmedOpen} onOpenChange={setPubmedOpen} onImported={load} />
+      <PubMedSearchDialog
+        open={pubmedOpen}
+        onOpenChange={setPubmedOpen}
+        onRequestUpload={(p) => {
+          setUploadPrefill(p);
+          setPubmedOpen(false);
+          setOpen(true);
+        }}
+      />
 
       {/* Filter bar */}
       <Card className="p-3 mb-4 flex flex-wrap items-center gap-2">
