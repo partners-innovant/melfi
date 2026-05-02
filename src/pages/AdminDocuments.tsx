@@ -251,6 +251,12 @@ export default function AdminDocuments() {
   // Filtering
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const tq = colTitleDebounced.trim().toLowerCase();
+    const aq = colAuthorDebounced.trim().toLowerCase();
+    const yFrom = colYearFrom ? parseInt(colYearFrom, 10) : null;
+    const yTo = colYearTo ? parseInt(colYearTo, 10) : null;
+    const dFrom = colDateFrom ? new Date(colDateFrom.getFullYear(), colDateFrom.getMonth(), colDateFrom.getDate()).getTime() : null;
+    const dTo = colDateTo ? new Date(colDateTo.getFullYear(), colDateTo.getMonth(), colDateTo.getDate(), 23, 59, 59, 999).getTime() : null;
     return rows.filter((d) => {
       if (q) {
         const hay = `${d.title} ${d.author ?? ""}`.toLowerCase();
@@ -262,9 +268,75 @@ export default function AdminDocuments() {
       if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
       if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
       if (noChunksSnapshot && !noChunksSnapshot.has(d.id)) return false;
+      // Column filters
+      if (tq && !d.title.toLowerCase().includes(tq)) return false;
+      if (aq && !(d.author ?? "").toLowerCase().includes(aq)) return false;
+      if (yFrom !== null) {
+        const y = d.year ? parseInt(d.year, 10) : NaN;
+        if (isNaN(y) || y < yFrom) return false;
+      }
+      if (yTo !== null) {
+        const y = d.year ? parseInt(d.year, 10) : NaN;
+        if (isNaN(y) || y > yTo) return false;
+      }
+      if (colType !== ANY && d.document_type !== colType) return false;
+      if (colAreas.length > 0 && !colAreas.some((a) => d.clinical_areas.includes(a))) return false;
+      if (colSourceCol !== ANY && (d.source_institution ?? "") !== colSourceCol) return false;
+      if (colLang !== ANY && (d.language ?? "") !== colLang) return false;
+      if (colChunks === "0" && d.chunk_count !== 0) return false;
+      if (colChunks === "1+" && d.chunk_count < 1) return false;
+      if (colOrigin !== ANY && (d.import_source ?? "upload") !== colOrigin) return false;
+      if (dFrom !== null && new Date(d.created_at).getTime() < dFrom) return false;
+      if (dTo !== null && new Date(d.created_at).getTime() > dTo) return false;
       return true;
     });
-  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksSnapshot]);
+  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksSnapshot,
+      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+
+  // Reset to page 1 when column filters change
+  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+
+  // Active column filter count + clear-all
+  const activeColFilterCount = useMemo(() => {
+    let n = 0;
+    if (colTitleDebounced) n++;
+    if (colAuthorDebounced) n++;
+    if (colYearFrom) n++;
+    if (colYearTo) n++;
+    if (colType !== ANY) n++;
+    if (colAreas.length > 0) n++;
+    if (colSourceCol !== ANY) n++;
+    if (colLang !== ANY) n++;
+    if (colChunks !== ANY) n++;
+    if (colOrigin !== ANY) n++;
+    if (colDateFrom) n++;
+    if (colDateTo) n++;
+    return n;
+  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+
+  function clearAllColFilters() {
+    setColTitle(""); setColAuthor("");
+    setColYearFrom(""); setColYearTo("");
+    setColType(ANY); setColAreas([]);
+    setColSourceCol(ANY); setColLang(ANY);
+    setColChunks(ANY); setColOrigin(ANY);
+    setColDateFrom(undefined); setColDateTo(undefined);
+  }
+
+  // Distinct institutions present in rows (for Fuente column dropdown)
+  const distinctInstitutions = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) if (r.source_institution) s.add(r.source_institution);
+    return Array.from(s).sort();
+  }, [rows]);
+
+  // Distinct origins
+  const distinctOrigins = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) s.add(r.import_source ?? "upload");
+    return Array.from(s).sort();
+  }, [rows]);
+
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
