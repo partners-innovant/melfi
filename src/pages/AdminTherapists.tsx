@@ -581,6 +581,22 @@ export default function AdminTherapists() {
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                title="Transferir paciente"
+                                onClick={() => setTransferTarget(t)}
+                              >
+                                <UserPlus className="h-4 w-4 text-primary" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title="Ver historial de transferencias"
+                                onClick={() => openHistory(t)}
+                              >
+                                <History className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 title={t.is_active ? "Desactivar" : "Activar"}
                                 onClick={() => toggleActive(t)}
                               >
