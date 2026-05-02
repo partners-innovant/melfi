@@ -9,9 +9,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2, Globe2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2, Globe2, AlertTriangle } from "lucide-react";
 import { DialogDescription } from "@/components/ui/dialog";
 import { chunkText } from "@/lib/pdf";
+import { findDuplicateByTitle, deleteDocumentAndChunks, nextAvailableTitle, formatDate, type DuplicateDoc } from "@/lib/duplicates";
 import * as pdfjs from "pdfjs-dist";
 // @ts-ignore
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
