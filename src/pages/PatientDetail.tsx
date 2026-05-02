@@ -15,6 +15,7 @@ import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
 import { PatientProfileBuilderTab, PatientDocumentsTab } from "@/components/PatientExtraTabs";
+import PatientProfileBuilderPanel from "@/components/PatientProfileBuilderPanel";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 
 export default function PatientDetail() {
