@@ -297,33 +297,48 @@ export type Database = {
       document_chunks: {
         Row: {
           chunk_index: number
+          clinical_areas: string[]
           content: string
           created_at: string
           document_id: string
+          document_type: string | null
           embedding: string | null
           id: string
+          is_global: boolean
           page_number: number | null
           psychologist_id: string
+          source_institution: string | null
+          source_institution_type: string | null
         }
         Insert: {
           chunk_index: number
+          clinical_areas?: string[]
           content: string
           created_at?: string
           document_id: string
+          document_type?: string | null
           embedding?: string | null
           id?: string
+          is_global?: boolean
           page_number?: number | null
           psychologist_id: string
+          source_institution?: string | null
+          source_institution_type?: string | null
         }
         Update: {
           chunk_index?: number
+          clinical_areas?: string[]
           content?: string
           created_at?: string
           document_id?: string
+          document_type?: string | null
           embedding?: string | null
           id?: string
+          is_global?: boolean
           page_number?: number | null
           psychologist_id?: string
+          source_institution?: string | null
+          source_institution_type?: string | null
         }
         Relationships: [
           {
@@ -338,12 +353,15 @@ export type Database = {
       documents: {
         Row: {
           author: string | null
+          clinical_areas: string[]
           created_at: string
           document_type: string
           id: string
           import_source: string | null
           is_global: boolean
           psychologist_id: string
+          source_institution: string | null
+          source_institution_type: string | null
           source_url: string | null
           storage_path: string | null
           title: string
@@ -351,12 +369,15 @@ export type Database = {
         }
         Insert: {
           author?: string | null
+          clinical_areas?: string[]
           created_at?: string
           document_type: string
           id?: string
           import_source?: string | null
           is_global?: boolean
           psychologist_id: string
+          source_institution?: string | null
+          source_institution_type?: string | null
           source_url?: string | null
           storage_path?: string | null
           title: string
@@ -364,12 +385,15 @@ export type Database = {
         }
         Update: {
           author?: string | null
+          clinical_areas?: string[]
           created_at?: string
           document_type?: string
           id?: string
           import_source?: string | null
           is_global?: boolean
           psychologist_id?: string
+          source_institution?: string | null
+          source_institution_type?: string | null
           source_url?: string | null
           storage_path?: string | null
           title?: string
@@ -990,17 +1014,23 @@ export type Database = {
       match_chunks: {
         Args: {
           match_count?: number
+          p_clinical_area?: string
           p_document_type?: string
           p_psychologist_id?: string
+          p_source_institution?: string
           query_embedding: string
         }
         Returns: {
           chunk_index: number
+          clinical_areas: string[]
           content: string
           document_id: string
+          document_type: string
           id: string
+          is_global: boolean
           page_number: number
           similarity: number
+          source_institution: string
         }[]
       }
     }
