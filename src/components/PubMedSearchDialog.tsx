@@ -408,7 +408,7 @@ function ArticleCard({
             ) : (
               <>
                 <Plus className="h-3 w-3" />
-                Importar abstract
+                {canImportPdf ? "Importar PDF" : "Importar abstract"}
               </>
             )}
           </Button>
