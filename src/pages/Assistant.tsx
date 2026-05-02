@@ -133,6 +133,33 @@ export default function Assistant() {
     })();
   }, [patientKind]);
 
+  // Load distinct source institutions present in the library
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("documents")
+        .select("source_institution")
+        .not("source_institution", "is", null);
+      const uniq = Array.from(
+        new Set(((data as any[]) ?? []).map((r) => r.source_institution).filter(Boolean) as string[]),
+      ).sort();
+      setAvailableSources(uniq);
+      setSelectedSources(uniq);
+      setSourcesInitialized(true);
+    })();
+  }, []);
+
+  function resetFilters() {
+    setYearFrom(null);
+    setSelectedAreas(ALL_AREAS);
+    setSelectedSources(availableSources);
+  }
+
+  const yearFromActive = yearFrom !== null;
+  const areasActive = selectedAreas.length !== ALL_AREAS.length;
+  const sourcesActive = sourcesInitialized && selectedSources.length !== availableSources.length;
+  const anyFilterActive = yearFromActive || areasActive || sourcesActive;
+
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
       .from("consultations")
