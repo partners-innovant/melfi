@@ -192,6 +192,11 @@ export default function PatientDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PatientProfileBuilderPanel
+        patientId={patient.id}
+        onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
+      />
     </div>
   );
 }
