@@ -1270,3 +1270,30 @@ function SummarySection({
     </div>
   );
 }
+
+function SummaryBlockCard({ block, defaultOpen }: { block: SummaryBlock; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const label = `Transcripción ${new Date(block.t).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}`;
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <div className="border rounded-md bg-card">
+        <CollapsibleTrigger asChild>
+          <button type="button" className="w-full px-3 py-2 flex items-center justify-between gap-2 text-sm font-semibold hover:bg-muted/50">
+            <span className="flex items-center gap-1.5">
+              {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              {defaultOpen ? `📌 ${label}` : `Ver resumen anterior — ${label}`}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-normal">{block.bullets.length} bullets</span>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1">
+            {block.bullets.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
