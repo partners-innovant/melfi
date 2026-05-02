@@ -498,7 +498,20 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         therapist_text_complement: textComplement || null,
       }).eq("id", sessionId);
       if (error) throw error;
+      // Stop any active recording and wipe audio from memory
+      await stopLiveRecording();
+      liveChunksRef.current = [];
+      // Remove any temporarily uploaded session audio (we keep only the transcript)
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (u.user) {
+          const candidates = ["webm", "mp3", "wav", "m4a", "ogg", "mp4"].map((ext) => `${u.user!.id}/${sessionId}.${ext}`);
+          await supabase.storage.from("session-audio").remove(candidates).catch(() => {});
+        }
+        await supabase.from("sessions").update({ therapist_audio_path: null }).eq("id", sessionId);
+      } catch { /* ignore */ }
       toast.success("✅ Sesión guardada correctamente");
+      toast("🗑️ Audio eliminado — solo se conserva la transcripción");
       onSessionSaved?.();
       // Reset
       resetAll();
