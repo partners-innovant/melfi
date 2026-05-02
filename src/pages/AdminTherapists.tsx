@@ -33,8 +33,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Plus, Power, Search, Trash2, Upload, X, Save } from "lucide-react";
+import { Pencil, Plus, Power, Search, Trash2, Upload, X, Save, UserPlus, History } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import TransferPatientDialog from "@/components/TransferPatientDialog";
+import TransferHistoryPanel from "@/components/TransferHistoryPanel";
 
 type Therapist = {
   id: string;
