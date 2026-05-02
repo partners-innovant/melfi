@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
     const baseUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 
     if (action === "push_session") {
-      const { sessionId } = body;
+      const { sessionId, location, notes: extraNotes } = body;
       const { data: sess, error } = await admin.from("sessions").select("*").eq("id", sessionId).eq("psychologist_id", userId).maybeSingle();
       if (error || !sess) {
         return new Response(JSON.stringify({ error: "session_not_found" }), {
@@ -173,7 +173,10 @@ Deno.serve(async (req) => {
         if (c) patientName = `${c.first_name} ${c.last_name}`;
       }
 
-      const eventBody = buildEventBody(sess, patientName);
+      const eventBody = buildEventBody(
+        { ...sess, location, pre_session_notes: extraNotes ?? sess.pre_session_notes },
+        patientName,
+      );
       const isUpdate = !!sess.google_event_id;
       const url = isUpdate ? `${baseUrl}/${encodeURIComponent(sess.google_event_id)}` : baseUrl;
       const res = await fetch(url, {
@@ -183,8 +186,15 @@ Deno.serve(async (req) => {
       });
       const j = await res.json();
       if (!res.ok) {
-        return new Response(JSON.stringify({ error: "google_api", detail: j }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        const reason = j?.error?.message || j?.error_description || `http_${res.status}`;
+        const isAuth = res.status === 401;
+        return new Response(JSON.stringify({
+          error: isAuth ? "token_expired" : "google_api",
+          status: res.status,
+          reason: String(reason),
+          detail: j,
+        }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (!isUpdate && j.id) {
