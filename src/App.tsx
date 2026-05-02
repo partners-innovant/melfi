@@ -19,6 +19,7 @@ import Assistant from "./pages/Assistant";
 import Calendar from "./pages/Calendar";
 import FeedbackPage from "./pages/Feedback";
 import Profile from "./pages/Profile";
+import Claude from "./pages/Claude";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/calendar" element={<Shell><Calendar /></Shell>} />
             <Route path="/feedback" element={<Shell><FeedbackPage /></Shell>} />
             <Route path="/profile" element={<Shell><Profile /></Shell>} />
+            <Route path="/claude" element={<Shell><Claude /></Shell>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
