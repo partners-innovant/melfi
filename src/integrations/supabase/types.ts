@@ -1430,6 +1430,7 @@ export type Database = {
           google_event_id: string | null
           id: string
           interventions_used: string | null
+          live_transcript: Json
           next_session_plan: string | null
           patient_id: string | null
           patient_interventions: Json
@@ -1462,6 +1463,7 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           interventions_used?: string | null
+          live_transcript?: Json
           next_session_plan?: string | null
           patient_id?: string | null
           patient_interventions?: Json
@@ -1494,6 +1496,7 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           interventions_used?: string | null
+          live_transcript?: Json
           next_session_plan?: string | null
           patient_id?: string | null
           patient_interventions?: Json

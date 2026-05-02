@@ -6,14 +6,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Square, Send, Sparkles, Loader2, Mic, StopCircle, Check, MessageCircle,
-  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2,
+  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2, Pause, Play, Circle, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EMOTIONAL_STATES } from "@/components/SessionsTab";
 import ReactMarkdown from "react-markdown";
+
+type TranscriptSegment = { speaker: "Terapeuta" | "Paciente" | "Hablante" | string; text: string; t: number };
+type RecState = "idle" | "recording" | "paused";
 
 type Entry = { t: number; text: string };
 type Suggestions = {
@@ -75,6 +80,33 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [nextPlanDraft, setNextPlanDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // ===== Live session recording =====
+  const [recState, setRecState] = useState<RecState>("idle");
+  const [recElapsed, setRecElapsed] = useState(0); // ms
+  const [showRecDisclaimer, setShowRecDisclaimer] = useState(false);
+  const [suppressRecDisclaimer, setSuppressRecDisclaimer] = useState(false);
+  const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcriptEditable, setTranscriptEditable] = useState(false);
+  const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
+
+  const liveRecorderRef = useRef<MediaRecorder | null>(null);
+  const liveStreamRef = useRef<MediaStream | null>(null);
+  const liveChunksRef = useRef<Blob[]>([]);
+  const liveMimeRef = useRef<string>("audio/webm");
+  const liveTimerRef = useRef<number | null>(null);
+  const liveStartRef = useRef<number>(0);
+  const livePausedAccumRef = useRef<number>(0);
+  const livePauseStartRef = useRef<number>(0);
+  const transcriptRef = useRef<TranscriptSegment[]>([]);
+  const suggestionsRef = useRef<Suggestions>({ questions: [], patterns: [], interventions: [], unexplored: [] });
+  const checkedSuggestionsRef = useRef<Set<string>>(new Set());
+  const sessionIdRef = useRef<string | null>(null);
+
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+  useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
 
   // Init session row when overlay opens
   useEffect(() => {
@@ -223,6 +255,184 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     setAudioUrl(null);
   }
 
+  // ===== Live recording during session =====
+  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => {
+      const s = String(r.result ?? "");
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+
+  function pickMimeType(): string {
+    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+    if (typeof MediaRecorder === "undefined") return "audio/webm";
+    for (const c of candidates) {
+      try { if ((MediaRecorder as any).isTypeSupported?.(c)) return c; } catch { /* ignore */ }
+    }
+    return "";
+  }
+
+  async function processChunk(blob: Blob) {
+    if (!blob || blob.size < 2000) return; // skip tiny chunks
+    setTranscribing(true);
+    try {
+      const audio = await blobToBase64(blob);
+      const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
+      const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
+      const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
+        body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
+      });
+      if (error) throw error;
+      const segs: any[] = (data as any)?.segments ?? [];
+      if (!segs.length) return;
+      const now = Date.now();
+      const enriched: TranscriptSegment[] = segs
+        .filter((s) => s && typeof s.text === "string" && s.text.trim())
+        .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
+      if (!enriched.length) return;
+      const next = [...transcriptRef.current, ...enriched];
+      transcriptRef.current = next;
+      setTranscript(next);
+      // Persist
+      const sid = sessionIdRef.current;
+      if (sid) {
+        supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
+      }
+      // Suggestion-detection
+      checkSuggestionsUsed(enriched.map((e) => `${e.speaker}: ${e.text}`).join("\n"));
+    } catch (e: any) {
+      console.error("transcribe chunk failed", e);
+      // Soft-fail: do not interrupt the session
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  async function checkSuggestionsUsed(transcription: string) {
+    const all: { kind: "question" | "intervention"; text: string }[] = [
+      ...suggestionsRef.current.questions.map((t) => ({ kind: "question" as const, text: t })),
+      ...suggestionsRef.current.interventions.map((t) => ({ kind: "intervention" as const, text: t })),
+    ];
+    for (const sug of all) {
+      const key = sug.text.toLowerCase().trim();
+      if (checkedSuggestionsRef.current.has(key)) continue;
+      checkedSuggestionsRef.current.add(key);
+      try {
+        const { data, error } = await supabase.functions.invoke("check-suggestion-used", {
+          body: { transcription, suggestion: sug.text },
+        });
+        if (error) continue;
+        const used = !!(data as any)?.used;
+        const conf = Number((data as any)?.confidence ?? 0);
+        if (used && conf >= 0.75) {
+          markUsed(sug.kind, sug.text);
+          toast.success(`✓ Detectado: "${sug.text.slice(0, 50)}${sug.text.length > 50 ? "…" : ""}"`);
+        } else {
+          // Allow re-checking later if not detected this time
+          checkedSuggestionsRef.current.delete(key);
+        }
+      } catch {
+        checkedSuggestionsRef.current.delete(key);
+      }
+    }
+  }
+
+  function startLiveTimer() {
+    if (liveTimerRef.current) window.clearInterval(liveTimerRef.current);
+    liveTimerRef.current = window.setInterval(() => {
+      const paused = livePausedAccumRef.current;
+      setRecElapsed(Date.now() - liveStartRef.current - paused);
+    }, 500);
+  }
+  function stopLiveTimer() {
+    if (liveTimerRef.current) { window.clearInterval(liveTimerRef.current); liveTimerRef.current = null; }
+  }
+
+  async function actuallyStartLiveRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      liveStreamRef.current = stream;
+      const mime = pickMimeType();
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      liveMimeRef.current = mr.mimeType || mime || "audio/webm";
+      liveChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          liveChunksRef.current.push(e.data);
+          // Process every chunk that arrives (timeslice = 30s)
+          processChunk(e.data);
+        }
+      };
+      mr.onerror = (ev) => { console.error("MediaRecorder error", ev); toast.error("Error de grabación"); };
+      mr.start(30000); // 30s timeslice
+      liveRecorderRef.current = mr;
+      liveStartRef.current = Date.now();
+      livePausedAccumRef.current = 0;
+      setRecElapsed(0);
+      setRecState("recording");
+      startLiveTimer();
+      setActiveTab("transcript");
+      toast.success("🔴 Grabación iniciada");
+    } catch (e: any) {
+      toast.error("No se pudo acceder al micrófono: " + (e?.message ?? ""));
+    }
+  }
+
+  function requestStartLiveRecording() {
+    if (suppressRecDisclaimer) { actuallyStartLiveRecording(); return; }
+    setShowRecDisclaimer(true);
+  }
+
+  function pauseLiveRecording() {
+    const mr = liveRecorderRef.current;
+    if (!mr || mr.state !== "recording") return;
+    try { mr.pause(); } catch { /* ignore */ }
+    livePauseStartRef.current = Date.now();
+    stopLiveTimer();
+    setRecState("paused");
+  }
+  function resumeLiveRecording() {
+    const mr = liveRecorderRef.current;
+    if (!mr || mr.state !== "paused") return;
+    try { mr.resume(); } catch { /* ignore */ }
+    livePausedAccumRef.current += Date.now() - livePauseStartRef.current;
+    startLiveTimer();
+    setRecState("recording");
+  }
+  async function stopLiveRecording() {
+    const mr = liveRecorderRef.current;
+    stopLiveTimer();
+    if (mr && mr.state !== "inactive") {
+      try {
+        await new Promise<void>((resolve) => {
+          mr.addEventListener("stop", () => resolve(), { once: true });
+          try { mr.stop(); } catch { resolve(); }
+        });
+      } catch { /* ignore */ }
+    }
+    liveStreamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+    liveStreamRef.current = null;
+    liveRecorderRef.current = null;
+    // Clear audio chunks from memory
+    liveChunksRef.current = [];
+    setRecState("idle");
+  }
+
+  // Cleanup on unmount / close
+  useEffect(() => {
+    return () => {
+      stopLiveTimer();
+      const mr = liveRecorderRef.current;
+      if (mr && mr.state !== "inactive") { try { mr.stop(); } catch { /* ignore */ } }
+      liveStreamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch { /* ignore */ } });
+      liveChunksRef.current = [];
+    };
+  }, []);
+
   function openEndFlow() {
     setEndStep(1);
     setEndOpen(true);
@@ -288,7 +498,20 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         therapist_text_complement: textComplement || null,
       }).eq("id", sessionId);
       if (error) throw error;
+      // Stop any active recording and wipe audio from memory
+      await stopLiveRecording();
+      liveChunksRef.current = [];
+      // Remove any temporarily uploaded session audio (we keep only the transcript)
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (u.user) {
+          const candidates = ["webm", "mp3", "wav", "m4a", "ogg", "mp4"].map((ext) => `${u.user!.id}/${sessionId}.${ext}`);
+          await supabase.storage.from("session-audio").remove(candidates).catch(() => {});
+        }
+        await supabase.from("sessions").update({ therapist_audio_path: null }).eq("id", sessionId);
+      } catch { /* ignore */ }
       toast.success("✅ Sesión guardada correctamente");
+      toast("🗑️ Audio eliminado — solo se conserva la transcripción");
       onSessionSaved?.();
       // Reset
       resetAll();
@@ -311,6 +534,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     clearAudio();
     setSummaryDraft(""); setFeedbackDraft(""); setNextPlanDraft("");
     setEndStep(1); setEditing(false);
+    setTranscript([]); transcriptRef.current = [];
+    checkedSuggestionsRef.current = new Set();
+    setRecState("idle"); setRecElapsed(0);
+    setSuppressRecDisclaimer(false);
+    setActiveTab("suggestions"); setTranscriptEditable(false);
   }
 
   const elapsedMs = startedAt ? now - startedAt : 0;
@@ -331,23 +559,79 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       style={{ width: "100vw", height: "100vh" }}
     >
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b bg-card">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold">
-            {patientName.split(" ").map(n => n[0]).slice(0, 2).join("")}
-          </div>
-          <div>
-            <div className="font-semibold">{patientName}</div>
-            <div className="text-xs text-muted-foreground">
-              Sesión #{sessionNumber ?? "—"} · {new Date().toLocaleDateString("es-CL")}
+      <div className="px-6 py-3 border-b bg-card space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold">
+              {patientName.split(" ").map(n => n[0]).slice(0, 2).join("")}
+            </div>
+            <div>
+              <div className="font-semibold">{patientName}</div>
+              <div className="text-xs text-muted-foreground">
+                Sesión #{sessionNumber ?? "—"} · {new Date().toLocaleDateString("es-CL")}
+              </div>
             </div>
           </div>
+          <div className="flex items-center gap-4">
+            {recState !== "idle" && (
+              <div className="flex items-center gap-1.5 text-xs font-semibold">
+                <span className={`h-2.5 w-2.5 rounded-full bg-red-500 ${recState === "recording" ? "animate-pulse" : ""}`} />
+                <span className={recState === "recording" ? "text-red-600" : "text-amber-600"}>
+                  {recState === "recording" ? `REC ${fmtTime(recElapsed)}` : `EN PAUSA ${fmtTime(recElapsed)}`}
+                </span>
+              </div>
+            )}
+            <div className="font-mono text-2xl tabular-nums">{fmtTime(elapsedMs)}</div>
+            <Button variant="destructive" onClick={openEndFlow} className="gap-2">
+              <Square className="h-4 w-4" /> Finalizar sesión
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="font-mono text-2xl tabular-nums">{fmtTime(elapsedMs)}</div>
-          <Button variant="destructive" onClick={openEndFlow} className="gap-2">
-            <Square className="h-4 w-4" /> Finalizar sesión
-          </Button>
+        {/* Recording control bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {recState === "idle" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={requestStartLiveRecording}
+              disabled={!sessionId}
+              className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-500/10 hover:text-red-700"
+            >
+              <Circle className="h-3.5 w-3.5 fill-red-500 text-red-500" /> Grabar sesión
+            </Button>
+          )}
+          {recState === "recording" && (
+            <>
+              <Badge variant="destructive" className="gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                GRABANDO {fmtTime(recElapsed)}
+              </Badge>
+              <Button size="sm" variant="outline" onClick={pauseLiveRecording} className="gap-1.5">
+                <Pause className="h-3.5 w-3.5" /> Pausar
+              </Button>
+              <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
+                <Square className="h-3.5 w-3.5" /> Detener
+              </Button>
+            </>
+          )}
+          {recState === "paused" && (
+            <>
+              <Badge variant="outline" className="gap-1.5 border-amber-500 text-amber-600">
+                ⏸ EN PAUSA {fmtTime(recElapsed)}
+              </Badge>
+              <Button size="sm" variant="outline" onClick={resumeLiveRecording} className="gap-1.5 border-red-500/60 text-red-600 hover:bg-red-500/10">
+                <Play className="h-3.5 w-3.5" /> Reanudar
+              </Button>
+              <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
+                <Square className="h-3.5 w-3.5" /> Detener
+              </Button>
+            </>
+          )}
+          {transcribing && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
+            </span>
+          )}
         </div>
       </div>
 
@@ -430,64 +714,162 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
 
         {/* Right 45% */}
         <div className="basis-[45%] flex flex-col min-h-0 bg-muted/20">
-          <div className="px-4 py-3 border-b flex items-center justify-between">
-            <div className="font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> Apoyo clínico en tiempo real
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
+            <div className="px-4 py-2 border-b flex items-center justify-between gap-2">
+              <TabsList>
+                <TabsTrigger value="suggestions" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> Apoyo clínico
+                </TabsTrigger>
+                <TabsTrigger value="transcript" className="gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Transcripción
+                  {transcript.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{transcript.length}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              {activeTab === "suggestions" ? (
+                <Button size="sm" onClick={requestSuggestions} disabled={loadingSuggestions || !sessionId} className="gap-2">
+                  {loadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Pedir sugerencias
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setTranscriptEditable((v) => !v)}
+                  disabled={transcript.length === 0}
+                  className="gap-1.5"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  {transcriptEditable ? "Listo" : "Editar"}
+                </Button>
+              )}
             </div>
-            <Button size="sm" onClick={requestSuggestions} disabled={loadingSuggestions || !sessionId} className="gap-2">
-              {loadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Pedir sugerencias
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {loadingSuggestions && (
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Claude analizando...
-              </div>
-            )}
 
-            <SuggestionGroup
-              icon={<MessageCircle className="h-4 w-4" />}
-              title="Preguntas sugeridas"
-              tone="blue"
-              items={suggestions.questions}
-              onUse={(t) => markUsed("question", t)}
-            />
-            <SuggestionGroup
-              icon={<Eye className="h-4 w-4" />}
-              title="Patrones observados"
-              tone="purple"
-              items={suggestions.patterns}
-              onUse={(t) => markUsed("pattern", t)}
-            />
-            <SuggestionGroup
-              icon={<Lightbulb className="h-4 w-4" />}
-              title="Intervenciones"
-              tone="teal"
-              items={suggestions.interventions}
-              onUse={(t) => markUsed("intervention", t)}
-            />
-            <SuggestionGroup
-              icon={<AlertTriangle className="h-4 w-4" />}
-              title="No explorado"
-              tone="amber"
-              items={suggestions.unexplored}
-              onUse={(t) => markUsed("unexplored", t)}
-            />
+            <TabsContent value="suggestions" className="flex-1 min-h-0 mt-0">
+              <div className="h-full overflow-y-auto p-4 space-y-4">
+                {loadingSuggestions && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Claude analizando...
+                  </div>
+                )}
 
-            {usedSuggestions.length > 0 && (
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1.5 mt-4">
-                  Sugerencias usadas ({usedSuggestions.length})
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {usedSuggestions.map((u, i) => (
-                    <Badge key={i} variant="secondary" className="text-[11px]">✓ {u.text}</Badge>
-                  ))}
-                </div>
+                <SuggestionGroup
+                  icon={<MessageCircle className="h-4 w-4" />}
+                  title="Preguntas sugeridas"
+                  tone="blue"
+                  items={suggestions.questions}
+                  onUse={(t) => markUsed("question", t)}
+                />
+                <SuggestionGroup
+                  icon={<Eye className="h-4 w-4" />}
+                  title="Patrones observados"
+                  tone="purple"
+                  items={suggestions.patterns}
+                  onUse={(t) => markUsed("pattern", t)}
+                />
+                <SuggestionGroup
+                  icon={<Lightbulb className="h-4 w-4" />}
+                  title="Intervenciones"
+                  tone="teal"
+                  items={suggestions.interventions}
+                  onUse={(t) => markUsed("intervention", t)}
+                />
+                <SuggestionGroup
+                  icon={<AlertTriangle className="h-4 w-4" />}
+                  title="No explorado"
+                  tone="amber"
+                  items={suggestions.unexplored}
+                  onUse={(t) => markUsed("unexplored", t)}
+                />
+
+                {usedSuggestions.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1.5 mt-4">
+                      Sugerencias usadas ({usedSuggestions.length})
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {usedSuggestions.map((u, i) => (
+                        <Badge key={i} variant="secondary" className="text-[11px]">✓ {u.text}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+
+            <TabsContent value="transcript" className="flex-1 min-h-0 mt-0">
+              <div className="h-full overflow-y-auto p-4 space-y-2">
+                {transcript.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
+                    {recState === "idle"
+                      ? 'La transcripción aparecerá aquí. Pulsa "🔴 Grabar sesión" para empezar.'
+                      : "Escuchando… los segmentos aparecerán cada ~30 segundos."}
+                  </div>
+                ) : (
+                  transcript.map((seg, i) => {
+                    const isPatient = seg.speaker === "Paciente";
+                    const isTher = seg.speaker === "Terapeuta";
+                    const tone = isPatient
+                      ? "border-l-blue-400 bg-blue-500/5"
+                      : isTher
+                      ? "border-l-teal-400 bg-teal-500/5"
+                      : "border-l-amber-400 bg-amber-500/5";
+                    return (
+                      <div key={i} className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${tone}`}>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5 flex items-center justify-between">
+                          <span>
+                            {isPatient ? "Paciente" : isTher ? "Terapeuta" : "⚠️ Sin identificar"} [{clockFromTimestamp(seg.t)}]
+                          </span>
+                          {transcriptEditable && (
+                            <select
+                              value={seg.speaker}
+                              onChange={(e) => {
+                                const next = [...transcript];
+                                next[i] = { ...seg, speaker: e.target.value };
+                                setTranscript(next);
+                                if (sessionIdRef.current) {
+                                  supabase.from("sessions").update({ live_transcript: next }).eq("id", sessionIdRef.current);
+                                }
+                              }}
+                              className="text-[10px] bg-background border rounded px-1"
+                            >
+                              <option value="Paciente">Paciente</option>
+                              <option value="Terapeuta">Terapeuta</option>
+                              <option value="Hablante">Hablante</option>
+                            </select>
+                          )}
+                        </div>
+                        {transcriptEditable ? (
+                          <Textarea
+                            value={seg.text}
+                            onChange={(e) => {
+                              const next = [...transcript];
+                              next[i] = { ...seg, text: e.target.value };
+                              setTranscript(next);
+                            }}
+                            onBlur={() => {
+                              if (sessionIdRef.current) {
+                                supabase.from("sessions").update({ live_transcript: transcript }).eq("id", sessionIdRef.current);
+                              }
+                            }}
+                            className="min-h-[60px] text-sm"
+                          />
+                        ) : (
+                          <div className="whitespace-pre-wrap">{seg.text}</div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                {transcribing && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1.5 p-2">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Transcribiendo siguiente fragmento…
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
@@ -584,6 +966,54 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Recording disclaimer modal */}
+      <Dialog open={showRecDisclaimer} onOpenChange={setShowRecDisclaimer}>
+        <DialogContent
+          className="max-w-lg max-h-[90vh] overflow-y-auto z-[10001]"
+          style={{ zIndex: 10001 }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" /> Aviso de grabación
+            </DialogTitle>
+            <DialogDescription>
+              Antes de grabar esta sesión, asegúrate de que:
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="text-sm space-y-2 list-disc pl-5">
+            <li>El paciente ha sido informado y ha dado su consentimiento para la grabación.</li>
+            <li>El audio será procesado por inteligencia artificial para generar una transcripción automática.</li>
+            <li>La transcripción se usará para completar los apuntes de esta sesión.</li>
+            <li>El audio original será eliminado permanentemente una vez que confirmes el resumen post-sesión.</li>
+            <li>La transcripción quedará almacenada como parte del registro clínico de esta sesión.</li>
+          </ul>
+          <p className="text-sm text-muted-foreground">
+            Al continuar, confirmas que cuentas con el consentimiento del paciente.
+          </p>
+          <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <Checkbox
+              checked={suppressRecDisclaimer}
+              onCheckedChange={(v) => setSuppressRecDisclaimer(!!v)}
+            />
+            No mostrar de nuevo en esta sesión
+          </label>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRecDisclaimer(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => { setShowRecDisclaimer(false); actuallyStartLiveRecording(); }}
+              className="gap-2"
+            >
+              <Circle className="h-4 w-4 fill-white" />
+              El paciente ha dado su consentimiento — Comenzar grabación
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

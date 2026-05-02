@@ -110,6 +110,11 @@ Notas: ${patient.notes ?? "(sin notas)"}
       ? used.map((s: any) => `- (${s.kind ?? "?"}) ${s.text ?? s}`).join("\n")
       : "(ninguna)";
 
+    const liveTranscript = (session.live_transcript ?? []) as any[];
+    const transcriptBlock = liveTranscript.length
+      ? liveTranscript.map((s: any) => `${s.speaker ?? "?"}: ${s.text ?? ""}`).join("\n")
+      : "(sin transcripción de audio)";
+
     const complement = [
       session.therapist_text_complement ? `Texto complementario:\n${session.therapist_text_complement}` : null,
       audio_transcript ? `Transcripción de audio del terapeuta:\n${audio_transcript}` : null,
@@ -130,6 +135,9 @@ ${usedBlock}
 
 Complemento del terapeuta:
 ${complement}
+
+Transcripción completa de la sesión (audio auto-transcrito):
+${transcriptBlock}
 
 Genera el resumen, feedback y plan según las tres secciones requeridas.`;
 
