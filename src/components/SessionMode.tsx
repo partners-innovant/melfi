@@ -81,6 +81,33 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // ===== Live session recording =====
+  const [recState, setRecState] = useState<RecState>("idle");
+  const [recElapsed, setRecElapsed] = useState(0); // ms
+  const [showRecDisclaimer, setShowRecDisclaimer] = useState(false);
+  const [suppressRecDisclaimer, setSuppressRecDisclaimer] = useState(false);
+  const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcriptEditable, setTranscriptEditable] = useState(false);
+  const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
+
+  const liveRecorderRef = useRef<MediaRecorder | null>(null);
+  const liveStreamRef = useRef<MediaStream | null>(null);
+  const liveChunksRef = useRef<Blob[]>([]);
+  const liveMimeRef = useRef<string>("audio/webm");
+  const liveTimerRef = useRef<number | null>(null);
+  const liveStartRef = useRef<number>(0);
+  const livePausedAccumRef = useRef<number>(0);
+  const livePauseStartRef = useRef<number>(0);
+  const transcriptRef = useRef<TranscriptSegment[]>([]);
+  const suggestionsRef = useRef<Suggestions>({ questions: [], patterns: [], interventions: [], unexplored: [] });
+  const checkedSuggestionsRef = useRef<Set<string>>(new Set());
+  const sessionIdRef = useRef<string | null>(null);
+
+  useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+  useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
   // Init session row when overlay opens
   useEffect(() => {
     if (!open) return;
