@@ -276,9 +276,9 @@ export function PubMedPanel({
         )}
         {results?.map((a) => (
           <ArticleCard
-            key={a.pubmed_id}
+            key={a.europepmc_id || a.pubmed_id || a.pmc_id || a.title}
             article={a}
-            inLibrary={existingPubmedIds.has(a.pubmed_id)}
+            inLibrary={isInLibrary(a)}
             isAdmin={isAdmin}
             onImported={(t) => handleAfterImport(a, t)}
           />
