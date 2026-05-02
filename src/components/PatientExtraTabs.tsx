@@ -200,6 +200,111 @@ export function PatientProfileBuilderTab({
     });
   }
 
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result as string;
+        const idx = r.indexOf(",");
+        resolve(idx >= 0 ? r.slice(idx + 1) : r);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function detectKind(file: File): "text" | "image" | "audio" | null {
+    const t = file.type.toLowerCase();
+    const ext = file.name.toLowerCase().split(".").pop() ?? "";
+    if (t.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) return "image";
+    if (t.startsWith("audio/") || ["mp3", "m4a", "ogg", "wav", "webm", "mp4"].includes(ext)) return "audio";
+    if (
+      t === "application/pdf" || ext === "pdf" ||
+      t.includes("wordprocessingml") || ext === "docx" ||
+      t.startsWith("text/") || ext === "txt"
+    ) return "text";
+    return null;
+  }
+
+  async function analyzeFile(file: File) {
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("El archivo supera 25MB");
+      return;
+    }
+    const kind = detectKind(file);
+    if (!kind) {
+      toast.error("Tipo de archivo no soportado");
+      return;
+    }
+    setAnalyzingFile(true);
+    setPendingFile(null);
+
+    // Optimistic chat bubbles
+    const placeholder = `📎 Analizando ${file.name}...`;
+    const userTag =
+      kind === "image" ? "📎 Imagen subida"
+      : kind === "audio" ? "📎 Audio subido"
+      : "📎 Documento subido";
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: `${userTag}: ${file.name}` },
+      { role: "assistant", content: placeholder },
+    ]);
+
+    try {
+      const ext = file.name.toLowerCase().split(".").pop() ?? "";
+      let payload: any = {
+        patient_id: patientId,
+        filename: file.name,
+        mime_type: file.type || "application/octet-stream",
+        kind,
+      };
+
+      if (kind === "text") {
+        let text = "";
+        if (ext === "pdf" || file.type === "application/pdf") {
+          text = await extractPdfText(file);
+        } else if (ext === "docx" || file.type.includes("wordprocessingml")) {
+          toast.error("DOCX aún no soportado en navegador. Convierte a PDF o TXT.");
+          setMessages((m) => m.slice(0, -2));
+          setAnalyzingFile(false);
+          return;
+        } else {
+          text = await extractTxtText(file);
+        }
+        if (!text.trim()) {
+          toast.error("No se pudo extraer texto del documento");
+          setMessages((m) => m.slice(0, -2));
+          setAnalyzingFile(false);
+          return;
+        }
+        payload.text_content = text.slice(0, 60000);
+      } else {
+        payload.base64_content = await fileToBase64(file);
+      }
+
+      const { data, error } = await supabase.functions.invoke("analyze-patient-file", { body: payload });
+      if (error) throw error;
+      const analysis: string = data?.assistant_message ?? data?.analysis ?? "";
+      setMessages((m) => {
+        const copy = [...m];
+        copy[copy.length - 1] = { role: "assistant", content: analysis };
+        return copy;
+      });
+      if (data?.suggest_profile_update) {
+        toast.success("Análisis listo. Puedes agregarlo al perfil clínico.");
+      } else {
+        toast.success("Análisis completado");
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al analizar el archivo");
+      setMessages((m) => m.slice(0, -2));
+    } finally {
+      setAnalyzingFile(false);
+    }
+  }
+
+
   const SUGGESTIONS = [
     "Hazme preguntas",
     "Escribo yo primero",
