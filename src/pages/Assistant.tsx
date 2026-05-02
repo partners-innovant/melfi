@@ -875,20 +875,21 @@ function renderAnswerHtml(text: string, citations: Citation[]): string {
   const closeList = () => {
     if (listType) { out.push(`</${listType}>`); listType = null; }
   };
+  const PBA = "page-break-inside:avoid;break-inside:avoid;";
   for (const raw of lines) {
     const line = raw.trimEnd();
     if (!line.trim()) { closeList(); continue; }
     const num = line.match(/^\s*(\d+)[.)]\s+(.*)$/);
     const bul = line.match(/^\s*[-*•]\s+(.*)$/);
     if (num) {
-      if (listType !== "ol") { closeList(); out.push('<ol style="margin:6px 0 6px 20px;padding:0;">'); listType = "ol"; }
-      out.push(`<li style="margin:2px 0;">${num[2]}</li>`);
+      if (listType !== "ol") { closeList(); out.push('<ol style="margin:8px 0 8px 22px;padding:0;">'); listType = "ol"; }
+      out.push(`<li style="margin:4px 0;${PBA}">${num[2]}</li>`);
     } else if (bul) {
-      if (listType !== "ul") { closeList(); out.push('<ul style="margin:6px 0 6px 20px;padding:0;list-style:disc;">'); listType = "ul"; }
-      out.push(`<li style="margin:2px 0;">${bul[1]}</li>`);
+      if (listType !== "ul") { closeList(); out.push('<ul style="margin:8px 0 8px 22px;padding:0;list-style:disc;">'); listType = "ul"; }
+      out.push(`<li style="margin:4px 0;${PBA}">${bul[1]}</li>`);
     } else {
       closeList();
-      out.push(`<p style="margin:6px 0;">${line}</p>`);
+      out.push(`<p style="margin:8px 0;${PBA}">${line}</p>`);
     }
   }
   closeList();
