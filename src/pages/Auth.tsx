@@ -50,6 +50,22 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
+      // Whitelist pre-check (signup or signin)
+      const { data: allowed, error: chkErr } = await supabase.rpc("is_email_allowed", {
+        _email: form.email,
+      });
+      if (chkErr) {
+        // fail-open if the RPC fails
+        console.error("Whitelist RPC error", chkErr);
+      } else if (allowed !== true) {
+        toast.error(
+          "Tu cuenta no está autorizada para acceder a Psicoasist. Si eres psicólogo y quieres solicitar acceso, contacta al administrador.",
+          { duration: 8000 },
+        );
+        setLoading(false);
+        return;
+      }
+
       if (mode === "signup") {
         if (!form.first_name || !form.last_name) {
           toast.error("Nombre y apellido son obligatorios");
