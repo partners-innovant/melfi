@@ -11,8 +11,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
   Square, Send, Sparkles, Loader2, Mic, StopCircle, Check, MessageCircle,
-  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2, Pause, Play, Circle, FileText,
+  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2, Pause, Play, Circle, FileText, Wand2, ChevronDown, ChevronRight,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { EMOTIONAL_STATES } from "@/components/SessionsTab";
 import ReactMarkdown from "react-markdown";
