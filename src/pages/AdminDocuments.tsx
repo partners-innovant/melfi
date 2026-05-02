@@ -737,6 +737,106 @@ export default function AdminDocuments() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Confirm auto-classify */}
+      <AlertDialog open={confirmClassifyOpen} onOpenChange={setConfirmClassifyOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Auto-clasificar documentos
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Se analizará el contenido de {selected.size} documento(s) seleccionado(s) y se completará
+              automáticamente la información faltante (título, autor, año, tipo, área clínica, fuente e idioma).
+              Los campos que ya tienen información no serán modificados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={runBulkClassify}>Clasificar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Auto-classify progress */}
+      <Dialog
+        open={classifyOpen}
+        onOpenChange={(o) => {
+          if (!o && !classifyRunning) {
+            setClassifyOpen(false);
+            setClassifyJobs([]);
+            setSelected(new Set());
+            load();
+          }
+        }}
+      >
+        <DialogContent className="max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> Auto-clasificación en curso
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const total = classifyJobs.length;
+            const doneCount = classifyJobs.filter((j) => j.status === "done").length;
+            const errCount = classifyJobs.filter((j) => j.status === "error").length;
+            const processedCount = doneCount + errCount;
+            const currentIndex = classifyRunning
+              ? Math.min(processedCount + 1, total)
+              : processedCount;
+            const pct = total === 0 ? 0 : Math.round((processedCount / total) * 100);
+            return (
+              <div className="space-y-3">
+                <div className="text-sm text-muted-foreground">
+                  {classifyRunning
+                    ? `Procesando ${currentIndex} de ${total}...`
+                    : `Completado: ${processedCount} de ${total}`}
+                </div>
+                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                  <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <div className="max-h-[320px] overflow-y-auto border rounded-md divide-y">
+                  {classifyJobs.map((j) => (
+                    <div key={j.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                      <span className="flex-shrink-0 w-5 text-center">
+                        {j.status === "pending" && <span className="text-muted-foreground">·</span>}
+                        {j.status === "processing" && <Loader2 className="h-4 w-4 animate-spin inline" />}
+                        {j.status === "done" && <span>✅</span>}
+                        {j.status === "error" && <span>❌</span>}
+                      </span>
+                      <span className="flex-1 truncate" title={j.title}>{j.title}</span>
+                      {j.status === "error" && j.error && (
+                        <span className="text-xs text-destructive truncate max-w-[180px]" title={j.error}>
+                          {j.error}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {!classifyRunning && (
+                  <div className="text-sm">
+                    ✅ {doneCount} documento(s) clasificado(s) correctamente.
+                    {errCount > 0 && <> ❌ {errCount} con errores.</>}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+          <DialogFooter>
+            <Button
+              disabled={classifyRunning}
+              onClick={() => {
+                setClassifyOpen(false);
+                setClassifyJobs([]);
+                setSelected(new Set());
+                load();
+              }}
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Bulk areas dialog */}
       <Dialog open={bulkAreaOpen} onOpenChange={setBulkAreaOpen}>
         <DialogContent>
