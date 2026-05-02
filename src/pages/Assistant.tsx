@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown, RefreshCw } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown, RefreshCw, FlaskConical } from "lucide-react";
+import { PubMedSearchDialog } from "@/components/PubMedSearchDialog";
 import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
@@ -1423,49 +1424,7 @@ function titleSimilarity(a: string, b: string): number {
 }
 
 function WebSourcesButton({ question }: { question: string }) {
-  const [loading, setLoading] = useState(false);
-  const [sources, setSources] = useState<WebSource[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [existingDocs, setExistingDocs] = useState<Array<{ title: string; source_url: string | null }>>([]);
-  const navigate = useNavigate();
-
-  async function search() {
-    if (sources && !error) {
-      setSources(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const [{ data, error: fnErr }, docsRes] = await Promise.all([
-        supabase.functions.invoke("web-sources", { body: { question } }),
-        supabase.from("documents").select("title, source_url"),
-      ]);
-      if (fnErr) throw new Error(fnErr.message);
-      if (data?.error) throw new Error(data.error);
-      setExistingDocs((docsRes.data as any[]) ?? []);
-      setSources((data?.sources ?? []) as WebSource[]);
-    } catch (e: any) {
-      setError(e?.message ?? "Error al buscar fuentes");
-      toast.error(e?.message ?? "Error al buscar fuentes");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function isDuplicate(s: WebSource): boolean {
-    const nu = normalizeUrl(s.url);
-    for (const d of existingDocs) {
-      if (d.source_url && nu && normalizeUrl(d.source_url) === nu) return true;
-      if (titleSimilarity(s.title, d.title) > 0.8) return true;
-    }
-    return false;
-  }
-
-  function handleManualUpload() {
-    setSources(null);
-    navigate("/documents?upload=1");
-  }
+  const [open, setOpen] = useState(false);
 
   return (
     <>
@@ -1473,96 +1432,18 @@ function WebSourcesButton({ question }: { question: string }) {
         variant="ghost"
         size="sm"
         className="h-7 px-2 text-xs gap-1"
-        onClick={search}
-        disabled={loading}
+        onClick={() => setOpen(true)}
       >
-        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-        🌐 Buscar otras fuentes en la web
+        <FlaskConical className="h-3.5 w-3.5" />
+        🔬 Buscar en PubMed
       </Button>
-      {sources && (
-        <div className="basis-full mt-3">
-          <Card className="p-3 space-y-3 bg-muted/30">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                ⚠️ Los enlaces son sugeridos por IA y pueden no estar disponibles. Verifica antes de importar.
-              </p>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 -mr-1 -mt-1"
-                onClick={() => setSources(null)}
-                aria-label="Cerrar"
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-            {sources.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-2">
-                No se encontraron fuentes para esta consulta.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {sources.map((s, i) => {
-                  const dup = isDuplicate(s);
-                  return (
-                    <div key={i} className="rounded-md border bg-background p-2.5 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium leading-snug">{s.title}</div>
-                          <div className="text-xs text-muted-foreground mt-0.5">
-                            {s.authors}{s.year ? ` · ${s.year}` : ""}
-                          </div>
-                        </div>
-                        <Badge variant="secondary" className="text-[10px] shrink-0">{s.source}</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-snug">{s.relevance}</p>
-                      <div className="flex flex-wrap gap-1 pt-0.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-xs gap-1"
-                          onClick={() => window.open(s.url, "_blank", "noopener,noreferrer")}
-                        >
-                          <ExternalLink className="h-3 w-3" /> Abrir fuente
-                        </Button>
-                        {dup ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled
-                            className="h-7 px-2 text-xs gap-1 border-emerald-500/60 bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-950/30 disabled:opacity-100"
-                          >
-                            <Check className="h-3 w-3" /> Ya en tu biblioteca
-                          </Button>
-                        ) : (
-                          <ImportSourceButton url={s.url} />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Manual upload fallback */}
-            <div className="pt-2 border-t border-border/60">
-              <div className="rounded-md border border-dashed bg-background/60 p-3 space-y-2">
-                <div className="text-sm font-medium">📁 ¿Tienes el documento en tu computador?</div>
-                <p className="text-xs text-muted-foreground leading-snug">
-                  Si ya descargaste alguno de estos documentos, puedes subirlo directamente.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleManualUpload}
-                  className="h-8 px-3 text-xs gap-1.5 border-teal-500/60 text-teal-700 hover:bg-teal-50 hover:text-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/40"
-                >
-                  <PlusIcon className="h-3.5 w-3.5" /> Subir documento manualmente
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
+      {open && (
+        <PubMedSearchDialog
+          open={open}
+          onOpenChange={setOpen}
+          initialQuery={question}
+          autoSearch
+        />
       )}
     </>
   );
