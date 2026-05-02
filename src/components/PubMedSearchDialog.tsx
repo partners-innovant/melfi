@@ -343,8 +343,15 @@ function ArticleCard({
         <div className="flex flex-col items-end gap-1 shrink-0">
           {(() => {
             const status: PubMedPdfStatus =
-              article.pdf_status ?? (article.has_free_pdf ? "available" : article.pmc_id ? "abstract_only" : "no_open_access");
-            if (status === "available") {
+              article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
+            if (status === "pdf_available") {
+              return (
+                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
+                  🟢 PDF Open Access
+                </Badge>
+              );
+            }
+            if (false) {
               return (
                 <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
                   🟢 PDF disponible
