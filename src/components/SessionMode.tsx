@@ -1,0 +1,640 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Square, Send, Sparkles, Loader2, Mic, StopCircle, Check, MessageCircle,
+  Eye, Lightbulb, AlertTriangle, Pencil, Save, Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { EMOTIONAL_STATES } from "@/components/SessionsTab";
+import ReactMarkdown from "react-markdown";
+
+type Entry = { t: number; text: string };
+type Suggestions = {
+  questions: string[];
+  patterns: string[];
+  interventions: string[];
+  unexplored: string[];
+};
+type UsedSuggestion = { kind: "question" | "pattern" | "intervention" | "unexplored"; text: string; t: number };
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  patientId: string;
+  patientName: string;
+  onSessionSaved?: () => void;
+}
+
+function fmtTime(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+function clockFromTimestamp(t: number) {
+  const d = new Date(t);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+export default function SessionMode({ open, onClose, patientId, patientName, onSessionSaved }: Props) {
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionNumber, setSessionNumber] = useState<number | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  const [patientText, setPatientText] = useState("");
+  const [therapistText, setTherapistText] = useState("");
+  const [patientEntries, setPatientEntries] = useState<Entry[]>([]);
+  const [therapistEntries, setTherapistEntries] = useState<Entry[]>([]);
+
+  const [suggestions, setSuggestions] = useState<Suggestions>({ questions: [], patterns: [], interventions: [], unexplored: [] });
+  const [usedSuggestions, setUsedSuggestions] = useState<UsedSuggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
+  // End-session flow
+  const [endOpen, setEndOpen] = useState(false);
+  const [endStep, setEndStep] = useState<1 | 2>(1);
+  const [emotionalState, setEmotionalState] = useState<string>("");
+  const [textComplement, setTextComplement] = useState("");
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [summaryDraft, setSummaryDraft] = useState("");
+  const [feedbackDraft, setFeedbackDraft] = useState("");
+  const [nextPlanDraft, setNextPlanDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Init session row when overlay opens
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: inserted, error } = await supabase
+        .from("sessions")
+        .insert({
+          psychologist_id: u.user.id,
+          patient_id: patientId,
+          session_date: today,
+          status: "programada",
+          session_mode_status: "active",
+          started_at: new Date().toISOString(),
+          patient_interventions: [],
+          therapist_notes_live: [],
+          claude_suggestions_used: [],
+        })
+        .select("id, session_number, started_at")
+        .single();
+      if (cancelled) return;
+      if (error) { toast.error("No se pudo iniciar la sesión: " + error.message); onClose(); return; }
+      setSessionId(inserted.id);
+      setSessionNumber(inserted.session_number ?? null);
+      setStartedAt(inserted.started_at ? new Date(inserted.started_at).getTime() : Date.now());
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, patientId]);
+
+  // Tick timer
+  useEffect(() => {
+    if (!open || !startedAt) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [open, startedAt]);
+
+  // Persist entries debounced helper
+  const persistEntries = useCallback(async (next: { patient?: Entry[]; therapist?: Entry[] }) => {
+    if (!sessionId) return;
+    const payload: any = {};
+    if (next.patient) payload.patient_interventions = next.patient;
+    if (next.therapist) payload.therapist_notes_live = next.therapist;
+    if (Object.keys(payload).length === 0) return;
+    await supabase.from("sessions").update(payload).eq("id", sessionId);
+  }, [sessionId]);
+
+  function addPatientEntry() {
+    const text = patientText.trim();
+    if (!text) return;
+    const e: Entry = { t: Date.now(), text };
+    const next = [...patientEntries, e];
+    setPatientEntries(next);
+    setPatientText("");
+    persistEntries({ patient: next });
+  }
+  function addTherapistEntry() {
+    const text = therapistText.trim();
+    if (!text) return;
+    const e: Entry = { t: Date.now(), text };
+    const next = [...therapistEntries, e];
+    setTherapistEntries(next);
+    setTherapistText("");
+    persistEntries({ therapist: next });
+  }
+
+  async function requestSuggestions() {
+    if (!sessionId) return;
+    setLoadingSuggestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("claude-session-support", {
+        body: {
+          patient_id: patientId,
+          session_id: sessionId,
+          previous_used_suggestions: usedSuggestions.map((s) => s.text),
+        },
+      });
+      if (error) throw error;
+      const s = (data as any)?.suggestions ?? { questions: [], patterns: [], interventions: [], unexplored: [] };
+      // Filter out already-used
+      const usedSet = new Set(usedSuggestions.map((u) => u.text.toLowerCase().trim()));
+      setSuggestions({
+        questions: (s.questions ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
+        patterns: (s.patterns ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
+        interventions: (s.interventions ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
+        unexplored: (s.unexplored ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
+      });
+    } catch (e: any) {
+      toast.error("Claude: " + (e?.message ?? "error"));
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }
+
+  function markUsed(kind: UsedSuggestion["kind"], text: string) {
+    const used: UsedSuggestion = { kind, text, t: Date.now() };
+    const nextUsed = [...usedSuggestions, used];
+    setUsedSuggestions(nextUsed);
+    setSuggestions((s) => ({
+      questions: s.questions.filter((x) => x !== text),
+      patterns: s.patterns.filter((x) => x !== text),
+      interventions: s.interventions.filter((x) => x !== text),
+      unexplored: s.unexplored.filter((x) => x !== text),
+    }));
+    if (sessionId) {
+      supabase.from("sessions").update({ claude_suggestions_used: nextUsed }).eq("id", sessionId);
+    }
+  }
+
+  // Recording
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      mr.start();
+      recorderRef.current = mr;
+      setRecording(true);
+    } catch (e: any) {
+      toast.error("No se pudo acceder al micrófono: " + (e?.message ?? ""));
+    }
+  }
+  function stopRecording() {
+    recorderRef.current?.stop();
+    setRecording(false);
+  }
+  function onAudioFile(f: File | null) {
+    if (!f) return;
+    setAudioBlob(f);
+    setAudioUrl(URL.createObjectURL(f));
+  }
+  function clearAudio() {
+    setAudioBlob(null);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+  }
+
+  function openEndFlow() {
+    setEndStep(1);
+    setEndOpen(true);
+  }
+
+  async function generateSummary() {
+    if (!sessionId) return;
+    setGenerating(true);
+    try {
+      // Persist complement first so the function reads it
+      await supabase.from("sessions").update({
+        therapist_text_complement: textComplement || null,
+        emotional_state: emotionalState || null,
+      }).eq("id", sessionId);
+
+      // Upload audio if present
+      let audioPath: string | null = null;
+      if (audioBlob) {
+        const { data: u } = await supabase.auth.getUser();
+        const ext = (audioBlob.type.includes("mp3") ? "mp3"
+          : audioBlob.type.includes("wav") ? "wav"
+          : audioBlob.type.includes("m4a") ? "m4a"
+          : audioBlob.type.includes("mp4") ? "m4a"
+          : "webm");
+        const path = `${u.user!.id}/${sessionId}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("session-audio")
+          .upload(path, audioBlob, { upsert: true, contentType: audioBlob.type || "audio/webm" });
+        if (upErr) toast.error("Audio: " + upErr.message);
+        else { audioPath = path; await supabase.from("sessions").update({ therapist_audio_path: path }).eq("id", sessionId); }
+      }
+
+      // NOTE: audio transcription not implemented server-side yet — we pass through textComplement
+      const { data, error } = await supabase.functions.invoke("claude-session-summary", {
+        body: { session_id: sessionId },
+      });
+      if (error) throw error;
+      const r = data as any;
+      setSummaryDraft(r.summary ?? "");
+      setFeedbackDraft(r.clinical_feedback ?? "");
+      setNextPlanDraft(r.next_session_plan ?? "");
+      setEndStep(2);
+    } catch (e: any) {
+      toast.error("No se pudo generar resumen: " + (e?.message ?? ""));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function saveSession() {
+    if (!sessionId) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("sessions").update({
+        session_summary: summaryDraft,
+        clinical_feedback: feedbackDraft,
+        next_session_plan: nextPlanDraft,
+        what_happened: summaryDraft, // mirror so SessionsTab cards show preview
+        post_session_notes: feedbackDraft,
+        status: "realizada",
+        session_mode_status: "completed",
+        completed_at: new Date().toISOString(),
+        emotional_state: emotionalState || null,
+        therapist_text_complement: textComplement || null,
+      }).eq("id", sessionId);
+      if (error) throw error;
+      toast.success("✅ Sesión guardada correctamente");
+      onSessionSaved?.();
+      // Reset
+      resetAll();
+      setEndOpen(false);
+      onClose();
+    } catch (e: any) {
+      toast.error("Error al guardar: " + (e?.message ?? ""));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function resetAll() {
+    setSessionId(null); setSessionNumber(null); setStartedAt(null);
+    setPatientText(""); setTherapistText("");
+    setPatientEntries([]); setTherapistEntries([]);
+    setSuggestions({ questions: [], patterns: [], interventions: [], unexplored: [] });
+    setUsedSuggestions([]);
+    setEmotionalState(""); setTextComplement("");
+    clearAudio();
+    setSummaryDraft(""); setFeedbackDraft(""); setNextPlanDraft("");
+    setEndStep(1); setEditing(false);
+  }
+
+  const elapsedMs = startedAt ? now - startedAt : 0;
+
+  const timeline = useMemo(() => {
+    const merged = [
+      ...patientEntries.map((e) => ({ ...e, who: "patient" as const })),
+      ...therapistEntries.map((e) => ({ ...e, who: "therapist" as const })),
+    ].sort((a, b) => a.t - b.t);
+    return merged;
+  }, [patientEntries, therapistEntries]);
+
+  if (!open) return null;
+
+  const overlay = (
+    <div
+      className="fixed inset-0 z-[9999] bg-background flex flex-col"
+      style={{ width: "100vw", height: "100vh" }}
+    >
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-6 py-3 border-b bg-card">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold">
+            {patientName.split(" ").map(n => n[0]).slice(0, 2).join("")}
+          </div>
+          <div>
+            <div className="font-semibold">{patientName}</div>
+            <div className="text-xs text-muted-foreground">
+              Sesión #{sessionNumber ?? "—"} · {new Date().toLocaleDateString("es-CL")}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="font-mono text-2xl tabular-nums">{fmtTime(elapsedMs)}</div>
+          <Button variant="destructive" onClick={openEndFlow} className="gap-2">
+            <Square className="h-4 w-4" /> Finalizar sesión
+          </Button>
+        </div>
+      </div>
+
+      {/* Split layout */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left 55% */}
+        <div className="basis-[55%] border-r flex flex-col min-h-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
+            {/* Patient input */}
+            <Card className="p-3 flex flex-col gap-2 border-l-4 border-l-blue-400">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-blue-400" /> Lo que dice/hace el paciente
+              </div>
+              <Textarea
+                value={patientText}
+                onChange={(e) => setPatientText(e.target.value)}
+                placeholder="Anota intervenciones, frases clave, conductas observadas del paciente..."
+                className="min-h-[110px] resize-none"
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); addPatientEntry(); }
+                }}
+              />
+              <div className="flex justify-end">
+                <Button size="sm" variant="secondary" onClick={addPatientEntry} className="gap-1.5">
+                  <Send className="h-3.5 w-3.5" /> Registrar
+                </Button>
+              </div>
+            </Card>
+
+            {/* Therapist input */}
+            <Card className="p-3 flex flex-col gap-2 border-l-4 border-l-teal-400">
+              <div className="text-sm font-semibold flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-teal-400" /> Mis notas e intervenciones
+              </div>
+              <Textarea
+                value={therapistText}
+                onChange={(e) => setTherapistText(e.target.value)}
+                placeholder="Anota tus intervenciones, preguntas realizadas, observaciones..."
+                className="min-h-[110px] resize-none"
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); addTherapistEntry(); }
+                }}
+              />
+              <div className="flex justify-end">
+                <Button size="sm" variant="secondary" onClick={addTherapistEntry} className="gap-1.5">
+                  <Send className="h-3.5 w-3.5" /> Registrar
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          {/* Timeline */}
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+              Timeline de sesión ({timeline.length})
+            </div>
+            {timeline.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
+                Aún no hay registros. Empieza a anotar arriba.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {timeline.map((e, i) => (
+                  <div
+                    key={i}
+                    className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${
+                      e.who === "patient" ? "border-l-blue-400 bg-blue-500/5" : "border-l-teal-400 bg-teal-500/5"
+                    }`}
+                  >
+                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
+                      {e.who === "patient" ? "Paciente" : "Terapeuta"} [{clockFromTimestamp(e.t)}]
+                    </div>
+                    <div className="whitespace-pre-wrap">{e.text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right 45% */}
+        <div className="basis-[45%] flex flex-col min-h-0 bg-muted/20">
+          <div className="px-4 py-3 border-b flex items-center justify-between">
+            <div className="font-semibold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" /> Apoyo clínico en tiempo real
+            </div>
+            <Button size="sm" onClick={requestSuggestions} disabled={loadingSuggestions || !sessionId} className="gap-2">
+              {loadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Pedir sugerencias
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {loadingSuggestions && (
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Claude analizando...
+              </div>
+            )}
+
+            <SuggestionGroup
+              icon={<MessageCircle className="h-4 w-4" />}
+              title="Preguntas sugeridas"
+              tone="blue"
+              items={suggestions.questions}
+              onUse={(t) => markUsed("question", t)}
+            />
+            <SuggestionGroup
+              icon={<Eye className="h-4 w-4" />}
+              title="Patrones observados"
+              tone="purple"
+              items={suggestions.patterns}
+              onUse={(t) => markUsed("pattern", t)}
+            />
+            <SuggestionGroup
+              icon={<Lightbulb className="h-4 w-4" />}
+              title="Intervenciones"
+              tone="teal"
+              items={suggestions.interventions}
+              onUse={(t) => markUsed("intervention", t)}
+            />
+            <SuggestionGroup
+              icon={<AlertTriangle className="h-4 w-4" />}
+              title="No explorado"
+              tone="amber"
+              items={suggestions.unexplored}
+              onUse={(t) => markUsed("unexplored", t)}
+            />
+
+            {usedSuggestions.length > 0 && (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1.5 mt-4">
+                  Sugerencias usadas ({usedSuggestions.length})
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {usedSuggestions.map((u, i) => (
+                    <Badge key={i} variant="secondary" className="text-[11px]">✓ {u.text}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* End-session dialog */}
+      <Dialog open={endOpen} onOpenChange={(o) => { if (!generating && !saving) setEndOpen(o); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {endStep === 1 ? (
+            <>
+              <DialogHeader><DialogTitle>Complementar sesión</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <div className="text-sm font-semibold mb-2">Estado emocional del paciente</div>
+                  <div className="flex gap-2">
+                    {EMOTIONAL_STATES.map((s) => (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setEmotionalState(s.value)}
+                        className={`text-2xl p-2 rounded-md border transition ${
+                          emotionalState === s.value ? "border-primary bg-primary/10" : "border-transparent hover:bg-muted"
+                        }`}
+                        title={s.label}
+                      >
+                        {s.emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-semibold mb-2">🎤 Nota de voz (opcional)</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!recording ? (
+                      <Button type="button" size="sm" variant="outline" onClick={startRecording} className="gap-1.5">
+                        <Mic className="h-3.5 w-3.5" /> Grabar
+                      </Button>
+                    ) : (
+                      <Button type="button" size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5">
+                        <StopCircle className="h-3.5 w-3.5" /> Detener
+                      </Button>
+                    )}
+                    <Input
+                      type="file"
+                      accept="audio/mp3,audio/mpeg,audio/wav,audio/x-m4a,audio/m4a,audio/mp4,audio/webm"
+                      onChange={(e) => onAudioFile(e.target.files?.[0] ?? null)}
+                      className="max-w-xs"
+                    />
+                    {audioUrl && (
+                      <Button type="button" size="sm" variant="ghost" onClick={clearAudio} className="gap-1.5">
+                        <Trash2 className="h-3.5 w-3.5" /> Quitar
+                      </Button>
+                    )}
+                  </div>
+                  {audioUrl && <audio controls src={audioUrl} className="mt-2 w-full" />}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold mb-2">📝 Notas finales (opcional)</div>
+                  <Textarea
+                    value={textComplement}
+                    onChange={(e) => setTextComplement(e.target.value)}
+                    placeholder="Cualquier cosa que no haya alcanzado a anotar durante la sesión..."
+                    className="min-h-[120px]"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setEndOpen(false)} disabled={generating}>Cancelar</Button>
+                <Button onClick={generateSummary} disabled={generating} className="gap-2">
+                  {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Generar resumen
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader><DialogTitle>Resumen de sesión</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <SummarySection title="📋 Resumen de sesión" value={summaryDraft} onChange={setSummaryDraft} editing={editing} />
+                <SummarySection title="🔍 Feedback clínico" value={feedbackDraft} onChange={setFeedbackDraft} editing={editing} />
+                <SummarySection title="📅 Plan próxima sesión" value={nextPlanDraft} onChange={setNextPlanDraft} editing={editing} />
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setEditing((v) => !v)} className="gap-2">
+                  {editing ? <Save className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                  {editing ? "Listo" : "Editar antes de guardar"}
+                </Button>
+                <Button onClick={saveSession} disabled={saving} className="gap-2">
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Guardar sesión
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
+  return createPortal(overlay, document.body);
+}
+
+function SuggestionGroup({
+  icon, title, tone, items, onUse,
+}: {
+  icon: React.ReactNode; title: string; tone: "blue" | "purple" | "teal" | "amber";
+  items: string[]; onUse: (text: string) => void;
+}) {
+  if (!items || items.length === 0) return null;
+  const toneClasses: Record<string, string> = {
+    blue: "border-blue-400/40 bg-blue-500/10",
+    purple: "border-purple-400/40 bg-purple-500/10",
+    teal: "border-teal-400/40 bg-teal-500/10",
+    amber: "border-amber-400/40 bg-amber-500/10",
+  };
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wide font-semibold mb-1.5 flex items-center gap-1.5 text-muted-foreground">
+        {icon} {title}
+      </div>
+      <div className="space-y-1.5">
+        {items.map((t, i) => (
+          <div key={i} className={`p-2.5 rounded-md border text-sm flex items-start justify-between gap-2 ${toneClasses[tone]}`}>
+            <div className="flex-1">{t}</div>
+            <Button size="sm" variant="ghost" className="h-7 px-2 gap-1 shrink-0" onClick={() => onUse(t)}>
+              <Check className="h-3 w-3" /> Usado
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SummarySection({
+  title, value, onChange, editing,
+}: { title: string; value: string; onChange: (s: string) => void; editing: boolean }) {
+  return (
+    <div className="border rounded-md">
+      <div className="px-3 py-2 border-b text-sm font-semibold bg-muted/40">{title}</div>
+      <div className="p-3">
+        {editing ? (
+          <Textarea value={value} onChange={(e) => onChange(e.target.value)} className="min-h-[140px]" />
+        ) : (
+          <div className="prose prose-sm max-w-none dark:prose-invert">
+            <ReactMarkdown>{value || "_(sin contenido)_"}</ReactMarkdown>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

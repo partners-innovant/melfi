@@ -1412,6 +1412,9 @@ export type Database = {
         Row: {
           assigned_task: string | null
           child_patient_id: string | null
+          claude_suggestions_used: Json
+          clinical_feedback: string | null
+          completed_at: string | null
           created_at: string
           duration_minutes: number | null
           emotional_state: string | null
@@ -1420,20 +1423,30 @@ export type Database = {
           interventions_used: string | null
           next_session_plan: string | null
           patient_id: string | null
+          patient_interventions: Json
           post_session_notes: string | null
           pre_session_notes: string | null
           pre_session_suggestions: string | null
           profile_update_suggestions: Json | null
           psychologist_id: string
           session_date: string
+          session_mode_status: string | null
           session_number: number | null
+          session_summary: string | null
           session_time: string | null
+          started_at: string | null
           status: string | null
+          therapist_audio_path: string | null
+          therapist_notes_live: Json
+          therapist_text_complement: string | null
           what_happened: string | null
         }
         Insert: {
           assigned_task?: string | null
           child_patient_id?: string | null
+          claude_suggestions_used?: Json
+          clinical_feedback?: string | null
+          completed_at?: string | null
           created_at?: string
           duration_minutes?: number | null
           emotional_state?: string | null
@@ -1442,20 +1455,30 @@ export type Database = {
           interventions_used?: string | null
           next_session_plan?: string | null
           patient_id?: string | null
+          patient_interventions?: Json
           post_session_notes?: string | null
           pre_session_notes?: string | null
           pre_session_suggestions?: string | null
           profile_update_suggestions?: Json | null
           psychologist_id: string
           session_date: string
+          session_mode_status?: string | null
           session_number?: number | null
+          session_summary?: string | null
           session_time?: string | null
+          started_at?: string | null
           status?: string | null
+          therapist_audio_path?: string | null
+          therapist_notes_live?: Json
+          therapist_text_complement?: string | null
           what_happened?: string | null
         }
         Update: {
           assigned_task?: string | null
           child_patient_id?: string | null
+          claude_suggestions_used?: Json
+          clinical_feedback?: string | null
+          completed_at?: string | null
           created_at?: string
           duration_minutes?: number | null
           emotional_state?: string | null
@@ -1464,15 +1487,22 @@ export type Database = {
           interventions_used?: string | null
           next_session_plan?: string | null
           patient_id?: string | null
+          patient_interventions?: Json
           post_session_notes?: string | null
           pre_session_notes?: string | null
           pre_session_suggestions?: string | null
           profile_update_suggestions?: Json | null
           psychologist_id?: string
           session_date?: string
+          session_mode_status?: string | null
           session_number?: number | null
+          session_summary?: string | null
           session_time?: string | null
+          started_at?: string | null
           status?: string | null
+          therapist_audio_path?: string | null
+          therapist_notes_live?: Json
+          therapist_text_complement?: string | null
           what_happened?: string | null
         }
         Relationships: [

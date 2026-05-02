@@ -8,7 +8,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, Sparkles, Send } from "lucide-react";
+import { ArrowLeft, Pencil, Sparkles, Send, Play } from "lucide-react";
+import SessionMode from "@/components/SessionMode";
 import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { PatientForm } from "./Patients";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
@@ -33,6 +34,7 @@ export default function PatientDetail() {
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [sessionModeOpen, setSessionModeOpen] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -141,9 +143,15 @@ export default function PatientDetail() {
           </div>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button
+            onClick={() => setSessionModeOpen(true)}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Play className="h-4 w-4" />Iniciar sesión
+          </Button>
           <Link to={`/assistant?patient=${patient.id}`}>
-            <Button className="gap-2"><Sparkles className="h-4 w-4" />Consultar IA sobre este paciente</Button>
+            <Button variant="outline" className="gap-2"><Sparkles className="h-4 w-4" />Consultar IA sobre este paciente</Button>
           </Link>
         </div>
       </Card>
@@ -234,6 +242,14 @@ export default function PatientDetail() {
           diagnosis: patient.diagnosis,
           start_date: patient.start_date,
         }}
+      />
+
+      <SessionMode
+        open={sessionModeOpen}
+        onClose={() => setSessionModeOpen(false)}
+        patientId={patient.id}
+        patientName={`${patient.first_name} ${patient.last_name}`}
+        onSessionSaved={() => { load(); setRefreshKey((k) => k + 1); setTab("sessions"); }}
       />
     </div>
   );
