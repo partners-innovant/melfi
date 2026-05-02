@@ -336,21 +336,22 @@ function DocList({
           <colgroup>
             <col className="w-10" />
             <col />
-            <col className="w-[18%]" />
-            <col className="w-[70px]" />
-            <col className="w-[140px]" />
-            <col className="w-[110px]" />
+            <col className="w-[180px]" />
+            <col className="w-[160px]" />
+            <col className="w-[60px]" />
+            <col className="w-[120px]" />
+            <col className="w-[90px]" />
             <col className="w-[90px]" />
           </colgroup>
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left"></th>
               <th className="px-3 py-2 text-left font-medium">Nombre</th>
-              <th className="px-3 py-2 text-left font-medium">Autor</th>
+              <th className="px-3 py-2 text-left font-medium">Área(s) clínica(s)</th>
+              <th className="px-3 py-2 text-left font-medium">Fuente</th>
               <th className="px-3 py-2 text-left font-medium">Año</th>
               <th className="px-3 py-2 text-left font-medium">Tipo</th>
               <th className="px-3 py-2 text-left font-medium">Visibilidad</th>
-              <th className="px-3 py-2 text-left font-medium">Origen</th>
               <th className="px-3 py-2 text-right font-medium">Acciones</th>
             </tr>
           </thead>
@@ -358,6 +359,9 @@ function DocList({
             {docs.map((d) => {
               const canDelete = canDeleteDoc(d);
               const isSelected = selected.has(d.id);
+              const areas = (d.clinical_areas ?? []) as string[];
+              const visibleAreas = areas.slice(0, 2);
+              const extraAreas = areas.slice(2);
               return (
                 <tr
                   key={d.id}
@@ -381,9 +385,41 @@ function DocList({
                       <FileText className="h-4 w-4 text-primary flex-shrink-0" />
                       <span className="font-medium truncate">{d.title}</span>
                     </button>
+                    {d.author && (
+                      <div className="text-[11px] text-muted-foreground truncate ml-6">{d.author}</div>
+                    )}
                   </td>
-                  <td className="px-3 py-2 align-middle text-muted-foreground truncate">
-                    {d.author ?? "—"}
+                  <td className="px-3 py-2 align-middle">
+                    <div className="flex flex-wrap gap-1">
+                      {visibleAreas.map((a) => (
+                        <span
+                          key={a}
+                          className={`text-[10px] px-1.5 py-0.5 rounded border ${clinicalAreaColor(a)}`}
+                          title={clinicalAreaLabel(a)}
+                        >
+                          {clinicalAreaLabel(a)}
+                        </span>
+                      ))}
+                      {extraAreas.length > 0 && (
+                        <span
+                          className="text-[10px] px-1.5 py-0.5 rounded border bg-muted text-muted-foreground cursor-help"
+                          title={extraAreas.map(clinicalAreaLabel).join(", ")}
+                        >
+                          +{extraAreas.length} más
+                        </span>
+                      )}
+                      {areas.length === 0 && <span className="text-[11px] text-muted-foreground">—</span>}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 align-middle text-xs">
+                    {d.source_institution ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden>{sourceIconFor(d.source_institution, d.source_institution_type)}</span>
+                        <span className="truncate">{d.source_institution}</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 align-middle text-muted-foreground">
                     {d.year ?? "—"}
@@ -397,16 +433,6 @@ function DocList({
                     <Badge variant={d.is_global ? "default" : "outline"} className="text-[10px] gap-1 whitespace-nowrap">
                       {d.is_global ? <><Globe2 className="h-3 w-3" />Global</> : "Privado"}
                     </Badge>
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    {(() => {
-                      const meta = IMPORT_SOURCE_META[(d.import_source ?? 'upload') as ImportSource];
-                      return (
-                        <Badge variant="outline" className="text-[10px] gap-1 whitespace-nowrap">
-                          <span aria-hidden>{meta.icon}</span> {meta.label}
-                        </Badge>
-                      );
-                    })()}
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex items-center justify-end gap-0.5">
