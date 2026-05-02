@@ -1022,6 +1022,16 @@ function Message({
           </div>
         )}
 
+        {!message.streaming && message.diagramLoading && (
+          <div className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            📊 Generando diagrama...
+          </div>
+        )}
+        {!message.streaming && message.diagram && (
+          <AssistantDiagram data={message.diagram} />
+        )}
+
         {showGeneralFallback && question && (
           <div className="mt-2 space-y-1">
             <button
