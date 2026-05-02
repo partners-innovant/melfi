@@ -1,33 +1,16 @@
-// PubMed integration using NCBI E-utilities + PMC OA Web Service.
-// Two actions:
-//   - "search":       run a PubMed query, return articles + verified pdf_status
-//   - "get_abstract": fetch the abstract text for a single PubMed ID
-//
-// NOTE: PDF download has been removed temporarily — pending new download method.
+// EuropePMC RESTful API integration.
+// Actions:
+//   - "search":       run an EuropePMC query, return articles with PDF availability
+//   - "download_pdf": download the full-text PDF for a given source/id pair
+//   - "get_abstract": fetch full abstract for a given source/id pair
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type PdfStatus = "pdf_available" | "abstract_only" | "no_access";
-
-interface ArticleResult {
-  pubmed_id: string;
-  pmc_id: string | null;
-  doi: string | null;
-  title: string;
-  authors: string;
-  journal: string | null;
-  year: string | null;
-  abstract: string | null;
-  url: string;
-  pmc_url: string | null;
-  pdf_status: PdfStatus;
-  pdf_url: string | null;
-  has_free_pdf: boolean;
-}
-
 const UA = "Psicoasist/1.0 (clinical research; mailto:support@psicoasist.com)";
+
+type PdfStatus = "pdf_available" | "abstract_only" | "no_access";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -36,128 +19,144 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-/**
- * Look up a PMC article in the OA Web Service to determine availability.
- * Returns the badge status only — actual PDF download is not implemented here.
- */
-async function checkOaStatus(pmcId: string): Promise<PdfStatus> {
-  const cleanId = pmcId.replace(/^PMC/i, "");
-  try {
-    const oaRes = await fetch(
-      `https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=PMC${cleanId}&format=pdf`,
-      { headers: { "User-Agent": UA } },
-    );
-    if (!oaRes.ok) return "abstract_only";
-    const oaText = await oaRes.text();
-    if (/<error\b/i.test(oaText)) return "abstract_only";
-    if (/<link[^>]*format="pdf"/i.test(oaText)) return "pdf_available";
-    return "abstract_only";
-  } catch (e) {
-    console.warn("[search-pubmed] OA lookup failed for PMC", pmcId, e);
-    return "abstract_only";
+function buildSearchQuery(
+  query: string,
+  onlyFree: boolean,
+  years: string,
+  language: string,
+): string {
+  let q = query.trim();
+  if (onlyFree) q += " AND OPEN_ACCESS:y";
+  if (years && years !== "all") {
+    const n = parseInt(years, 10);
+    if (!Number.isNaN(n)) {
+      const now = new Date().getFullYear();
+      q += ` AND (PUB_YEAR:[${now - n} TO ${now}])`;
+    }
   }
-}
-
-function parseAbstracts(xml: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  const articles = xml.match(/<PubmedArticle\b[\s\S]*?<\/PubmedArticle>/g) ?? [];
-  for (const block of articles) {
-    const pmid = block.match(/<PMID[^>]*>(\d+)<\/PMID>/)?.[1];
-    if (!pmid) continue;
-    const absMatches = [...block.matchAll(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/g)];
-    if (absMatches.length === 0) continue;
-    const text = absMatches
-      .map((m) => {
-        const label = m[0].match(/Label="([^"]+)"/)?.[1];
-        const body = m[1].replace(/<[^>]+>/g, "").trim();
-        return label ? `${label}: ${body}` : body;
-      })
-      .join("\n\n")
-      .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-      .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-    out[pmid] = text;
-  }
-  return out;
+  if (language === "español" || language === "spanish") q += " AND LANG:spa";
+  if (language === "ingles" || language === "english") q += " AND LANG:eng";
+  return q;
 }
 
 async function handleSearch(body: Record<string, unknown>): Promise<Response> {
   const query = String(body.query ?? "").trim();
+  if (!query) return jsonResponse({ error: "query is required" }, 400);
+
   const onlyFree = body.onlyFree !== false;
   const years = String(body.years ?? "all");
   const language = String(body.language ?? "any");
-  const retmax = Math.min(Number(body.retmax ?? 15), 30);
+  const pageSize = Math.min(Number(body.retmax ?? 15), 30);
 
-  if (!query) return jsonResponse({ error: "query is required" }, 400);
+  const searchQuery = buildSearchQuery(query, onlyFree, years, language);
+  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(searchQuery)}&format=json&pageSize=${pageSize}&sort=RELEVANCE&resultType=core`;
 
-  let term = query;
-  if (onlyFree) term += " AND free full text[filter]";
-  if (years && years !== "all") term += ` AND ("last ${years} years"[PDat])`;
-  if (language === "español" || language === "spanish") term += " AND Spanish[lang]";
-  if (language === "ingles" || language === "english") term += " AND English[lang]";
+  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!res.ok) throw new Error(`EuropePMC search ${res.status}`);
+  const data = await res.json();
 
-  const esearchRes = await fetch(
-    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmax=${retmax}&retmode=json&sort=relevance`,
-    { headers: { "User-Agent": UA } },
-  );
-  if (!esearchRes.ok) throw new Error(`PubMed esearch ${esearchRes.status}`);
-  const searchData = await esearchRes.json();
-  const ids: string[] = searchData?.esearchresult?.idlist ?? [];
-  if (ids.length === 0) return jsonResponse({ articles: [] });
+  const articles = (data?.resultList?.result ?? []).map((article: Record<string, unknown>) => {
+    const hasPdf = article.hasPDF === "Y";
+    const isOpenAccess = article.isOpenAccess === "Y";
+    const pdf_status: PdfStatus =
+      hasPdf && isOpenAccess
+        ? "pdf_available"
+        : isOpenAccess
+        ? "abstract_only"
+        : "no_access";
 
-  const idStr = ids.join(",");
-  const [summaryRes, fetchRes] = await Promise.all([
-    fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${idStr}&retmode=json`, { headers: { "User-Agent": UA } }),
-    fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${idStr}&rettype=abstract&retmode=xml`, { headers: { "User-Agent": UA } }),
-  ]);
-  const summaryData = await summaryRes.json();
-  const abstracts = parseAbstracts(await fetchRes.text());
-
-  const articles: ArticleResult[] = await Promise.all(ids.map(async (id) => {
-    const s = summaryData?.result?.[id] ?? {};
-    const articleids: Array<{ idtype: string; value: string }> = s.articleids ?? [];
-    const pmcRaw = articleids.find((a) => a.idtype === "pmc")?.value ?? null;
-    const pmcId = pmcRaw ? pmcRaw.replace(/^PMC/i, "") : null;
-    const doi = articleids.find((a) => a.idtype === "doi")?.value ?? null;
-    const authors: Array<{ name: string }> = s.authors ?? [];
-    const authorList = authors.slice(0, 3).map((a) => a.name).join(", ") +
-      (authors.length > 3 ? " et al." : "");
-    const year = s.pubdate ? String(s.pubdate).split(" ")[0] : null;
-
-    let pdf_status: PdfStatus = "no_access";
-    if (pmcId) {
-      pdf_status = await checkOaStatus(pmcId);
-    }
+    const source = String(article.source ?? "");
+    const europepmc_id = String(article.id ?? "");
+    const pmid = article.pmid ? String(article.pmid) : null;
+    const pmcid = article.pmcid ? String(article.pmcid) : null;
+    const doi = article.doi ? String(article.doi) : null;
 
     return {
-      pubmed_id: id,
-      pmc_id: pmcId ? `PMC${pmcId}` : null,
+      pubmed_id: pmid,
+      pmc_id: pmcid,
+      europepmc_id,
+      source,
       doi,
-      title: s.title ?? "(sin título)",
-      authors: authorList,
-      journal: s.fulljournalname ?? s.source ?? null,
-      year,
-      abstract: abstracts[id] ?? null,
-      url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
-      pmc_url: pmcId ? `https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${pmcId}/` : null,
+      title: String(article.title ?? "(sin título)"),
+      authors: String(article.authorString ?? ""),
+      journal: String(article.journalTitle ?? "") || null,
+      year: article.pubYear ? String(article.pubYear) : null,
+      abstract: article.abstractText ? String(article.abstractText) : null,
+      has_pdf: hasPdf,
+      is_open_access: isOpenAccess,
       pdf_status,
-      pdf_url: null,
+      // Legacy field for backwards compatibility with existing UI fallbacks
       has_free_pdf: pdf_status === "pdf_available",
+      url: pmid
+        ? `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+        : `https://europepmc.org/article/${source}/${europepmc_id}`,
+      pmc_url: pmcid ? `https://www.ncbi.nlm.nih.gov/pmc/articles/${pmcid}/` : null,
+      europepmc_url: `https://europepmc.org/article/${source}/${europepmc_id}`,
     };
-  }));
+  });
 
   return jsonResponse({ articles });
 }
 
+async function handleDownloadPdf(body: Record<string, unknown>): Promise<Response> {
+  const source = String(body.source ?? "").trim();
+  const europepmc_id = String(body.europepmc_id ?? body.europepmcId ?? "").trim();
+  if (!source || !europepmc_id) {
+    return jsonResponse({ success: false, error: "source and europepmc_id are required" }, 400);
+  }
+
+  const pdfUrl = `https://www.ebi.ac.uk/europepmc/webservices/rest/${encodeURIComponent(source)}/${encodeURIComponent(europepmc_id)}/fullTextPDF`;
+  const pdfRes = await fetch(pdfUrl, {
+    headers: {
+      "User-Agent": UA,
+      "Accept": "application/pdf",
+    },
+  });
+
+  if (!pdfRes.ok) {
+    return jsonResponse({ success: false, error: `PDF no disponible: ${pdfRes.status}` });
+  }
+  const contentType = pdfRes.headers.get("content-type") || "";
+  const buffer = await pdfRes.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  const looksLikePdf =
+    contentType.includes("pdf") ||
+    (bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46);
+  if (!looksLikePdf) {
+    return jsonResponse({ success: false, error: "La respuesta no es un PDF válido" });
+  }
+
+  // Encode to base64 in chunks (avoid call-stack issues for large PDFs)
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  const base64 = btoa(binary);
+
+  return jsonResponse({ success: true, pdf_base64: base64, source_url: pdfUrl });
+}
+
 async function handleGetAbstract(body: Record<string, unknown>): Promise<Response> {
-  const pubmedId = String(body.pubmed_id ?? body.pubmedId ?? "").trim();
-  if (!pubmedId) return jsonResponse({ error: "pubmed_id is required" }, 400);
-  const res = await fetch(
-    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${encodeURIComponent(pubmedId)}&rettype=abstract&retmode=text`,
-    { headers: { "User-Agent": UA } },
-  );
-  if (!res.ok) return jsonResponse({ error: `efetch ${res.status}` }, 502);
-  const abstract = await res.text();
-  return jsonResponse({ abstract });
+  const source = String(body.source ?? "").trim();
+  const europepmc_id = String(body.europepmc_id ?? body.europepmcId ?? "").trim();
+  const pubmed_id = String(body.pubmed_id ?? body.pubmedId ?? "").trim();
+
+  let url: string;
+  if (source && europepmc_id) {
+    url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(`EXT_ID:${europepmc_id} AND SRC:${source}`)}&format=json&resultType=core`;
+  } else if (pubmed_id) {
+    url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(`EXT_ID:${pubmed_id} AND SRC:MED`)}&format=json&resultType=core`;
+  } else {
+    return jsonResponse({ error: "source+europepmc_id or pubmed_id required" }, 400);
+  }
+
+  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  if (!res.ok) return jsonResponse({ error: `EuropePMC ${res.status}` }, 502);
+  const data = await res.json();
+  const article = data?.resultList?.result?.[0];
+  return jsonResponse({ abstract: article?.abstractText || "Abstract no disponible" });
 }
 
 Deno.serve(async (req) => {
@@ -166,6 +165,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body.action ?? "search");
     if (action === "search") return await handleSearch(body);
+    if (action === "download_pdf") return await handleDownloadPdf(body);
     if (action === "get_abstract") return await handleGetAbstract(body);
     return jsonResponse({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {

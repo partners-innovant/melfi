@@ -23,19 +23,24 @@ import type { DocType } from "@/lib/clinical";
 export type PubMedPdfStatus = "pdf_available" | "abstract_only" | "no_access";
 
 export interface PubMedArticle {
-  pubmed_id: string;
+  pubmed_id: string | null;
   pmc_id: string | null;
+  europepmc_id: string;
+  source: string;
   doi: string | null;
   title: string;
   authors: string;
   journal: string | null;
   year: string | null;
+  has_pdf?: boolean;
+  is_open_access?: boolean;
   has_free_pdf: boolean;
   pdf_status?: PubMedPdfStatus;
   pdf_url?: string | null;
   abstract: string | null;
   url: string;
   pmc_url: string | null;
+  europepmc_url?: string;
 }
 
 interface SearchPayload {
@@ -149,16 +154,21 @@ export function PubMedPanel({
     try {
       const [{ data, error: fnErr }, libRes] = await Promise.all([
         supabase.functions.invoke("search-pubmed", {
-          body: { query, onlyFree, years, language },
+          body: { action: "search", query, onlyFree, years, language },
         }),
-        supabase.from("documents").select("pubmed_id").not("pubmed_id", "is", null),
+        supabase
+          .from("documents")
+          .select("pubmed_id, pmc_id, europepmc_id")
+          .or("pubmed_id.not.is.null,pmc_id.not.is.null,europepmc_id.not.is.null"),
       ]);
       if (fnErr) throw new Error(fnErr.message);
       if (data?.error) throw new Error(data.error);
       setResults((data?.articles ?? []) as PubMedArticle[]);
       const ids = new Set<string>();
-      for (const r of (libRes.data ?? []) as Array<{ pubmed_id: string | null }>) {
-        if (r.pubmed_id) ids.add(String(r.pubmed_id));
+      for (const r of (libRes.data ?? []) as Array<{ pubmed_id: string | null; pmc_id: string | null; europepmc_id: string | null }>) {
+        if (r.pubmed_id) ids.add(`pmid:${r.pubmed_id}`);
+        if (r.pmc_id) ids.add(`pmc:${r.pmc_id}`);
+        if (r.europepmc_id) ids.add(`epmc:${r.europepmc_id}`);
       }
       setExistingPubmedIds(ids);
     } catch (e) {
@@ -170,10 +180,19 @@ export function PubMedPanel({
     }
   }
 
+  function isInLibrary(a: PubMedArticle): boolean {
+    if (a.pubmed_id && existingPubmedIds.has(`pmid:${a.pubmed_id}`)) return true;
+    if (a.pmc_id && existingPubmedIds.has(`pmc:${a.pmc_id}`)) return true;
+    if (a.europepmc_id && existingPubmedIds.has(`epmc:${a.europepmc_id}`)) return true;
+    return false;
+  }
+
   function handleAfterImport(article: PubMedArticle, target: ClassifyTarget) {
     setExistingPubmedIds((prev) => {
       const next = new Set(prev);
-      next.add(article.pubmed_id);
+      if (article.pubmed_id) next.add(`pmid:${article.pubmed_id}`);
+      if (article.pmc_id) next.add(`pmc:${article.pmc_id}`);
+      if (article.europepmc_id) next.add(`epmc:${article.europepmc_id}`);
       return next;
     });
     setClassifyTarget(target);
@@ -257,9 +276,9 @@ export function PubMedPanel({
         )}
         {results?.map((a) => (
           <ArticleCard
-            key={a.pubmed_id}
+            key={a.europepmc_id || a.pubmed_id || a.pmc_id || a.title}
             article={a}
-            inLibrary={existingPubmedIds.has(a.pubmed_id)}
+            inLibrary={isInLibrary(a)}
             isAdmin={isAdmin}
             onImported={(t) => handleAfterImport(a, t)}
           />
@@ -297,13 +316,18 @@ function ArticleCard({
   const [done, setDone] = useState(false);
   const [statusText, setStatusText] = useState<string>("");
 
+  const status: PubMedPdfStatus =
+    article.pdf_status ??
+    (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
+  const canImportPdf = status === "pdf_available";
+
   async function handleImport() {
     setImporting(true);
     try {
-      const { target } = await importPubMedArticle(article, isAdmin, setStatusText);
+      const { target } = await importPubMedArticle(article, isAdmin, setStatusText, canImportPdf);
       setDone(true);
       onImported(target);
-      toast.success("✅ Abstract importado correctamente");
+      toast.success(canImportPdf ? "✅ PDF importado correctamente" : "✅ Abstract importado correctamente");
     } catch (e) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "Error al importar");
@@ -335,29 +359,19 @@ function ArticleCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {(() => {
-            const status: PubMedPdfStatus =
-              article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
-            if (status === "pdf_available") {
-              return (
-                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-                  🟢 PDF Open Access
-                </Badge>
-              );
-            }
-            if (status === "abstract_only") {
-              return (
-                <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
-                  🟡 Solo abstract
-                </Badge>
-              );
-            }
-            return (
-              <Badge className="text-[10px] bg-muted text-muted-foreground border-border hover:bg-muted">
-                ⚪ Sin acceso libre
-              </Badge>
-            );
-          })()}
+          {status === "pdf_available" ? (
+            <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
+              🟢 PDF Open Access
+            </Badge>
+          ) : status === "abstract_only" ? (
+            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
+              🟡 Solo abstract
+            </Badge>
+          ) : (
+            <Badge className="text-[10px] bg-muted text-muted-foreground border-border hover:bg-muted">
+              ⚪ Sin acceso libre
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -394,7 +408,7 @@ function ArticleCard({
             ) : (
               <>
                 <Plus className="h-3 w-3" />
-                Importar abstract
+                {canImportPdf ? "Importar PDF" : "Importar abstract"}
               </>
             )}
           </Button>
@@ -405,51 +419,93 @@ function ArticleCard({
 }
 
 /**
- * Imports a PubMed article into the documents library (global if admin)
- * as an abstract-only document. PDF download is currently disabled —
- * we always import the abstract text.
+ * Imports an article into the documents library (global if admin).
+ * If `tryPdf` is true and a PDF is available via EuropePMC, downloads it,
+ * uploads to Storage and indexes the extracted text. Otherwise imports the
+ * abstract as a plain-text document.
  */
 async function importPubMedArticle(
   article: PubMedArticle,
   isAdmin: boolean,
   setStatus: (s: string) => void,
+  tryPdf: boolean = false,
 ): Promise<{ target: ClassifyTarget; usedPdf: boolean }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  const storagePath: string | null = null;
+  let storagePath: string | null = null;
   let docText = "";
-  const usedPdf = false;
+  let usedPdf = false;
 
-  // Always import as abstract for now
-  let abstractText = article.abstract ?? "";
-  if (!abstractText.trim()) {
+  if (tryPdf && article.source && article.europepmc_id) {
     try {
-      setStatus("Obteniendo abstract...");
-      const { data } = await supabase.functions.invoke("search-pubmed", {
-        body: { action: "get_abstract", pubmed_id: article.pubmed_id },
+      setStatus("Descargando PDF...");
+      const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("search-pubmed", {
+        body: { action: "download_pdf", source: article.source, europepmc_id: article.europepmc_id },
       });
-      if (data?.abstract && typeof data.abstract === "string") {
-        abstractText = data.abstract;
+      if (pdfErr) throw new Error(pdfErr.message);
+      if (pdfData?.success && pdfData.pdf_base64) {
+        // Decode base64 → Blob → File
+        const binary = atob(pdfData.pdf_base64 as string);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const pdfFile = new File([bytes], `${article.europepmc_id}.pdf`, { type: "application/pdf" });
+
+        setStatus("Subiendo PDF...");
+        const path = `${user.id}/${crypto.randomUUID()}.pdf`;
+        const { error: upErr } = await supabase.storage.from("documents").upload(path, pdfFile, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+        if (upErr) throw new Error(`Storage: ${upErr.message}`);
+        storagePath = path;
+
+        setStatus("Extrayendo texto...");
+        docText = await extractPdfText(pdfFile);
+        usedPdf = true;
+      } else {
+        console.warn("[pubmed] PDF download failed:", pdfData?.error);
       }
     } catch (e) {
-      console.warn("[pubmed] get_abstract failed:", e);
+      console.warn("[pubmed] PDF flow failed, falling back to abstract:", e);
     }
   }
-  const note = "Documento importado como abstract";
-  const parts = [
-    `# ${article.title}`,
-    article.authors ? `Autores: ${article.authors}` : "",
-    article.journal ? `Revista: ${article.journal}` : "",
-    article.year ? `Año: ${article.year}` : "",
-    article.doi ? `DOI: ${article.doi}` : "",
-    article.url ? `PubMed: ${article.url}` : "",
-    "",
-    `> ${note}`,
-    "",
-    abstractText.trim() || "(Sin abstract disponible)",
-  ].filter(Boolean);
-  docText = parts.join("\n");
+
+  if (!usedPdf) {
+    let abstractText = article.abstract ?? "";
+    if (!abstractText.trim()) {
+      try {
+        setStatus("Obteniendo abstract...");
+        const { data } = await supabase.functions.invoke("search-pubmed", {
+          body: {
+            action: "get_abstract",
+            source: article.source,
+            europepmc_id: article.europepmc_id,
+            pubmed_id: article.pubmed_id,
+          },
+        });
+        if (data?.abstract && typeof data.abstract === "string") {
+          abstractText = data.abstract;
+        }
+      } catch (e) {
+        console.warn("[pubmed] get_abstract failed:", e);
+      }
+    }
+    const note = "Documento importado como abstract";
+    const parts = [
+      `# ${article.title}`,
+      article.authors ? `Autores: ${article.authors}` : "",
+      article.journal ? `Revista: ${article.journal}` : "",
+      article.year ? `Año: ${article.year}` : "",
+      article.doi ? `DOI: ${article.doi}` : "",
+      article.url ? `PubMed: ${article.url}` : "",
+      "",
+      `> ${note}`,
+      "",
+      abstractText.trim() || "(Sin abstract disponible)",
+    ].filter(Boolean);
+    docText = parts.join("\n");
+  }
 
   setStatus("Indexando...");
   const chunks = chunkText(docText);
@@ -494,6 +550,8 @@ async function importPubMedArticle(
       import_source: "pubmed",
       pubmed_id: article.pubmed_id,
       pmc_id: article.pmc_id,
+      europepmc_id: article.europepmc_id || null,
+      europepmc_source: article.source || null,
       abstract: article.abstract,
       clinical_areas: initial.clinical_areas ?? [],
       source_institution: initial.source_institution ?? "PubMed / NCBI",
