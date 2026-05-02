@@ -850,6 +850,18 @@ export default function AdminDocuments() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium inline-flex items-center gap-1.5">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          Filtros
+          {activeColFilterCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{activeColFilterCount}</Badge>
+          )}
+        </span>
+        {activeColFilterCount > 0 && (
+          <Button size="sm" variant="ghost" onClick={clearAllColFilters} className="h-7 text-xs">
+            <X className="h-3 w-3 mr-1" /> Limpiar todos los filtros
+          </Button>
+        )}
         <div className="relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
