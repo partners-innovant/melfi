@@ -670,7 +670,7 @@ function SidebarBody({
 }
 
 function SuggestionChips({
-  patientId, patientKind, patientName, dynamic, loading, onPick, onRefresh,
+  patientId, patientKind, patientName, dynamic, loading, onPick, onAutoSend, onRefresh,
 }: {
   patientId: string;
   patientKind: "adult" | "child";
@@ -678,49 +678,82 @@ function SuggestionChips({
   dynamic: string[];
   loading: boolean;
   onPick: (s: string) => void;
+  onAutoSend: (text: string, mode?: string) => void;
   onRefresh: () => void;
 }) {
   const hasPatient = patientId !== NONE;
 
   if (hasPatient) {
+    const debateLabel = `🧠 Debatir diagnóstico de ${patientName ?? "este paciente"}`;
+    const debateMessage = `Quiero debatir el diagnóstico de ${patientName ?? "este paciente"} basándome en su perfil clínico.`;
+
+    const followUpChips = [
+      "¿Qué test confirmaría esto?",
+      "¿Cómo descartar el diagnóstico alternativo más probable?",
+      "¿Qué dice la evidencia sobre este diagnóstico?",
+      "Explorar comorbilidades",
+      "Cambiar hipótesis diagnóstica",
+    ];
+
     return (
-      <div className="mt-5">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-xs font-medium text-muted-foreground">
-            {patientName ? `Sugerencias para ${patientName}` : "Sugerencias para este paciente"}
+      <div className="mt-5 space-y-3">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              {patientName ? `Sugerencias para ${patientName}` : "Sugerencias para este paciente"}
+            </div>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={loading}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+              Actualizar sugerencias
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={loading}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
-            Actualizar sugerencias
-          </button>
-        </div>
-        {loading && dynamic.length === 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-14 rounded-xl border border-border bg-muted/30 animate-pulse" />
-            ))}
-          </div>
-        ) : dynamic.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            {dynamic.map((s) => (
+            <button
+              type="button"
+              onClick={() => onAutoSend(debateMessage, "diagnosis_debate")}
+              className="text-left text-sm border rounded-full px-3.5 py-2 bg-teal-500/10 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 transition-colors font-medium"
+            >
+              {debateLabel}
+            </button>
+            {loading && dynamic.length === 0 ? (
+              [0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-9 w-48 rounded-full border border-border bg-muted/30 animate-pulse" />
+              ))
+            ) : (
+              dynamic.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => onPick(s)}
+                  className="text-left text-sm border border-border rounded-full px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
+                >
+                  {s}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-2">Profundizar el debate</div>
+          <div className="flex flex-wrap gap-2">
+            {followUpChips.map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => onPick(s)}
-                className="text-left text-sm border border-border rounded-full px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
+                className="text-left text-xs border border-border rounded-full px-3 py-1.5 hover:bg-accent hover:border-primary/40 transition-colors text-muted-foreground"
               >
                 {s}
               </button>
             ))}
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">No se pudieron generar sugerencias.</p>
-        )}
+        </div>
       </div>
     );
   }
