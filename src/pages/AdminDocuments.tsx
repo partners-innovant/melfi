@@ -1299,6 +1299,61 @@ export default function AdminDocuments() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm vision reprocess (single) */}
+      <AlertDialog open={!!confirmVision} onOpenChange={(o) => !o && setConfirmVision(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ScanEye className="h-5 w-5 text-purple-600" /> ¿Re-procesar con OCR y visión?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Se analizará cada página del documento como imagen, capturando diagramas, tablas y gráficos.
+              Los chunks actuales serán reemplazados. Este proceso es más lento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+              onClick={() => {
+                const d = confirmVision;
+                setConfirmVision(null);
+                if (d) reprocessVisionSingle(d);
+              }}
+            >
+              Re-procesar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm vision reprocess (bulk) */}
+      <AlertDialog open={confirmVisionBulk} onOpenChange={setConfirmVisionBulk}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ScanEye className="h-5 w-5 text-purple-600" /> ¿Re-procesar {selected.size} documento(s) con visión?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cada página de cada documento se analizará como imagen para capturar diagramas, tablas y gráficos.
+              Los chunks actuales serán reemplazados. Este proceso es más lento y se ejecuta secuencialmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+              onClick={() => {
+                setConfirmVisionBulk(false);
+                reprocessVisionBulk();
+              }}
+            >
+              Re-procesar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
