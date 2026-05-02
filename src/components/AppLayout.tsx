@@ -61,6 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ? [
         ...baseItems,
         { to: "/admin/documents", label: "Gestor de documentos", icon: Database },
+        { to: "/admin/therapists", label: "Terapeutas", icon: UserCog },
         { to: "/feedback", label: "Feedback", icon: Inbox, badge: newCount },
       ]
     : baseItems;
