@@ -1047,6 +1047,18 @@ export default function AdminDocuments() {
                         ? <Loader2 className="h-4 w-4 animate-spin" />
                         : <Sparkles className="h-4 w-4 text-primary" />}
                     </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+                      onClick={() => setConfirmVision(d)}
+                      disabled={reprocessing.has(d.id) || !d.storage_path}
+                      title="Re-procesar con OCR y visión"
+                    >
+                      {reprocessing.has(d.id) && visionProgress[d.id]
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <ScanEye className="h-4 w-4" />}
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewer(d)} title="Ver documento">
                       <Eye className="h-4 w-4" />
                     </Button>
