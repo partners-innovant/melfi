@@ -164,7 +164,7 @@ export default function Documents() {
   const selectedCount = selected.size;
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-10 max-w-6xl mx-auto">
+    <div className="px-4 md:px-8 py-6 md:py-10 w-full">
       <header className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Documentos</h1>
@@ -338,13 +338,12 @@ function DocList({
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col className="w-10" />
-            <col />
-            <col className="w-[180px]" />
-            <col className="w-[160px]" />
-            <col className="w-[60px]" />
-            <col className="w-[120px]" />
-            <col className="w-[90px]" />
-            <col className="w-[90px]" />
+            <col style={{ width: "35%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "6%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "7%" }} />
           </colgroup>
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
@@ -354,7 +353,6 @@ function DocList({
               <th className="px-3 py-2 text-left font-medium">Fuente</th>
               <th className="px-3 py-2 text-left font-medium">Año</th>
               <th className="px-3 py-2 text-left font-medium">Tipo</th>
-              <th className="px-3 py-2 text-left font-medium">Visibilidad</th>
               <th className="px-3 py-2 text-right font-medium">Acciones</th>
             </tr>
           </thead>
@@ -388,9 +386,6 @@ function DocList({
                       <FileText className="h-4 w-4 text-primary flex-shrink-0" />
                       <span className="font-medium truncate">{d.title}</span>
                     </button>
-                    {d.author && (
-                      <div className="text-[11px] text-muted-foreground truncate ml-6">{d.author}</div>
-                    )}
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex flex-wrap gap-1">
@@ -430,11 +425,6 @@ function DocList({
                   <td className="px-3 py-2 align-middle">
                     <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
                       {DOC_TYPE_LABELS[d.document_type]}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <Badge variant={d.is_global ? "default" : "outline"} className="text-[10px] gap-1 whitespace-nowrap">
-                      {d.is_global ? <><Globe2 className="h-3 w-3" />Global</> : "Privado"}
                     </Badge>
                   </td>
                   <td className="px-3 py-2 align-middle">
