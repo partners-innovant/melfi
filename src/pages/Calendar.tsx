@@ -797,6 +797,15 @@ function NewSessionModal({
           </div>
 
           <div>
+            <Label>Ubicación</Label>
+            <Input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="Sala 3, Av. Apoquindo 123, link de videollamada…"
+            />
+          </div>
+
+          <div>
             <Label>Notas previas</Label>
             <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
