@@ -143,9 +143,15 @@ export default function PatientDetail() {
           </div>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Button
+            onClick={() => setSessionModeOpen(true)}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Play className="h-4 w-4" />Iniciar sesión
+          </Button>
           <Link to={`/assistant?patient=${patient.id}`}>
-            <Button className="gap-2"><Sparkles className="h-4 w-4" />Consultar IA sobre este paciente</Button>
+            <Button variant="outline" className="gap-2"><Sparkles className="h-4 w-4" />Consultar IA sobre este paciente</Button>
           </Link>
         </div>
       </Card>
