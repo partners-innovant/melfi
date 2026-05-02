@@ -308,78 +308,115 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     return "";
   }
 
-  async function processChunk(blob: Blob) {
-    if (!blob || blob.size < 2000) return; // skip tiny chunks
-    setChunkCount((n) => n + 1);
-    setTranscribing(true);
-    let errorSeg: TranscriptSegment | null = null;
-    try {
-      const audio = await blobToBase64(blob);
-      const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
-      const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
-      const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-        body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
-      });
-      if (error) throw error;
-      const segs: any[] = (data as any)?.segments ?? [];
-      if (!segs.length) {
-        if ((data as any)?.error) throw new Error(String((data as any).error));
-        return;
-      }
-      const now = Date.now();
-      const enriched: TranscriptSegment[] = segs
-        .filter((s) => s && typeof s.text === "string" && s.text.trim())
-        .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
-      if (!enriched.length) return;
-      const next = [...transcriptRef.current, ...enriched];
-      transcriptRef.current = next;
-      setTranscript(next);
-      // Persist
-      const sid = sessionIdRef.current;
-      if (sid) {
-        supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
-      }
-      // Suggestion-detection
-      checkSuggestionsUsed(enriched.map((e) => `${e.speaker}: ${e.text}`).join("\n"));
-    } catch (e: any) {
-      console.error("transcribe chunk failed", e);
-      errorSeg = { speaker: "Error", text: "⚠️ Error transcribiendo fragmento", t: Date.now(), error: true };
-    } finally {
-      setTranscribing(false);
-      if (errorSeg) {
-        const next = [...transcriptRef.current, errorSeg];
-        transcriptRef.current = next;
-        setTranscript(next);
-      }
+  // Manual: transcribe accumulated chunks then run analysis
+  async function transcribeAndAnalyze() {
+    if (analyzing) return;
+    const pending = unprocessedChunksRef.current;
+    if (!pending.length && !transcriptRef.current.length) {
+      toast.info("Aún no hay audio grabado para transcribir.");
+      return;
     }
-  }
-
-  async function checkSuggestionsUsed(transcription: string) {
-    const all: { kind: "question" | "intervention"; text: string }[] = [
-      ...suggestionsRef.current.questions.map((t) => ({ kind: "question" as const, text: t })),
-      ...suggestionsRef.current.interventions.map((t) => ({ kind: "intervention" as const, text: t })),
-    ];
-    for (const sug of all) {
-      const key = sug.text.toLowerCase().trim();
-      if (checkedSuggestionsRef.current.has(key)) continue;
-      checkedSuggestionsRef.current.add(key);
-      try {
-        const { data, error } = await supabase.functions.invoke("check-suggestion-used", {
-          body: { transcription, suggestion: sug.text },
-        });
-        if (error) continue;
-        const used = !!(data as any)?.used;
-        const conf = Number((data as any)?.confidence ?? 0);
-        if (used && conf >= 0.75) {
-          markUsed(sug.kind, sug.text);
-          toast.success(`✓ Detectado: "${sug.text.slice(0, 50)}${sug.text.length > 50 ? "…" : ""}"`);
-        } else {
-          // Allow re-checking later if not detected this time
-          checkedSuggestionsRef.current.delete(key);
+    setAnalyzing(true);
+    let newSegments: TranscriptSegment[] = [];
+    try {
+      // 1) Transcribe accumulated chunks (if any)
+      if (pending.length) {
+        const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
+        const blob = new Blob(pending, { type: liveMimeRef.current || "audio/webm" });
+        // Clear processed chunks from memory immediately
+        unprocessedChunksRef.current = [];
+        if (blob.size >= 1000) {
+          setTranscribing(true);
+          try {
+            const audio = await blobToBase64(blob);
+            const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
+            const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
+              body: { audio, mime_type: baseMime, context: ctx, patient_name: patientName },
+            });
+            if (error) throw error;
+            const segs: any[] = (data as any)?.segments ?? [];
+            const now = Date.now();
+            newSegments = segs
+              .filter((s) => s && typeof s.text === "string" && s.text.trim())
+              .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
+            if (newSegments.length) {
+              const next = [...transcriptRef.current, ...newSegments];
+              transcriptRef.current = next;
+              setTranscript(next);
+              const sid = sessionIdRef.current;
+              if (sid) supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
+            }
+          } catch (e: any) {
+            console.error("transcribe failed", e);
+            const errSeg: TranscriptSegment = { speaker: "Error", text: "⚠️ Error transcribiendo fragmento", t: Date.now(), error: true };
+            const next = [...transcriptRef.current, errSeg];
+            transcriptRef.current = next;
+            setTranscript(next);
+            toast.error("Error al transcribir fragmento");
+          } finally {
+            setTranscribing(false);
+          }
         }
-      } catch {
-        checkedSuggestionsRef.current.delete(key);
       }
+
+      // 2) Build context and call analyze-session-live
+      const transcriptText = transcriptRef.current
+        .filter((s) => !s.error)
+        .map((s) => `${s.speaker}: ${s.text}`).join("\n");
+      const therapistNotesText = therapistEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
+      const patientNotesText = patientEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
+      const activeWithIds: AnalyzedSuggestion[] = analyzedSuggestions.length
+        ? analyzedSuggestions
+        : [
+            ...suggestions.questions.map((t, i) => ({ id: `q-${i}`, type: "question", text: t })),
+            ...suggestions.interventions.map((t, i) => ({ id: `i-${i}`, type: "intervention", text: t })),
+            ...suggestions.patterns.map((t, i) => ({ id: `p-${i}`, type: "pattern", text: t })),
+            ...suggestions.unexplored.map((t, i) => ({ id: `u-${i}`, type: "alert", text: t })),
+          ];
+
+      const { data: ad, error: aerr } = await supabase.functions.invoke("analyze-session-live", {
+        body: {
+          patient_id: patientId,
+          transcript_text: transcriptText,
+          therapist_notes: therapistNotesText,
+          patient_notes: patientNotesText,
+          active_suggestions: activeWithIds.map(({ id, type, text }) => ({ id, type, text })),
+        },
+      });
+      if (aerr) throw aerr;
+      const bullets: string[] = Array.isArray((ad as any)?.summary_bullets) ? (ad as any).summary_bullets : [];
+      const newSugs: any[] = Array.isArray((ad as any)?.suggestions) ? (ad as any).suggestions : [];
+      const addressed: string[] = Array.isArray((ad as any)?.suggestions_addressed) ? (ad as any).suggestions_addressed : [];
+      const insight: string = typeof (ad as any)?.session_insights === "string" ? (ad as any).session_insights : "";
+
+      // Mark addressed on previous active set so therapist sees what was detected
+      const addressedSet = new Set(addressed.map(String));
+      const refreshed: AnalyzedSuggestion[] = newSugs.map((s, i) => ({
+        id: `n-${Date.now()}-${i}`,
+        type: s.type ?? "intervention",
+        text: String(s.text ?? "").trim(),
+        rationale: s.rationale ? String(s.rationale) : undefined,
+        addressed: false,
+      })).filter((s) => s.text);
+      // Also keep any prior addressed ones flagged at the top
+      const flaggedPrior = activeWithIds
+        .filter((s) => addressedSet.has(s.id))
+        .map((s) => ({ ...s, addressed: true }));
+
+      setAnalyzedSuggestions([...flaggedPrior, ...refreshed]);
+      setSessionInsight(insight);
+
+      if (bullets.length) {
+        setSummaryBlocks((prev) => [{ t: Date.now(), bullets }, ...prev]);
+      }
+      setTranscriptionCount((n) => n + 1);
+      setLastAnalyzedAt(Date.now());
+      toast.success("✨ Transcripción y análisis listos");
+    } catch (e: any) {
+      console.error(e);
+      toast.error("No se pudo analizar: " + (e?.message ?? ""));
+    } finally {
+      setAnalyzing(false);
     }
   }
 
