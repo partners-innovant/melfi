@@ -102,6 +102,14 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [transcriptEditable, setTranscriptEditable] = useState(false);
   const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
   const [chunkCount, setChunkCount] = useState(0);
+  // Manual on-demand transcription + analysis
+  const [analyzing, setAnalyzing] = useState(false);
+  const [summaryBlocks, setSummaryBlocks] = useState<SummaryBlock[]>([]);
+  const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
+  const [sessionInsight, setSessionInsight] = useState<string>("");
+  const [transcriptionCount, setTranscriptionCount] = useState(0);
+  const [lastAnalyzedAt, setLastAnalyzedAt] = useState<number | null>(null);
+  const unprocessedChunksRef = useRef<Blob[]>([]);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
 
   const liveRecorderRef = useRef<MediaRecorder | null>(null);
