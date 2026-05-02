@@ -432,7 +432,7 @@ export function PatientDocumentsTab({ patientId }: { patientId: string }) {
         Object.entries(grouped).map(([type, list]) => (
           <div key={type} className="space-y-2">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{adultDocLabel(type)}</h4>
-            {list.map((d) => (
+            {(list as any[]).map((d) => (
               <Card key={d.id} className="p-4 flex items-start gap-3">
                 <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
