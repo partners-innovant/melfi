@@ -964,8 +964,11 @@ export default function AdminDocuments() {
                 </TableCell>
                 <TableCell className="text-center text-sm tabular-nums">
                   {reprocessing.has(d.id) ? (
-                    <span className="inline-flex items-center gap-1 text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" /> …
+                    <span className="inline-flex items-center gap-1 text-muted-foreground text-[11px]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {visionProgress[d.id] && visionProgress[d.id].total > 0
+                        ? <>🔍 {visionProgress[d.id].current} de {visionProgress[d.id].total}</>
+                        : "…"}
                     </span>
                   ) : recentlyProcessed[d.id] && d.chunk_count > 0 ? (
                     <div className="flex flex-col items-center gap-0.5">
@@ -1011,6 +1014,17 @@ export default function AdminDocuments() {
                     </TooltipProvider>
                   ) : (
                     d.chunk_count
+                  )}
+                </TableCell>
+                <TableCell>
+                  {d.processing_mode === "vision" ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                      🔍 Visión
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+                      ⚡ Texto
+                    </span>
                   )}
                 </TableCell>
                 <TableCell>
