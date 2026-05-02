@@ -644,6 +644,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
             </span>
           )}
+          {recState !== "idle" && (
+            <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
+              Fragmentos procesados: {chunkCount}
+            </span>
+          )}
         </div>
       </div>
 
