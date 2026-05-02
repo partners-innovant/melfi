@@ -817,29 +817,34 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             </TabsContent>
 
             <TabsContent value="transcript" className="flex-1 min-h-0 mt-0">
-              <div className="h-full overflow-y-auto p-4 space-y-2">
+              <div ref={transcriptScrollRef} className="h-full overflow-y-auto p-4 space-y-2">
                 {transcript.length === 0 ? (
                   <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
                     {recState === "idle"
                       ? 'La transcripción aparecerá aquí. Pulsa "🔴 Grabar sesión" para empezar.'
-                      : "Escuchando… los segmentos aparecerán cada ~30 segundos."}
+                      : "Escuchando… los segmentos aparecerán cada ~10 segundos."}
                   </div>
                 ) : (
                   transcript.map((seg, i) => {
                     const isPatient = seg.speaker === "Paciente";
                     const isTher = seg.speaker === "Terapeuta";
-                    const tone = isPatient
+                    const isError = seg.error || seg.speaker === "Error";
+                    const tone = isError
+                      ? "border-l-red-400 bg-red-500/5"
+                      : isPatient
                       ? "border-l-blue-400 bg-blue-500/5"
                       : isTher
                       ? "border-l-teal-400 bg-teal-500/5"
                       : "border-l-amber-400 bg-amber-500/5";
+                    const emoji = isError ? "⚠️" : isPatient ? "👤" : isTher ? "🧑‍⚕️" : "🗣️";
+                    const label = isError ? "Error" : isPatient ? "Paciente" : isTher ? "Terapeuta" : "Sin identificar";
                     return (
                       <div key={i} className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${tone}`}>
                         <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5 flex items-center justify-between">
                           <span>
-                            {isPatient ? "Paciente" : isTher ? "Terapeuta" : "⚠️ Sin identificar"} [{clockFromTimestamp(seg.t)}]
+                            {emoji} {label} [{clockFromTimestamp(seg.t)}]
                           </span>
-                          {transcriptEditable && (
+                          {transcriptEditable && !isError && (
                             <select
                               value={seg.speaker}
                               onChange={(e) => {
@@ -858,7 +863,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                             </select>
                           )}
                         </div>
-                        {transcriptEditable ? (
+                        {transcriptEditable && !isError ? (
                           <Textarea
                             value={seg.text}
                             onChange={(e) => {
