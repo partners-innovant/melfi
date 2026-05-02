@@ -17,8 +17,9 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Sparkles, Plus, Phone, Mail, Users, Calendar,
-  ChevronDown, ChevronRight, FileText, Filter, MessageCircle,
+  ChevronDown, ChevronRight, FileText, Filter, MessageCircle, Send,
 } from "lucide-react";
+import TransferChildPatientDialog from "@/components/TransferChildPatientDialog";
 import {
   calcAge, ageRangeColor, GOAL_STATUSES, GOAL_STATUS_LABELS,
   TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH,
