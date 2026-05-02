@@ -32,6 +32,10 @@ export default function ProfileCompletionModal() {
       toast.error("Todos los campos son obligatorios");
       return;
     }
+    if (!validateRUT(rut)) {
+      toast.error("El RUT ingresado no es válido");
+      return;
+    }
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
