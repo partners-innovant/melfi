@@ -254,7 +254,7 @@ export function ClassifyPreviewDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!saving) onOpenChange(o); }}>
       <DialogContent
-        className={isSingle ? "max-w-[640px]" : "w-[90vw] max-w-[1200px] max-h-[90vh] overflow-hidden flex flex-col"}
+        className={isSingle ? "max-w-[640px] max-h-[90vh] overflow-hidden flex flex-col" : "w-[90vw] max-w-[1200px] max-h-[90vh] overflow-hidden flex flex-col"}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -262,7 +262,7 @@ export function ClassifyPreviewDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className={isSingle ? "space-y-3" : "flex-1 overflow-y-auto pr-1 space-y-3"}>
+        <div className={isSingle ? "flex-1 overflow-y-auto pr-1 space-y-3" : "flex-1 overflow-y-auto pr-1 space-y-3"}>
           {cards.map((c) => (
             <ClassifyCard key={c.id} card={c} onChange={(p) => patchCard(c.id, p)} />
           ))}
