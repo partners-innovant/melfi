@@ -28,7 +28,17 @@ type Suggestions = {
   interventions: string[];
   unexplored: string[];
 };
-type UsedSuggestion = { kind: "question" | "pattern" | "intervention" | "unexplored"; text: string; t: number };
+type UsedSuggestion = { kind: "question" | "pattern" | "intervention" | "unexplored", text: string; t: number };
+
+type AnalyzedSuggestion = {
+  id: string;
+  type: "question" | "intervention" | "pattern" | "alert" | string;
+  text: string;
+  rationale?: string;
+  addressed?: boolean;
+};
+type SummaryBlock = { t: number; bullets: string[] };
+const TRANSCRIPTION_USD = 0.18;
 
 interface Props {
   open: boolean;
