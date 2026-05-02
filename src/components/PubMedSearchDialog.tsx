@@ -154,16 +154,21 @@ export function PubMedPanel({
     try {
       const [{ data, error: fnErr }, libRes] = await Promise.all([
         supabase.functions.invoke("search-pubmed", {
-          body: { query, onlyFree, years, language },
+          body: { action: "search", query, onlyFree, years, language },
         }),
-        supabase.from("documents").select("pubmed_id").not("pubmed_id", "is", null),
+        supabase
+          .from("documents")
+          .select("pubmed_id, pmc_id, europepmc_id")
+          .or("pubmed_id.not.is.null,pmc_id.not.is.null,europepmc_id.not.is.null"),
       ]);
       if (fnErr) throw new Error(fnErr.message);
       if (data?.error) throw new Error(data.error);
       setResults((data?.articles ?? []) as PubMedArticle[]);
       const ids = new Set<string>();
-      for (const r of (libRes.data ?? []) as Array<{ pubmed_id: string | null }>) {
-        if (r.pubmed_id) ids.add(String(r.pubmed_id));
+      for (const r of (libRes.data ?? []) as Array<{ pubmed_id: string | null; pmc_id: string | null; europepmc_id: string | null }>) {
+        if (r.pubmed_id) ids.add(`pmid:${r.pubmed_id}`);
+        if (r.pmc_id) ids.add(`pmc:${r.pmc_id}`);
+        if (r.europepmc_id) ids.add(`epmc:${r.europepmc_id}`);
       }
       setExistingPubmedIds(ids);
     } catch (e) {
@@ -175,10 +180,19 @@ export function PubMedPanel({
     }
   }
 
+  function isInLibrary(a: PubMedArticle): boolean {
+    if (a.pubmed_id && existingPubmedIds.has(`pmid:${a.pubmed_id}`)) return true;
+    if (a.pmc_id && existingPubmedIds.has(`pmc:${a.pmc_id}`)) return true;
+    if (a.europepmc_id && existingPubmedIds.has(`epmc:${a.europepmc_id}`)) return true;
+    return false;
+  }
+
   function handleAfterImport(article: PubMedArticle, target: ClassifyTarget) {
     setExistingPubmedIds((prev) => {
       const next = new Set(prev);
-      next.add(article.pubmed_id);
+      if (article.pubmed_id) next.add(`pmid:${article.pubmed_id}`);
+      if (article.pmc_id) next.add(`pmc:${article.pmc_id}`);
+      if (article.europepmc_id) next.add(`epmc:${article.europepmc_id}`);
       return next;
     });
     setClassifyTarget(target);
