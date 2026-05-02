@@ -422,23 +422,40 @@ export default function Calendar() {
       {/* Google event detail */}
       <Dialog open={!!activeGEvent} onOpenChange={(o) => !o && setActiveGEvent(null)}>
         <DialogContent className="max-w-md">
-          {activeGEvent && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{activeGEvent.summary}</DialogTitle>
-                <DialogDescription>
-                  {new Date(activeGEvent.start).toLocaleString("es-CL", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}
-                </DialogDescription>
-              </DialogHeader>
-              <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0 w-fit">Google Calendar</Badge>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setActiveGEvent(null)}>Cerrar</Button>
-                {activeGEvent.htmlLink && (
-                  <Button onClick={() => window.open(activeGEvent.htmlLink!, "_blank")}>Abrir en Google</Button>
-                )}
-              </DialogFooter>
-            </>
-          )}
+          {activeGEvent && (() => {
+            const startD = new Date(activeGEvent.start);
+            const endD = activeGEvent.end ? new Date(activeGEvent.end) : null;
+            const durMin = endD ? Math.max(0, Math.round((endD.getTime() - startD.getTime()) / 60_000)) : null;
+            const fmtTime = (d: Date) => d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>{activeGEvent.summary}</DialogTitle>
+                  <DialogDescription>
+                    {startD.toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                    {!activeGEvent.allDay && (
+                      <> · {fmtTime(startD)}{endD ? `–${fmtTime(endD)}` : ""}{durMin != null ? ` · ${durMin} min` : ""}</>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 text-sm">
+                  <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0 w-fit">Google Calendar</Badge>
+                  {activeGEvent.location && (
+                    <div><span className="text-muted-foreground">Ubicación:</span> {activeGEvent.location}</div>
+                  )}
+                  {activeGEvent.description && (
+                    <div className="whitespace-pre-wrap text-muted-foreground">{activeGEvent.description}</div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setActiveGEvent(null)}>Cerrar</Button>
+                  {activeGEvent.htmlLink && (
+                    <Button onClick={() => window.open(activeGEvent.htmlLink!, "_blank")}>Abrir en Google</Button>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
