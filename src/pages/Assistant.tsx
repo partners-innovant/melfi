@@ -443,7 +443,7 @@ export default function Assistant() {
                 autoFocus
               />
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {SUGGESTIONS.map((s) => (
+                {(patientKind === "child" ? CHILD_SUGGESTIONS : SUGGESTIONS).map((s) => (
                   <button
                     key={s}
                     onClick={() => { setInput(s); }}
