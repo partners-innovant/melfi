@@ -796,6 +796,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           year: consumedPrefill.year || undefined,
           sourceInstitution: consumedPrefill.source_institution,
           sourceInstitutionType: consumedPrefill.source_institution_type,
+          pubmedPrefill: consumedPrefill,
           autoFilled: {
             title: true, author: !!consumedPrefill.author, year: !!consumedPrefill.year,
             docType: true, clinicalAreas: false, sourceInstitution: true,
