@@ -1294,11 +1294,44 @@ interface WebSource {
   relevance: string;
 }
 
+// --- duplicate detection helpers ---
+function normalizeUrl(u: string): string {
+  if (!u) return "";
+  try {
+    const url = new URL(u.trim());
+    let host = url.hostname.toLowerCase().replace(/^www\./, "");
+    let path = url.pathname.replace(/\/+$/, "");
+    return `${host}${path}`.toLowerCase();
+  } catch {
+    return u.trim().toLowerCase().replace(/\/+$/, "");
+  }
+}
+
+function normalizeTitle(t: string): string {
+  return (t || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function titleSimilarity(a: string, b: string): number {
+  const A = new Set(normalizeTitle(a).split(" ").filter((w) => w.length > 2));
+  const B = new Set(normalizeTitle(b).split(" ").filter((w) => w.length > 2));
+  if (A.size === 0 || B.size === 0) return 0;
+  let inter = 0;
+  A.forEach((w) => { if (B.has(w)) inter++; });
+  const union = A.size + B.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
 function WebSourcesButton({ question }: { question: string }) {
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<WebSource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+  const [existingDocs, setExistingDocs] = useState<Array<{ title: string; source_url: string | null }>>([]);
+  const navigate = useNavigate();
 
   async function search() {
     if (sources && !error) {
@@ -1308,11 +1341,13 @@ function WebSourcesButton({ question }: { question: string }) {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke("web-sources", {
-        body: { question },
-      });
+      const [{ data, error: fnErr }, docsRes] = await Promise.all([
+        supabase.functions.invoke("web-sources", { body: { question } }),
+        supabase.from("documents").select("title, source_url"),
+      ]);
       if (fnErr) throw new Error(fnErr.message);
       if (data?.error) throw new Error(data.error);
+      setExistingDocs((docsRes.data as any[]) ?? []);
       setSources((data?.sources ?? []) as WebSource[]);
     } catch (e: any) {
       setError(e?.message ?? "Error al buscar fuentes");
@@ -1322,7 +1357,19 @@ function WebSourcesButton({ question }: { question: string }) {
     }
   }
 
-  // importToLibrary removed — replaced by inline ImportSourceButton
+  function isDuplicate(s: WebSource): boolean {
+    const nu = normalizeUrl(s.url);
+    for (const d of existingDocs) {
+      if (d.source_url && nu && normalizeUrl(d.source_url) === nu) return true;
+      if (titleSimilarity(s.title, d.title) > 0.8) return true;
+    }
+    return false;
+  }
+
+  function handleManualUpload() {
+    setSources(null);
+    navigate("/documents?upload=1");
+  }
 
   return (
     <>
@@ -1359,34 +1406,65 @@ function WebSourcesButton({ question }: { question: string }) {
               </p>
             ) : (
               <div className="space-y-2">
-                {sources.map((s, i) => (
-                  <div key={i} className="rounded-md border bg-background p-2.5 space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium leading-snug">{s.title}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {s.authors}{s.year ? ` · ${s.year}` : ""}
+                {sources.map((s, i) => {
+                  const dup = isDuplicate(s);
+                  return (
+                    <div key={i} className="rounded-md border bg-background p-2.5 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium leading-snug">{s.title}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {s.authors}{s.year ? ` · ${s.year}` : ""}
+                          </div>
                         </div>
+                        <Badge variant="secondary" className="text-[10px] shrink-0">{s.source}</Badge>
                       </div>
-                      <Badge variant="secondary" className="text-[10px] shrink-0">{s.source}</Badge>
+                      <p className="text-xs text-muted-foreground leading-snug">{s.relevance}</p>
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1"
+                          onClick={() => window.open(s.url, "_blank", "noopener,noreferrer")}
+                        >
+                          <ExternalLink className="h-3 w-3" /> Abrir fuente
+                        </Button>
+                        {dup ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled
+                            className="h-7 px-2 text-xs gap-1 border-emerald-500/60 bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-950/30 disabled:opacity-100"
+                          >
+                            <Check className="h-3 w-3" /> Ya en tu biblioteca
+                          </Button>
+                        ) : (
+                          <ImportSourceButton url={s.url} />
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground leading-snug">{s.relevance}</p>
-                    <div className="flex flex-wrap gap-1 pt-0.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs gap-1"
-                        onClick={() => window.open(s.url, "_blank", "noopener,noreferrer")}
-                      >
-                        <ExternalLink className="h-3 w-3" /> Abrir fuente
-                      </Button>
-                      <ImportSourceButton url={s.url} />
-
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
+
+            {/* Manual upload fallback */}
+            <div className="pt-2 border-t border-border/60">
+              <div className="rounded-md border border-dashed bg-background/60 p-3 space-y-2">
+                <div className="text-sm font-medium">📁 ¿Tienes el documento en tu computador?</div>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  Si ya descargaste alguno de estos documentos, puedes subirlo directamente.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleManualUpload}
+                  className="h-8 px-3 text-xs gap-1.5 border-teal-500/60 text-teal-700 hover:bg-teal-50 hover:text-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/40"
+                >
+                  <PlusIcon className="h-3.5 w-3.5" /> Subir documento manualmente
+                </Button>
+              </div>
+            </div>
           </Card>
         </div>
       )}
