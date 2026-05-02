@@ -254,7 +254,7 @@ ${(team ?? []).map((t: any) => `- ${t.professional_name} (${t.professional_role}
         .from("patients").select("*")
         .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
       if (p) {
-        const [{ data: meds }, { data: adultDocs }] = await Promise.all([
+        const [{ data: meds }, { data: adultDocs }, { data: team }] = await Promise.all([
           supabase.from("patient_medications")
             .select("name, dose, frequency, prescribed_by")
             .eq("patient_id", patient_id).eq("is_active", true)
@@ -264,6 +264,10 @@ ${(team ?? []).map((t: any) => `- ${t.professional_name} (${t.professional_role}
             .eq("patient_id", patient_id)
             .order("document_date", { ascending: false, nullsFirst: false })
             .limit(10),
+          supabase.from("treatment_team")
+            .select("professional_name, professional_role, specialty, institution, email, phone, is_primary_contact")
+            .eq("patient_id", patient_id)
+            .order("is_primary_contact", { ascending: false }),
         ]);
         const medsLine = (meds && meds.length > 0)
           ? (meds as any[]).map((m) => `Medicación actual: ${m.name}${m.dose ? ` ${m.dose}` : ""}${m.frequency ? ` ${m.frequency}` : ""}${m.prescribed_by ? `, prescrito por ${m.prescribed_by}` : ""}`).join("\n")
