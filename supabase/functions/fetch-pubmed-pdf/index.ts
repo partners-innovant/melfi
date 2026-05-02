@@ -51,11 +51,37 @@ Deno.serve(async (req) => {
       });
     }
     const id = pmc_id.replace(/^PMC/i, "");
-    const candidates = [
-      `https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${id}/pdf/`,
-      `https://europepmc.org/articles/PMC${id}?pdf=render`,
+
+    // Step 1: Ask the PMC OA Web Service for the canonical PDF URL.
+    const candidates: string[] = [];
+    try {
+      const oaRes = await fetch(
+        `https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=PMC${id}&format=pdf`,
+        {
+          headers: {
+            "User-Agent": "PsicoasistBot/1.0 (clinical research; mailto:support@psicoasist.com)",
+          },
+        },
+      );
+      if (oaRes.ok) {
+        const oaText = await oaRes.text();
+        if (!/<error\b/i.test(oaText)) {
+          const m = oaText.match(/<link[^>]*format="pdf"[^>]*href="([^"]+)"/i)
+            ?? oaText.match(/href="([^"]*\.pdf[^"]*)"/i);
+          if (m) candidates.push(m[1].replace(/^ftp:\/\//i, "https://"));
+        }
+      }
+    } catch (e) {
+      console.warn("OA lookup failed:", e);
+    }
+
+    // Step 2: Fallback URLs (EuropePMC + direct PMC).
+    candidates.push(
       `https://europepmc.org/backend/ptpmcrender.fcgi?accid=PMC${id}&blobtype=pdf`,
-    ];
+      `https://europepmc.org/articles/PMC${id}?pdf=render`,
+      `https://www.ncbi.nlm.nih.gov/pmc/articles/PMC${id}/pdf/`,
+    );
+
     for (const url of candidates) {
       const bytes = await tryFetchPdf(url);
       if (bytes) {
@@ -67,7 +93,7 @@ Deno.serve(async (req) => {
         }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
-    return new Response(JSON.stringify({ ok: false, error: "PDF no disponible" }), {
+    return new Response(JSON.stringify({ ok: false, error: "PDF no disponible en acceso libre" }), {
       status: 404,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
