@@ -511,7 +511,7 @@ export default function AdminDocuments() {
       toast.warning(`Completado: ${ok} ok, ${fail} con error`, { id: tid });
     }
   }
-  }
+
 
   async function openViewer(d: DocRow) {
     setViewDoc(d);
