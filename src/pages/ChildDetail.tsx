@@ -235,6 +235,18 @@ export default function ChildDetail() {
           <OtherEvalsSection childId={id!} />
         </TabsContent>
 
+        <TabsContent value="notes" className="mt-4">
+          <ChildSessionNotesTab childId={id!} />
+        </TabsContent>
+
+        <TabsContent value="tests" className="mt-4">
+          <ChildTestsTab childId={id!} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4">
+          <ChildDocumentsTab childId={id!} />
+        </TabsContent>
+
         <TabsContent value="comms" className="mt-4">
           <CommsTab childId={id!} />
         </TabsContent>
