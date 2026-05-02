@@ -833,68 +833,173 @@ function CitationPanel({ citation }: { citation: Citation }) {
   );
 }
 
-function exportConversationPdf(messages: ChatMessage[], assistantIdx: number, patientName: string | null) {
-  // Find the user question that triggered this assistant message
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+const SUPERS = ["⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹"];
+function toSuper(n: number): string {
+  return String(n).split("").map((d) => SUPERS[parseInt(d, 10)] ?? d).join("");
+}
+
+/** Render answer text to HTML: replace [cita:ID] with superscript numbers,
+ *  apply **bold**, basic numbered/bulleted lists and paragraph breaks. */
+function renderAnswerHtml(text: string, citations: Citation[]): string {
+  const idxMap = new Map<string, number>();
+  citations.forEach((c, i) => idxMap.set(c.chunk_id, i + 1));
+
+  // Replace citation markers with styled superscripts (drop unknown IDs).
+  let t = text.replace(/\s*\[cita:([^\]]+)\]/g, (_m, id: string) => {
+    const idx = idxMap.get(id.trim());
+    if (!idx) return "";
+    return `__CITE_${idx}__`;
+  });
+
+  // Escape HTML, then re-insert tokens
+  t = escapeHtml(t);
+  t = t.replace(/__CITE_(\d+)__/g, (_m, n) =>
+    `<sup style="color:#0d9488;font-weight:600;font-size:0.75em;">${toSuper(parseInt(n, 10))}</sup>`,
+  );
+  // Bold **text**
+  t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+
+  // Build block-level HTML from lines
+  const lines = t.split(/\n/);
+  const out: string[] = [];
+  let listType: "ul" | "ol" | null = null;
+  const closeList = () => {
+    if (listType) { out.push(`</${listType}>`); listType = null; }
+  };
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (!line.trim()) { closeList(); continue; }
+    const num = line.match(/^\s*(\d+)[.)]\s+(.*)$/);
+    const bul = line.match(/^\s*[-*•]\s+(.*)$/);
+    if (num) {
+      if (listType !== "ol") { closeList(); out.push('<ol style="margin:6px 0 6px 20px;padding:0;">'); listType = "ol"; }
+      out.push(`<li style="margin:2px 0;">${num[2]}</li>`);
+    } else if (bul) {
+      if (listType !== "ul") { closeList(); out.push('<ul style="margin:6px 0 6px 20px;padding:0;list-style:disc;">'); listType = "ul"; }
+      out.push(`<li style="margin:2px 0;">${bul[1]}</li>`);
+    } else {
+      closeList();
+      out.push(`<p style="margin:6px 0;">${line}</p>`);
+    }
+  }
+  closeList();
+  return out.join("");
+}
+
+async function exportConversationPdf(messages: ChatMessage[], assistantIdx: number, patientName: string | null) {
   const assistant = messages[assistantIdx];
   let question = "";
   for (let i = assistantIdx - 1; i >= 0; i--) {
     if (messages[i].role === "user") { question = messages[i].content; break; }
   }
-  const answer = stripCitations(assistant.content);
   const citations = assistant.citations ?? [];
-
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const pageW = doc.internal.pageSize.getWidth();
-  const pageH = doc.internal.pageSize.getHeight();
-  const margin = 48;
-  const maxW = pageW - margin * 2;
-  let y = margin;
-
-  function ensureSpace(h: number) {
-    if (y + h > pageH - margin) { doc.addPage(); y = margin; }
-  }
-
-  function writeWrapped(text: string, opts: { size: number; bold?: boolean; color?: [number, number, number]; gap?: number }) {
-    doc.setFont("helvetica", opts.bold ? "bold" : "normal");
-    doc.setFontSize(opts.size);
-    if (opts.color) doc.setTextColor(...opts.color); else doc.setTextColor(20, 20, 20);
-    const lines = doc.splitTextToSize(text || "", maxW) as string[];
-    const lineH = opts.size * 1.35;
-    for (const ln of lines) {
-      ensureSpace(lineH);
-      doc.text(ln, margin, y);
-      y += lineH;
-    }
-    y += opts.gap ?? 8;
-  }
-
-  // Header
-  writeWrapped("Consulta Psicoasist", { size: 18, bold: true, gap: 4 });
   const dateStr = new Date().toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" });
-  writeWrapped(dateStr + (patientName ? `   ·   Paciente: ${patientName}` : ""), {
-    size: 10, color: [110, 110, 110], gap: 14,
-  });
 
-  // Question
-  writeWrapped("Pregunta", { size: 12, bold: true, gap: 4 });
-  writeWrapped(question, { size: 11, gap: 16 });
+  const TEAL = "#0d9488"; // matches --primary teal
+  const TEAL_DARK = "#0f766e";
+  const GRAY = "#6b7280";
+  const YELLOW_BG = "#fef3c7";
 
-  // Answer
-  writeWrapped("Respuesta", { size: 12, bold: true, gap: 4 });
-  writeWrapped(answer, { size: 11, gap: 18 });
+  const answerHtml = renderAnswerHtml(assistant.content, citations);
 
-  // Citations
-  if (citations.length > 0) {
-    writeWrapped("Citas", { size: 12, bold: true, gap: 6 });
-    citations.forEach((c, i) => {
-      const head = `[${i + 1}] ${c.document_title}${c.author ? ` — ${c.author}` : ""}${c.year ? ` (${c.year})` : ""}${c.page_number ? `, p. ${c.page_number}` : ""}`;
-      writeWrapped(head, { size: 11, bold: true, gap: 2 });
-      writeWrapped(`"${c.excerpt}"`, { size: 10, color: [80, 80, 80], gap: 10 });
+  const citationsHtml = citations.length === 0 ? "" : `
+    <h2 style="color:${TEAL_DARK};font-size:14px;font-weight:700;margin:24px 0 10px 0;">Fuentes citadas:</h2>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${citations.map((c, i) => `
+        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;background:#ffffff;">
+          <div style="display:flex;gap:8px;align-items:baseline;">
+            <span style="color:${TEAL};font-weight:700;font-size:12px;">[${i + 1}]</span>
+            <div style="font-weight:700;color:#111827;font-size:12px;">${escapeHtml(c.document_title || "Sin título")}</div>
+          </div>
+          <div style="color:${GRAY};font-size:11px;margin-top:2px;">
+            ${escapeHtml(c.author || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}
+          </div>
+          ${c.excerpt ? `<div style="margin-top:6px;background:${YELLOW_BG};padding:6px 8px;border-radius:4px;font-style:italic;color:#1f2937;font-size:11px;line-height:1.45;">"${escapeHtml(c.excerpt)}"</div>` : ""}
+        </div>
+      `).join("")}
+    </div>
+  `;
+
+  const container = document.createElement("div");
+  // Render off-screen but fully laid-out at A4 width (~794px @ 96dpi).
+  container.style.cssText = `position:fixed;left:-10000px;top:0;width:794px;background:#ffffff;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;padding:48px;box-sizing:border-box;`;
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div style="font-size:22px;font-weight:800;color:${TEAL};letter-spacing:-0.02em;">Psicoasist</div>
+      <div style="font-size:11px;color:${GRAY};text-align:right;">${escapeHtml(dateStr)}</div>
+    </div>
+    ${patientName ? `<div style="margin-top:6px;font-size:12px;color:#374151;">Consulta sobre: <strong>${escapeHtml(patientName)}</strong></div>` : ""}
+    <hr style="border:none;border-top:2px solid ${TEAL};margin:14px 0 18px 0;" />
+
+    <h2 style="color:${TEAL_DARK};font-size:13px;font-weight:700;margin:0 0 6px 0;">Pregunta:</h2>
+    <div style="font-size:12px;line-height:1.55;color:#111827;margin-bottom:18px;white-space:pre-wrap;">${escapeHtml(question)}</div>
+
+    <h2 style="color:${TEAL_DARK};font-size:13px;font-weight:700;margin:0 0 6px 0;">Respuesta:</h2>
+    <div style="font-size:12px;line-height:1.6;color:#111827;">${answerHtml}</div>
+
+    ${citationsHtml}
+
+    <div style="margin-top:30px;padding-top:10px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:${GRAY};">
+      <span><strong style="color:${TEAL};">Generado por Psicoasist</strong></span>
+      <span style="text-align:right;max-width:60%;">Las respuestas se basan únicamente en documentos clínicos verificados</span>
+    </div>
+  `;
+  document.body.appendChild(container);
+
+  try {
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      logging: false,
     });
-  }
 
-  const fname = `consulta-${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(fname);
+    const pdf = new jsPDF({ unit: "pt", format: "a4" });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+
+    // Fit canvas width to PDF page width.
+    const imgW = pageW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    const totalPages = Math.max(1, Math.ceil(imgH / pageH));
+    let position = 0;
+    for (let p = 0; p < totalPages; p++) {
+      if (p > 0) pdf.addPage();
+      pdf.addImage(
+        canvas.toDataURL("image/jpeg", 0.92),
+        "JPEG",
+        0,
+        position,
+        imgW,
+        imgH,
+      );
+      position -= pageH;
+
+      // Page number footer overlay if multi-page
+      if (totalPages > 1) {
+        pdf.setFontSize(9);
+        pdf.setTextColor(120, 120, 120);
+        pdf.text(`Página ${p + 1} de ${totalPages}`, pageW / 2, pageH - 16, { align: "center" });
+      }
+    }
+
+    pdf.save(`consulta-${new Date().toISOString().slice(0, 10)}.pdf`);
+  } catch (err) {
+    console.error("[pdf-export] failed", err);
+    toast.error("No se pudo generar el PDF");
+  } finally {
+    document.body.removeChild(container);
+  }
 }
 
 interface WebSource {
