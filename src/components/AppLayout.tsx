@@ -21,9 +21,11 @@ const STORAGE_KEY = "sidebar:collapsed";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const initials = profile
     ? `${profile.first_name[0] ?? ""}${profile.last_name[0] ?? ""}`.toUpperCase()
     : "";
+  const avatarUrl = (profile as any)?.avatar_url as string | null | undefined;
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
