@@ -1,7 +1,10 @@
-import { useEffect } from "react";
-import { X, Brain } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, Brain, Shuffle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PatientProfileBuilderTab } from "@/components/PatientExtraTabs";
+
+type Msg = { role: "user" | "assistant"; content: string };
 
 /**
  * Inline side panel that participates in the page flex layout (does NOT overlay).
@@ -20,11 +23,42 @@ export default function PatientProfileBuilderPanel({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const navigate = useNavigate();
+  const messagesRef = useRef<Msg[]>([]);
+  const [hasMessages, setHasMessages] = useState(false);
+
   // Re-open on patient change (preserves prior UX of opening by default).
   useEffect(() => {
     onOpenChange(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
+
+  function summarizeAssistant(messages: Msg[]): string {
+    const lastAssistants = messages.filter((m) => m.role === "assistant").slice(-3);
+    if (lastAssistants.length === 0) return "discusión inicial sobre el caso";
+    const cleaned = lastAssistants
+      .map((m) =>
+        m.content
+          .replace(/```[\s\S]*?```/g, "")
+          .replace(/[#*_`>]/g, "")
+          .replace(/\s+/g, " ")
+          .trim(),
+      )
+      .filter(Boolean)
+      .map((t) => (t.length > 220 ? t.slice(0, 220).trim() + "…" : t));
+    return cleaned.join(" • ");
+  }
+
+  function handleContinueInAssistant() {
+    const summary = summarizeAssistant(messagesRef.current);
+    const message =
+      `Continuando desde el Constructor de Perfil — ${summary} ` +
+      `Quiero profundizar en esto con la documentación clínica disponible.`;
+    const url = `/assistant?patient=${encodeURIComponent(patientId)}&q=${encodeURIComponent(
+      message,
+    )}&autosend=1`;
+    navigate(url);
+  }
 
   return (
     <aside
@@ -51,6 +85,23 @@ export default function PatientProfileBuilderPanel({
           patientId={patientId}
           onProfileUpdated={onProfileUpdated}
           embedded
+          onMessagesChange={(msgs) => {
+            messagesRef.current = msgs;
+            const hasAny = msgs.some((m) => m.role === "assistant" && m.content.trim().length > 0);
+            setHasMessages(hasAny);
+          }}
+          headerExtra={
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1.5 text-xs border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
+              onClick={handleContinueInAssistant}
+              disabled={!hasMessages}
+              title={hasMessages ? "Continuar en Asistente IA" : "Aún no hay conversación que continuar"}
+            >
+              <Shuffle className="h-3 w-3" />🔀 Continuar en Asistente IA
+            </Button>
+          }
         />
       </div>
     </aside>
