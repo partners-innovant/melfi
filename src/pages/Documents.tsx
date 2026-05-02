@@ -786,7 +786,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         if (insErr) throw insErr;
 
       }
-      update(item.id, { status: "done", progress: 100, statusText: `${chunks.length} fragmentos indexados` });
+      update(item.id, { status: "done", progress: 100, statusText: `${chunks.length} fragmentos indexados`, chunksCount: chunks.length });
       return true;
     } catch (e: any) {
       console.error("[upload] failed:", e);
