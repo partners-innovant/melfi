@@ -170,9 +170,10 @@ export default function AdminDocuments() {
       if (filterSource !== ANY && d.source_institution !== filterSource) return false;
       if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
       if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
+      if (noChunksOnly && d.chunk_count > 0) return false;
       return true;
     });
-  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly]);
+  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksOnly]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
