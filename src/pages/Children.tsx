@@ -176,13 +176,19 @@ export default function Children() {
                   <div className={`h-10 w-10 rounded-full ${range.bg} ${range.text} flex items-center justify-center font-semibold flex-shrink-0`}>
                     {p.first_name[0]}{p.last_name[0]}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium">{p.first_name} {p.last_name}</div>
-                    <div className="text-sm text-muted-foreground truncate">
-                      {age !== null ? `${age} años` : "—"}
-                      {p.grade && ` · ${p.grade}`}
-                      {p.school && ` · ${p.school}`}
-                    </div>
+                  <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                    <div className="font-medium break-words">{p.first_name} {p.last_name}</div>
+                    {(() => {
+                      const line = `${age !== null ? `${age} años` : "—"}${p.grade ? ` · ${p.grade}` : ""}${p.school ? ` · ${p.school}` : ""}`;
+                      return (
+                        <div
+                          className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                          title={line}
+                        >
+                          {line}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div className="flex flex-col items-end gap-1 flex-shrink-0">
                     <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full ${range.bg} ${range.text}`}>

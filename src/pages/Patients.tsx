@@ -248,20 +248,28 @@ export default function Patients() {
                   <div className="h-10 w-10 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold flex-shrink-0">
                     {p.first_name[0]}{p.last_name[0]}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium flex items-center gap-2">
-                      <span>{p.first_name} {p.last_name}</span>
+                  <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                    <div className="font-medium flex items-center gap-2 flex-wrap">
+                      <span className="break-words">{p.first_name} {p.last_name}</span>
                       {transferDate && (
-                        <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded whitespace-nowrap">
                           Transferido · {new Date(transferDate).toLocaleDateString("es-CL")}
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-muted-foreground truncate">
-                      {age !== null && `${age} años`}{age !== null && p.diagnosis && " · "}{p.diagnosis ?? (age === null ? "Sin información" : "")}
-                    </div>
+                    {(() => {
+                      const line = `${age !== null ? `${age} años` : ""}${age !== null && p.diagnosis ? " · " : ""}${p.diagnosis ?? (age === null ? "Sin información" : "")}`;
+                      return (
+                        <div
+                          className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                          title={line}
+                        >
+                          {line}
+                        </div>
+                      );
+                    })()}
                     {dl && tl && (
-                      <div className="text-xs text-primary mt-0.5">📅 {dl} {tl}</div>
+                      <div className="text-xs text-primary mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">📅 {dl} {tl}</div>
                     )}
                   </div>
                 </Card>
