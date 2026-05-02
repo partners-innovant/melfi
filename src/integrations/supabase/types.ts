@@ -62,6 +62,56 @@ export type Database = {
           },
         ]
       }
+      child_documents: {
+        Row: {
+          child_patient_id: string
+          created_at: string
+          document_date: string | null
+          document_type: string | null
+          file_path: string | null
+          id: string
+          notes: string | null
+          professional_name: string | null
+          professional_role: string | null
+          psychologist_id: string
+          title: string
+        }
+        Insert: {
+          child_patient_id: string
+          created_at?: string
+          document_date?: string | null
+          document_type?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          professional_name?: string | null
+          professional_role?: string | null
+          psychologist_id: string
+          title: string
+        }
+        Update: {
+          child_patient_id?: string
+          created_at?: string
+          document_date?: string | null
+          document_type?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          professional_name?: string | null
+          professional_role?: string | null
+          psychologist_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_documents_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       child_patient_medications: {
         Row: {
           child_patient_id: string
@@ -189,6 +239,115 @@ export type Database = {
             columns: ["psychologist_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_session_notes: {
+        Row: {
+          assigned_task: string | null
+          child_patient_id: string
+          created_at: string
+          emotional_state: string | null
+          id: string
+          next_session_plan: string | null
+          profile_update_suggestions: Json | null
+          psychologist_id: string
+          raw_notes: string
+          refined_notes: string | null
+          session_date: string
+          session_number: number | null
+          techniques_used: string | null
+        }
+        Insert: {
+          assigned_task?: string | null
+          child_patient_id: string
+          created_at?: string
+          emotional_state?: string | null
+          id?: string
+          next_session_plan?: string | null
+          profile_update_suggestions?: Json | null
+          psychologist_id: string
+          raw_notes: string
+          refined_notes?: string | null
+          session_date: string
+          session_number?: number | null
+          techniques_used?: string | null
+        }
+        Update: {
+          assigned_task?: string | null
+          child_patient_id?: string
+          created_at?: string
+          emotional_state?: string | null
+          id?: string
+          next_session_plan?: string | null
+          profile_update_suggestions?: Json | null
+          psychologist_id?: string
+          raw_notes?: string
+          refined_notes?: string | null
+          session_date?: string
+          session_number?: number | null
+          techniques_used?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_session_notes_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      child_tests: {
+        Row: {
+          child_patient_id: string
+          created_at: string
+          evaluation_date: string
+          generated_report: string | null
+          id: string
+          notes: string | null
+          psychologist_id: string
+          report_pdf_path: string | null
+          results_raw: string | null
+          results_structured: Json | null
+          test_name: string
+          test_type: string | null
+        }
+        Insert: {
+          child_patient_id: string
+          created_at?: string
+          evaluation_date: string
+          generated_report?: string | null
+          id?: string
+          notes?: string | null
+          psychologist_id: string
+          report_pdf_path?: string | null
+          results_raw?: string | null
+          results_structured?: Json | null
+          test_name: string
+          test_type?: string | null
+        }
+        Update: {
+          child_patient_id?: string
+          created_at?: string
+          evaluation_date?: string
+          generated_report?: string | null
+          id?: string
+          notes?: string | null
+          psychologist_id?: string
+          report_pdf_path?: string | null
+          results_raw?: string | null
+          results_structured?: Json | null
+          test_name?: string
+          test_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_tests_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
             referencedColumns: ["id"]
           },
         ]

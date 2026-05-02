@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
+import { ChildDocumentsTab, ChildSessionNotesTab, ChildTestsTab } from "@/components/ChildExtraTabs";
 
 const BEHAVIOR_COLORS = ["hsl(174 72% 46%)", "hsl(38 92% 50%)", "hsl(260 70% 60%)", "hsl(210 80% 55%)", "hsl(340 75% 55%)", "hsl(150 60% 45%)"];
 
@@ -116,12 +117,15 @@ export default function ChildDetail() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full">
+        <TabsList className="grid grid-cols-5 md:grid-cols-10 w-full">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
+          <TabsTrigger value="notes">Apuntes</TabsTrigger>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
           <TabsTrigger value="behavior">Conductual</TabsTrigger>
           <TabsTrigger value="evals">Evaluaciones</TabsTrigger>
+          <TabsTrigger value="tests">Tests</TabsTrigger>
+          <TabsTrigger value="documents">Documentos</TabsTrigger>
           <TabsTrigger value="comms">Comunicaciones</TabsTrigger>
           <TabsTrigger value="ai">Asistente IA</TabsTrigger>
         </TabsList>
@@ -229,6 +233,18 @@ export default function ChildDetail() {
         <TabsContent value="evals" className="mt-4 space-y-6">
           <WiscSection childId={id!} />
           <OtherEvalsSection childId={id!} />
+        </TabsContent>
+
+        <TabsContent value="notes" className="mt-4">
+          <ChildSessionNotesTab childId={id!} />
+        </TabsContent>
+
+        <TabsContent value="tests" className="mt-4">
+          <ChildTestsTab childId={id!} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4">
+          <ChildDocumentsTab childId={id!} />
         </TabsContent>
 
         <TabsContent value="comms" className="mt-4">
