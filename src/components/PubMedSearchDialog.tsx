@@ -351,13 +351,6 @@ function ArticleCard({
                 </Badge>
               );
             }
-            if (false) {
-              return (
-                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-                  🟢 PDF disponible
-                </Badge>
-              );
-            }
             if (status === "abstract_only") {
               return (
                 <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
