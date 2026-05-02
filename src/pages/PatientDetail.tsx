@@ -84,10 +84,13 @@ export default function PatientDetail() {
   const age = calcAge(patient.birth_date);
 
   return (
-    <div className="px-4 md:px-8 py-6 md:py-10 max-w-4xl mx-auto">
-      <button onClick={() => navigate("/patients")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
-        <ArrowLeft className="h-4 w-4" />Volver a pacientes
-      </button>
+    <div className="flex flex-col xl:flex-row h-[calc(100vh-0px)] min-h-0">
+      {/* Main content column */}
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="px-4 md:px-8 py-6 md:py-10 max-w-4xl mx-auto">
+          <button onClick={() => navigate("/patients")} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
+            <ArrowLeft className="h-4 w-4" />Volver a pacientes
+          </button>
 
       <Card className="p-6 mb-6">
         <div className="flex items-start justify-between gap-4 mb-4">
