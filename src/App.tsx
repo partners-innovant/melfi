@@ -49,6 +49,7 @@ const App = () => (
             <Route path="/calendar" element={<Shell><Calendar /></Shell>} />
             <Route path="/feedback" element={<Shell><FeedbackPage /></Shell>} />
             <Route path="/profile" element={<Shell><Profile /></Shell>} />
+            <Route path="/claude" element={<Shell><Claude /></Shell>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
