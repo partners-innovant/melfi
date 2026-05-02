@@ -68,6 +68,8 @@ export default function Claude() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const emptyTaRef = useRef<HTMLTextAreaElement>(null);
+  const ongoingTaRef = useRef<HTMLTextAreaElement>(null);
   // Snapshot of messages used for memory updates (used in beforeunload)
   const messagesRef = useRef<Msg[]>([]);
   const updatedThisSessionRef = useRef(false);
