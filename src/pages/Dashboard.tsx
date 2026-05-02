@@ -104,6 +104,8 @@ export default function Dashboard() {
         <p className="text-muted-foreground mt-1">¿En qué quieres trabajar hoy?</p>
       </header>
 
+      <DashboardEthicalDisclaimer />
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 auto-rows-fr">
         {FEATURES.map((f) => (
           <FeatureCard key={f.title} f={f} />
