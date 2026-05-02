@@ -22,12 +22,13 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye } from "lucide-react";
+import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle } from "lucide-react";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { extractPdfTextAndMeta, extractTxtText, chunkText } from "@/lib/pdf";
 import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
 import UrlImportDialog from "@/components/UrlImportDialog";
+import { findDuplicateByTitle, deleteDocumentAndChunks, nextAvailableTitle, formatDate, type DuplicateDoc } from "@/lib/duplicates";
 
 type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search';
 
@@ -444,6 +445,7 @@ function ViewerSheet({ doc, onClose }: { doc: Doc | null; onClose: () => void })
 }
 
 type QueueStatus = "pending" | "analyzing" | "ready" | "uploading" | "done" | "error";
+type DupAction = "pending" | "replace" | "keep_both";
 
 interface QueueItem {
   id: string;
@@ -459,6 +461,9 @@ interface QueueItem {
   error?: string;
   // cached extracted text so we don't re-parse during upload
   cachedText?: string;
+  // duplicate detection
+  duplicate?: DuplicateDoc | null;
+  dupAction?: DupAction; // user choice for the duplicate prompt
 }
 
 function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
@@ -506,13 +511,23 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         }
       }
 
+      // Duplicate detection by title (case-insensitive, owner + global docs).
+      let duplicate: DuplicateDoc | null = null;
+      try {
+        duplicate = await findDuplicateByTitle(title);
+      } catch (e) {
+        console.warn("[upload] duplicate check failed:", e);
+      }
+
       update(item.id, {
         status: "ready",
-        statusText: "Listo para subir",
+        statusText: duplicate ? "Duplicado detectado — elige una acción" : "Listo para subir",
         title,
         author,
         year,
         cachedText: text,
+        duplicate,
+        dupAction: duplicate ? "pending" : undefined,
       });
     } catch (e: any) {
       console.error("[upload] analyze failed:", e);
@@ -552,6 +567,20 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       const chunks = chunkText(text);
       if (chunks.length === 0) throw new Error("No se pudo extraer texto del archivo");
 
+      // Apply duplicate action chosen by the user.
+      let finalTitle = item.title;
+      if (item.duplicate) {
+        if (item.dupAction === "replace") {
+          update(item.id, { statusText: "Eliminando documento previo..." });
+          await deleteDocumentAndChunks(item.duplicate);
+        } else if (item.dupAction === "keep_both") {
+          update(item.id, { statusText: "Calculando título único..." });
+          finalTitle = await nextAvailableTitle(item.title);
+        } else {
+          throw new Error("Resuelve el aviso de duplicado antes de subir");
+        }
+      }
+
       // Upload original file to storage (path: <userId>/<uuid>.<ext>)
       const ext = item.file.name.toLowerCase().endsWith(".pdf") ? "pdf"
         : item.file.name.toLowerCase().endsWith(".txt") ? "txt"
@@ -570,12 +599,13 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         .from("documents")
         .insert({
           psychologist_id: userId,
-          title: item.title,
+          title: finalTitle,
           author: item.author || null,
           year: item.year || null,
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
+          source_url: item.file.name,
           import_source: 'upload',
         } as any)
         .select()
@@ -634,6 +664,11 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       toast.error(`Falta el título en: ${missingTitle.file.name}`);
       return;
     }
+    const unresolved = ready.find((it) => it.duplicate && (!it.dupAction || it.dupAction === "pending"));
+    if (unresolved) {
+      toast.error(`Resuelve el aviso de duplicado en: ${unresolved.file.name}`);
+      return;
+    }
     setBusy(true);
     let success = 0;
     let failed = 0;
@@ -665,7 +700,9 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
     }
   }
 
-  const readyCount = items.filter((it) => it.status === "ready").length;
+  const readyCount = items.filter(
+    (it) => it.status === "ready" && (!it.duplicate || (it.dupAction && it.dupAction !== "pending")),
+  ).length;
   const doneCount = items.filter((it) => it.status === "done").length;
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
@@ -780,6 +817,43 @@ function QueueRow({
       </div>
 
       {showProgress && <Progress value={item.progress} className="h-1.5" />}
+
+      {item.status === "ready" && item.duplicate && (
+        <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-2">
+          <div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <span className="font-medium">⚠️ Ya existe un documento con este nombre: </span>
+              <span className="font-semibold">{item.duplicate.title}</span>
+              <span> — subido el {formatDate(item.duplicate.created_at)}. ¿Deseas reemplazarlo o mantener ambos?</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm" variant={item.dupAction === "replace" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => onChange({ dupAction: "replace", statusText: "Listo (reemplazará el existente)" })}
+              disabled={disabled}
+            >
+              Reemplazar
+            </Button>
+            <Button
+              size="sm" variant={item.dupAction === "keep_both" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => onChange({ dupAction: "keep_both", statusText: "Listo (se subirá con sufijo)" })}
+              disabled={disabled}
+            >
+              Mantener ambos
+            </Button>
+            <Button
+              size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={onRemove} disabled={disabled}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
 
       {item.status === "error" && item.error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive break-words">

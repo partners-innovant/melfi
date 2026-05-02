@@ -8,16 +8,20 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Link2, Loader2, CheckCircle2, AlertCircle, Globe2 } from "lucide-react";
+import { Link2, Loader2, CheckCircle2, AlertCircle, Globe2, AlertTriangle, X } from "lucide-react";
 import { chunkText } from "@/lib/pdf";
+import { findDuplicateByUrl, deleteDocumentAndChunks, formatDate, type DuplicateDoc } from "@/lib/duplicates";
 
-type Status = "queued" | "downloading" | "processing" | "done" | "error";
+type Status = "queued" | "checking" | "duplicate" | "downloading" | "processing" | "done" | "error" | "skipped";
+type DupAction = "pending" | "reimport" | "skip";
 
 interface QItem {
   id: string;
   url: string;
   status: Status;
   message: string;
+  duplicate?: DuplicateDoc | null;
+  dupAction?: DupAction;
 }
 
 function truncate(s: string, n = 60) {
@@ -64,6 +68,16 @@ export default function UrlImportDialog({
   async function processOne(it: QItem, userId: string): Promise<boolean> {
     update(it.id, { status: "downloading", message: "Descargando…" });
     try {
+      // If user chose "reimport", delete the existing record + chunks first.
+      if (it.duplicate && it.dupAction === "reimport") {
+        update(it.id, { message: "Eliminando importación previa…" });
+        try {
+          await deleteDocumentAndChunks(it.duplicate);
+        } catch (e: any) {
+          console.warn("[url-import] delete previous failed:", e?.message);
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("fetch-url-document", {
         body: { url: it.url },
       });
@@ -131,7 +145,8 @@ export default function UrlImportDialog({
     }
   }
 
-  async function handleProcess() {
+  // Phase 1: parse URLs, validate, and check each against existing documents.
+  async function handleCheck() {
     const urls = text
       .split(/\r?\n/)
       .map((l) => l.trim())
@@ -142,29 +157,68 @@ export default function UrlImportDialog({
       return;
     }
 
-    const valid: QItem[] = [];
-    for (const u of urls) {
+    const initial: QItem[] = urls.map((u) => {
       try {
         const parsed = new URL(u);
         if (!/^https?:$/.test(parsed.protocol)) throw new Error("protocolo");
-        valid.push({ id: crypto.randomUUID(), url: u, status: "queued", message: "En cola" });
+        return { id: crypto.randomUUID(), url: u, status: "checking" as Status, message: "Comprobando duplicados…" };
       } catch {
-        valid.push({ id: crypto.randomUUID(), url: u, status: "error", message: "URL inválida" });
+        return { id: crypto.randomUUID(), url: u, status: "error" as Status, message: "URL inválida" };
       }
-    }
-    setItems(valid);
+    });
+    setItems(initial);
 
     setBusy(true);
-    let success = 0, failed = 0;
+    try {
+      for (const it of initial) {
+        if (it.status === "error") continue;
+        try {
+          const dup = await findDuplicateByUrl(it.url);
+          if (dup) {
+            update(it.id, {
+              status: "duplicate",
+              duplicate: dup,
+              dupAction: "pending",
+              message: `Ya importado el ${formatDate(dup.created_at)} como: ${dup.title}`,
+            });
+          } else {
+            update(it.id, { status: "queued", message: "Listo para importar" });
+          }
+        } catch (e) {
+          console.warn("[url-import] dup check failed:", e);
+          update(it.id, { status: "queued", message: "Listo para importar" });
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Phase 2: actually import all queued items + duplicates flagged "reimport".
+  async function handleImport() {
+    setBusy(true);
+    let success = 0, failed = 0, skipped = 0;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
-      for (const it of valid) {
-        if (it.status === "error") { failed++; continue; }
-        const ok = await processOne(it, user.id);
-        if (ok) success++; else failed++;
+      const live = await new Promise<QItem[]>((resolve) => {
+        setItems((prev) => { resolve(prev); return prev; });
+      });
+      for (const it of live) {
+        if (it.status === "queued") {
+          const ok = await processOne(it, user.id);
+          if (ok) success++; else failed++;
+        } else if (it.status === "duplicate" && it.dupAction === "reimport") {
+          const ok = await processOne(it, user.id);
+          if (ok) success++; else failed++;
+        } else if (it.status === "duplicate" && it.dupAction === "skip") {
+          update(it.id, { status: "skipped", message: "Saltado (ya existía)" });
+          skipped++;
+        }
       }
-      toast.success(`${success} documento${success === 1 ? "" : "s"} importado${success === 1 ? "" : "s"} correctamente, ${failed} con error${failed === 1 ? "" : "es"}.`);
+      const parts = [`${success} importado${success === 1 ? "" : "s"}`, `${failed} con error${failed === 1 ? "" : "es"}`];
+      if (skipped > 0) parts.push(`${skipped} saltado${skipped === 1 ? "" : "s"}`);
+      toast.success(parts.join(", "));
       if (success > 0) onImported();
     } catch (e: any) {
       toast.error(e?.message ?? "Error general");
@@ -231,14 +285,41 @@ export default function UrlImportDialog({
             <div className="space-y-1.5">
               <div className="text-sm font-medium">Cola ({items.length})</div>
               {items.map((it) => (
-                <div key={it.id} className="flex items-center gap-2 rounded-md border p-2 text-xs">
-                  <StatusIcon status={it.status} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-mono">{truncate(it.url, 70)}</div>
-                    <div className={`mt-0.5 ${it.status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
-                      {it.message}
+                <div key={it.id} className="rounded-md border p-2 text-xs space-y-2">
+                  <div className="flex items-center gap-2">
+                    <StatusIcon status={it.status} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-mono">{truncate(it.url, 70)}</div>
+                      <div className={`mt-0.5 ${it.status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                        {it.message}
+                      </div>
                     </div>
                   </div>
+                  {it.status === "duplicate" && it.duplicate && (
+                    <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-2">
+                      <div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <span className="font-medium">⚠️ Este documento ya fue importado el {formatDate(it.duplicate.created_at)} como: </span>
+                          <span className="font-semibold">{it.duplicate.title}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm" variant={it.dupAction === "reimport" ? "default" : "outline"}
+                          className="h-7 text-xs"
+                          onClick={() => update(it.id, { dupAction: "reimport", message: "Listo para reimportar (reemplazará el existente)" })}
+                          disabled={busy}
+                        >Reimportar</Button>
+                        <Button
+                          size="sm" variant={it.dupAction === "skip" ? "default" : "outline"}
+                          className="h-7 text-xs"
+                          onClick={() => update(it.id, { dupAction: "skip", message: "Se saltará en la importación" })}
+                          disabled={busy}
+                        >Saltar</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -249,9 +330,21 @@ export default function UrlImportDialog({
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
             Cerrar
           </Button>
-          <Button onClick={handleProcess} disabled={busy || text.trim().length === 0}>
-            {busy ? "Procesando…" : "Procesar URLs"}
-          </Button>
+          {items.length === 0 ? (
+            <Button onClick={handleCheck} disabled={busy || text.trim().length === 0}>
+              {busy ? "Comprobando…" : "Procesar URLs"}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleImport}
+              disabled={
+                busy ||
+                items.some((it) => it.status === "duplicate" && (!it.dupAction || it.dupAction === "pending"))
+              }
+            >
+              {busy ? "Importando…" : "Importar"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -259,9 +352,11 @@ export default function UrlImportDialog({
 }
 
 function StatusIcon({ status }: { status: Status }) {
-  if (status === "downloading" || status === "processing")
+  if (status === "checking" || status === "downloading" || status === "processing")
     return <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />;
   if (status === "done") return <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />;
   if (status === "error") return <AlertCircle className="h-4 w-4 text-destructive shrink-0" />;
+  if (status === "duplicate") return <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />;
+  if (status === "skipped") return <X className="h-4 w-4 text-muted-foreground shrink-0" />;
   return <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />;
 }

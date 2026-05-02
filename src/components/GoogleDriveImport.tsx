@@ -9,15 +9,17 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2, Globe2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, FileText, X, FolderOpen, Link2, Globe2, AlertTriangle } from "lucide-react";
 import { DialogDescription } from "@/components/ui/dialog";
 import { chunkText } from "@/lib/pdf";
+import { findDuplicateByTitle, deleteDocumentAndChunks, nextAvailableTitle, formatDate, type DuplicateDoc } from "@/lib/duplicates";
 import * as pdfjs from "pdfjs-dist";
 // @ts-ignore
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
 
-type Status = "pending" | "downloading" | "analyzing" | "uploading" | "done" | "error";
+type Status = "pending" | "checking" | "downloading" | "analyzing" | "uploading" | "done" | "error";
+type DupAction = "pending" | "replace" | "keep_both";
 
 interface DriveFile {
   id: string;
@@ -33,6 +35,8 @@ interface QueueItem {
   progress: number;
   statusText: string;
   error?: string;
+  duplicate?: DuplicateDoc | null;
+  dupAction?: DupAction;
 }
 
 declare global {
@@ -200,12 +204,30 @@ export default function GoogleDriveImport({
             const queued: QueueItem[] = files.map((f) => ({
               driveId: f.id,
               name: f.name,
-              status: "pending",
+              status: "checking",
               progress: 0,
-              statusText: "En cola",
+              statusText: "Comprobando duplicados...",
             }));
             setItems((prev) => [...prev, ...queued]);
             setOpen(true);
+            // Fire-and-forget duplicate check per file (by filename without .pdf).
+            (async () => {
+              for (const q of queued) {
+                const baseTitle = q.name.replace(/\.pdf$/i, "");
+                try {
+                  const dup = await findDuplicateByTitle(baseTitle);
+                  update(q.driveId, {
+                    status: "pending",
+                    duplicate: dup,
+                    dupAction: dup ? "pending" : undefined,
+                    statusText: dup ? "Duplicado detectado — elige una acción" : "En cola",
+                  });
+                } catch (e) {
+                  console.warn("[drive-import] dup check failed:", e);
+                  update(q.driveId, { status: "pending", statusText: "En cola" });
+                }
+              }
+            })();
           }
         })
         .build();
@@ -272,6 +294,24 @@ export default function GoogleDriveImport({
         console.warn("[drive-import] metadata AI:", e);
       }
 
+      // Apply duplicate action chosen by the user (decision was made by filename;
+      // re-check against the AI-derived title in case it shifted).
+      let finalTitle = title;
+      const dup = item.duplicate ?? (await findDuplicateByTitle(title));
+      if (dup) {
+        if (item.dupAction === "replace") {
+          update(item.driveId, { statusText: "Eliminando documento previo..." });
+          await deleteDocumentAndChunks(dup);
+        } else if (item.dupAction === "keep_both") {
+          finalTitle = await nextAvailableTitle(title);
+        } else if (!item.duplicate) {
+          // Newly discovered after metadata: default to keep_both to avoid blocking the batch.
+          finalTitle = await nextAvailableTitle(title);
+        } else {
+          throw new Error("Resuelve el aviso de duplicado antes de importar");
+        }
+      }
+
       update(item.driveId, { status: "uploading", progress: 25, statusText: "Subiendo archivo..." });
       const storagePath = `${userId}/${crypto.randomUUID()}.pdf`;
       const { error: upErr } = await supabase.storage
@@ -283,12 +323,13 @@ export default function GoogleDriveImport({
         .from("documents")
         .insert({
           psychologist_id: userId,
-          title,
+          title: finalTitle,
           author: author || null,
           year: year || null,
           document_type: "articulo_cientifico",
           is_global: isGlobal && isAdmin,
           storage_path: storagePath,
+          source_url: item.name,
           import_source: 'google_drive',
         } as any)
         .select()
@@ -337,6 +378,11 @@ export default function GoogleDriveImport({
   async function processAll() {
     const pending = items.filter((it) => it.status === "pending");
     if (pending.length === 0) return;
+    const unresolved = pending.find((it) => it.duplicate && (!it.dupAction || it.dupAction === "pending"));
+    if (unresolved) {
+      toast.error(`Resuelve el aviso de duplicado en: ${unresolved.name}`);
+      return;
+    }
     cancelRef.current = false;
     setBusy(true);
     try {
@@ -374,7 +420,9 @@ export default function GoogleDriveImport({
     setItems((prev) => prev.filter((it) => it.driveId !== id));
   }
 
-  const pendingCount = items.filter((it) => it.status === "pending").length;
+  const pendingCount = items.filter(
+    (it) => it.status === "pending" && (!it.duplicate || (it.dupAction && it.dupAction !== "pending")),
+  ).length;
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
   const handleMainClick = () => {
@@ -462,6 +510,38 @@ export default function GoogleDriveImport({
                 {(it.status === "downloading" || it.status === "analyzing" || it.status === "uploading") && (
                   <Progress value={it.progress} className="h-1.5" />
                 )}
+                {it.status === "pending" && it.duplicate && (
+                  <div className="rounded-md border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-2">
+                    <div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-medium">⚠️ Ya existe un documento con este nombre: </span>
+                        <span className="font-semibold">{it.duplicate.title}</span>
+                        <span> — subido el {formatDate(it.duplicate.created_at)}. ¿Deseas reemplazarlo o mantener ambos?</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm" variant={it.dupAction === "replace" ? "default" : "outline"}
+                        className="h-7 text-xs"
+                        onClick={() => update(it.driveId, { dupAction: "replace", statusText: "Listo (reemplazará el existente)" })}
+                        disabled={busy}
+                      >Reemplazar</Button>
+                      <Button
+                        size="sm" variant={it.dupAction === "keep_both" ? "default" : "outline"}
+                        className="h-7 text-xs"
+                        onClick={() => update(it.driveId, { dupAction: "keep_both", statusText: "Listo (se subirá con sufijo)" })}
+                        disabled={busy}
+                      >Mantener ambos</Button>
+                      <Button
+                        size="sm" variant="ghost"
+                        className="h-7 text-xs text-destructive hover:text-destructive"
+                        onClick={() => removeItem(it.driveId)}
+                        disabled={busy}
+                      >Cancelar</Button>
+                    </div>
+                  </div>
+                )}
                 {it.status === "error" && it.error && (
                   <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive break-words">
                     {it.error}
@@ -486,7 +566,7 @@ export default function GoogleDriveImport({
 }
 
 function StatusIcon({ status }: { status: Status }) {
-  if (status === "downloading" || status === "analyzing" || status === "uploading")
+  if (status === "checking" || status === "downloading" || status === "analyzing" || status === "uploading")
     return <Loader2 className="h-4 w-4 mt-0.5 text-primary animate-spin" />;
   if (status === "done") return <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600" />;
   if (status === "error") return <AlertCircle className="h-4 w-4 mt-0.5 text-destructive" />;
