@@ -74,7 +74,7 @@ export default function ProfileCompletionModal() {
           </div>
           <div>
             <Label htmlFor="pf-rut">RUT *</Label>
-            <Input id="pf-rut" value={rut} onChange={(e) => setRut(e.target.value)} placeholder="12.345.678-9" required />
+            <RutInput id="pf-rut" value={rut} onChange={setRut} required />
           </div>
           <div>
             <Label htmlFor="pf-phone">Teléfono *</Label>
