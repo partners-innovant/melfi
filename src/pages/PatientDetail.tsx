@@ -275,11 +275,7 @@ export default function PatientDetail() {
         }
         style={{
           flexShrink: 0,
-          width: builderOpen
-            ? typeof window !== "undefined" && window.innerWidth >= 1280
-              ? `${builderWidthPx}px`
-              : "100%"
-            : 0,
+          width: builderOpen ? (isXl ? `${builderWidthPx}px` : "100%") : isXl ? 0 : "100%",
         }}
       >
         {builderOpen && (
