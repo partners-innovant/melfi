@@ -204,12 +204,30 @@ export default function GoogleDriveImport({
             const queued: QueueItem[] = files.map((f) => ({
               driveId: f.id,
               name: f.name,
-              status: "pending",
+              status: "checking",
               progress: 0,
-              statusText: "En cola",
+              statusText: "Comprobando duplicados...",
             }));
             setItems((prev) => [...prev, ...queued]);
             setOpen(true);
+            // Fire-and-forget duplicate check per file (by filename without .pdf).
+            (async () => {
+              for (const q of queued) {
+                const baseTitle = q.name.replace(/\.pdf$/i, "");
+                try {
+                  const dup = await findDuplicateByTitle(baseTitle);
+                  update(q.driveId, {
+                    status: "pending",
+                    duplicate: dup,
+                    dupAction: dup ? "pending" : undefined,
+                    statusText: dup ? "Duplicado detectado — elige una acción" : "En cola",
+                  });
+                } catch (e) {
+                  console.warn("[drive-import] dup check failed:", e);
+                  update(q.driveId, { status: "pending", statusText: "En cola" });
+                }
+              }
+            })();
           }
         })
         .build();
