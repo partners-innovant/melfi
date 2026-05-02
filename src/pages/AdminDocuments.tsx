@@ -479,14 +479,6 @@ export default function AdminDocuments() {
   }
 
   // ---- Auto-classification ----
-  function normalizeLanguage(v: unknown): "es" | "en" | "otro" | null {
-    if (typeof v !== "string") return null;
-    const s = v.trim().toLowerCase();
-    if (s === "es" || s.startsWith("espa")) return "es";
-    if (s === "en" || s.startsWith("ing") || s.startsWith("eng")) return "en";
-    if (s === "otro" || s === "other") return "otro";
-    return null;
-  }
 
   function toClassifyTarget(d: DocRow): ClassifyTarget {
     return {
