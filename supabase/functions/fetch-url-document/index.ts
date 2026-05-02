@@ -128,33 +128,58 @@ Deno.serve(async (req) => {
 
     let resp: Response;
     try {
-      const isPmc = /(?:^|\.)(?:ncbi\.nlm\.nih\.gov|europepmc\.org)$/i.test(parsed.hostname);
-      const browserHeaders: Record<string, string> = {
+      const urlLower = parsed.toString().toLowerCase();
+      const isPmc = urlLower.includes("pmc.ncbi.nlm.nih.gov") || urlLower.includes("ncbi.nlm.nih.gov") || urlLower.includes("europepmc.org");
+      const browserHeaders: Record<string, string> = isPmc ? {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/pdf,text/html,application/xhtml+xml,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Referer": "https://pmc.ncbi.nlm.nih.gov/",
         "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      } : {
+        "User-Agent": "Mozilla/5.0 (compatible; Psicoasist/1.0)",
+        "Accept": "application/pdf,text/html,application/xhtml+xml,*/*;q=0.8",
       };
-      if (isPmc) browserHeaders["Referer"] = "https://pmc.ncbi.nlm.nih.gov/";
+      console.log("[fetch-url-document] Fetching URL:", parsed.toString(), "isPmc:", isPmc);
       resp = await fetch(parsed.toString(), { redirect: "follow", headers: browserHeaders });
+      console.log("[fetch-url-document] Response status:", resp.status, "final URL:", resp.url);
+      console.log("[fetch-url-document] Response headers:", JSON.stringify(Object.fromEntries(resp.headers.entries())));
     } catch (e: any) {
+      console.error("[fetch-url-document] fetch threw:", e?.message ?? e);
       return jsonResp({ error: `No se pudo descargar: ${e?.message ?? e}` }, 502);
     }
 
     if (!resp.ok) {
+      const bodyPreview = await resp.text().catch(() => "");
+      console.error("[fetch-url-document] non-OK", resp.status, bodyPreview.slice(0, 200));
       if (resp.status === 403 || resp.status === 401 || resp.status === 404) {
-        return jsonResp({ error: "URL no accesible — el sitio puede requerir autenticación" }, 200);
+        return jsonResp({ error: `URL no accesible (HTTP ${resp.status}) — el sitio puede requerir autenticación` }, 200);
       }
       return jsonResp({ error: `HTTP ${resp.status} al descargar` }, 200);
     }
 
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+    console.log("[fetch-url-document] Content-Type:", contentType);
     const buf = new Uint8Array(await resp.arrayBuffer());
+    console.log("[fetch-url-document] Bytes received:", buf.byteLength);
     if (buf.byteLength > MAX_BYTES) return jsonResp({ error: "Archivo demasiado grande (>30MB)" }, 200);
 
     const looksPdfMagic = buf.length > 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46; // %PDF
-    const looksPdf = contentType.includes("application/pdf") || parsed.pathname.toLowerCase().endsWith(".pdf") || looksPdfMagic;
+    const urlLowerForCheck = parsed.toString().toLowerCase();
+    const looksPdf =
+      contentType.includes("pdf") ||
+      contentType.includes("octet-stream") ||
+      urlLowerForCheck.endsWith(".pdf") ||
+      urlLowerForCheck.includes("/pdf/") ||
+      looksPdfMagic;
     const looksHtml = contentType.includes("text/html") || contentType.includes("application/xhtml");
+
+    if (!looksPdf && !looksHtml) {
+      const preview = new TextDecoder("utf-8", { fatal: false }).decode(buf.subarray(0, 200));
+      console.error("[fetch-url-document] Unknown format, first 200 bytes:", preview);
+    }
 
     let text = "";
     let suggestedTitle = "";
