@@ -22,6 +22,17 @@ interface Patient {
   diagnosis: string | null;
 }
 
+interface IncomingTransfer {
+  id: string;
+  new_patient_id: string | null;
+  transferred_at: string;
+  from_first_name: string | null;
+  from_last_name: string | null;
+  patient_name: string;
+}
+
+const DISMISSED_KEY = "transfers:dismissed";
+
 const empty = {
   first_name: "", last_name: "", birth_date: "", sex: "",
   marital_status: "", occupation: "", start_date: "", diagnosis: "", notes: "",
