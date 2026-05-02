@@ -216,7 +216,7 @@ export function ClassifyPreviewDialog({
         source_institution: c.sourceInstitution || null,
         source_institution_type: c.sourceInstitution ? (c.sourceInstitutionType ?? "otro") : null,
       };
-      const { error: upErr } = await supabase.from("documents").update(patch).eq("id", c.id);
+      const { error: upErr } = await supabase.from("documents").update(patch as any).eq("id", c.id);
       if (upErr) {
         fail++;
         continue;
