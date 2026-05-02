@@ -977,18 +977,86 @@ export default function AdminDocuments() {
               <TableHead className="w-10">
                 <Checkbox checked={allOnPageSelected} onCheckedChange={(v) => toggleAllOnPage(!!v)} />
               </TableHead>
-              <TableHead>Título</TableHead>
-              <TableHead>Autor</TableHead>
-              <TableHead className="w-20">Año</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead style={{ width: "25%" }}>Área(s) clínica(s)</TableHead>
-              <TableHead>Fuente</TableHead>
-              <TableHead>Idioma</TableHead>
-              <TableHead className="w-20 text-center">Chunks</TableHead>
-              <TableHead className="w-24">Modo</TableHead>
-              <TableHead>Origen</TableHead>
-              <TableHead>Subido</TableHead>
-              <TableHead className="w-32">Acciones</TableHead>
+              <TableHead style={{ width: "25%" }}>Título</TableHead>
+              <TableHead style={{ width: "10%" }}>Autor</TableHead>
+              <TableHead style={{ width: "5%" }}>Año</TableHead>
+              <TableHead style={{ width: "8%" }}>Tipo</TableHead>
+              <TableHead style={{ width: "30%" }}>Área(s) clínica(s)</TableHead>
+              <TableHead style={{ width: "10%" }}>Fuente</TableHead>
+              <TableHead style={{ width: "5%" }}>Idioma</TableHead>
+              <TableHead style={{ width: "5%" }} className="text-center">Chunks</TableHead>
+              <TableHead style={{ width: "5%" }}>Modo</TableHead>
+              <TableHead style={{ width: "5%" }}>Origen</TableHead>
+              <TableHead style={{ width: "7%" }}>Subido</TableHead>
+              <TableHead style={{ width: "5%" }}>Acciones</TableHead>
+            </TableRow>
+            {/* Column filter row */}
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              <TableHead className="p-1" />
+              <TableHead className="p-1">
+                <ColTextFilter value={colTitle} onChange={setColTitle} placeholder="Filtrar título…" />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColTextFilter value={colAuthor} onChange={setColAuthor} placeholder="Filtrar autor…" />
+              </TableHead>
+              <TableHead className="p-1">
+                <div className="flex gap-1">
+                  <ColTextFilter value={colYearFrom} onChange={setColYearFrom} placeholder="Desde" type="number" compact />
+                  <ColTextFilter value={colYearTo} onChange={setColYearTo} placeholder="Hasta" type="number" compact />
+                </div>
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colType}
+                  onChange={setColType}
+                  options={[{ value: ANY, label: "Todos" }, ...DOC_TYPES.map((t) => ({ value: t, label: DOC_TYPE_LABELS[t] }))]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColAreasFilter value={colAreas} onChange={setColAreas} />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colSourceCol}
+                  onChange={setColSourceCol}
+                  options={[{ value: ANY, label: "Todas" }, ...distinctInstitutions.map((s) => ({ value: s, label: shortInstitutionName(s) }))]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colLang}
+                  onChange={setColLang}
+                  options={[
+                    { value: ANY, label: "Todos" },
+                    { value: "es", label: "Español" },
+                    { value: "en", label: "Inglés" },
+                    { value: "otro", label: "Otro" },
+                  ]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colChunks}
+                  onChange={setColChunks}
+                  options={[
+                    { value: ANY, label: "Todos" },
+                    { value: "0", label: "Sin chunks (0)" },
+                    { value: "1+", label: "Con chunks (1+)" },
+                  ]}
+                />
+              </TableHead>
+              <TableHead className="p-1" />
+              <TableHead className="p-1">
+                <ColSelectFilter
+                  value={colOrigin}
+                  onChange={setColOrigin}
+                  options={[{ value: ANY, label: "Todos" }, ...distinctOrigins.map((o) => ({ value: o, label: o }))]}
+                />
+              </TableHead>
+              <TableHead className="p-1">
+                <ColDateRangeFilter from={colDateFrom} to={colDateTo} onFromChange={setColDateFrom} onToChange={setColDateTo} />
+              </TableHead>
+              <TableHead className="p-1" />
             </TableRow>
           </TableHeader>
           <TableBody>
