@@ -867,6 +867,7 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
   return (
+    <>
     <DialogContent className="w-[95vw] max-w-[1400px] sm:max-w-[1400px] h-auto max-h-[90vh] overflow-y-auto rounded-lg shadow-lg">
       <DialogHeader>
         <DialogTitle>Subir documentos</DialogTitle>
@@ -937,6 +938,60 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         </Button>
       </DialogFooter>
     </DialogContent>
+
+    <Dialog open={!!results} onOpenChange={(o) => { if (!o) handleResultsClose(); }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-xl">
+            {results && results.failed === 0 ? "✅ Carga completada" : "⚠️ Carga completada con errores"}
+          </DialogTitle>
+        </DialogHeader>
+        {results && (
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">✅ Documentos indexados</span>
+                <span className="text-3xl font-bold text-teal-600">{results.success}</span>
+              </div>
+              {results.failed > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">❌ Documentos con errores</span>
+                  <span className="text-3xl font-bold text-destructive">{results.failed}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-sm text-muted-foreground">📄 Total fragmentos indexados</span>
+                <span className="text-2xl font-bold">{results.totalChunks}</span>
+              </div>
+            </div>
+
+            {results.errors.length > 0 && (
+              <details className="rounded-md border p-3 text-sm">
+                <summary className="cursor-pointer font-medium text-destructive">
+                  Ver archivos con errores ({results.errors.length})
+                </summary>
+                <ul className="mt-2 space-y-1.5 text-xs">
+                  {results.errors.map((e, i) => (
+                    <li key={i} className="border-l-2 border-destructive/40 pl-2">
+                      <div className="font-medium truncate">{e.name}</div>
+                      <div className="text-muted-foreground">{e.error}</div>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+
+            <Button
+              className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+              onClick={handleResultsClose}
+            >
+              Cerrar
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
