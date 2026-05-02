@@ -106,6 +106,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [chunkCount, setChunkCount] = useState(0);
   // Manual on-demand transcription + analysis
   const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeStage, setAnalyzeStage] = useState<"idle" | "transcribing" | "analyzing">("idle");
   const [summaryBlocks, setSummaryBlocks] = useState<SummaryBlock[]>([]);
   const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
   const [sessionInsight, setSessionInsight] = useState<string>("");
