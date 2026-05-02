@@ -243,6 +243,9 @@ ${(childNotes ?? []).map((n: any) => `- Sesión #${n.session_number ?? "—"} ($
 Comunicaciones recientes:
 ${(comms ?? []).map((m: any) => `- ${m.contact_date} ${m.contact_type ?? ""} con ${m.contact_with ?? "—"}: ${m.summary.slice(0, 120)}`).join("\n") || "- (ninguna)"}
 
+Equipo tratante:
+${(team ?? []).map((t: any) => `- ${t.professional_name} (${t.professional_role}${t.specialty ? `, ${t.specialty}` : ""})${t.institution ? ` — ${t.institution}` : ""}${t.email ? ` · ${t.email}` : ""}${t.phone ? ` · ${t.phone}` : ""}${t.is_primary_contact ? " · ⭐ contacto principal" : ""}`).join("\n") || "- (sin profesionales registrados)"}
+
 `;
         childSystemAddition = "\n\nEste es un paciente infanto-juvenil. Adapta tus recomendaciones a intervenciones apropiadas para la edad, técnicas lúdicas y conductuales, y considera el contexto escolar y familiar.";
       }
