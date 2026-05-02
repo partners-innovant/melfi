@@ -78,11 +78,18 @@ export default function AdminDocuments() {
   const [filterSource, setFilterSource] = useState<string>(ANY);
   const [filterLang, setFilterLang] = useState<string>(ANY);
   const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
-  const [noChunksOnly, setNoChunksOnly] = useState(false);
+  // Snapshot-based "Sin chunks" filter — only updates when user clicks the button
+  const [noChunksSnapshot, setNoChunksSnapshot] = useState<Set<string> | null>(null);
+  const [noChunksSearchAt, setNoChunksSearchAt] = useState<Date | null>(null);
+  const [, setNowTick] = useState(0);
 
   // Reprocessing
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
   const [reprocessErrors, setReprocessErrors] = useState<Record<string, string>>({});
+  // Recently processed (for green flash + "Procesado" label). Map id -> timestamp ms
+  const [recentlyProcessed, setRecentlyProcessed] = useState<Record<string, number>>({});
+  // Bulk progress
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
