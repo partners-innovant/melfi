@@ -422,7 +422,7 @@ export default function AdminDocuments() {
       setSingleClassifyId(null);
   }
 
-  async function reprocessDoc(d: DocRow): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  async function reprocessDoc(d: DocRow): Promise<{ ok: boolean; count?: number; error?: string }> {
     if (!d.storage_path) return { ok: false, error: "El documento no tiene archivo en storage" };
     setReprocessing((s) => { const n = new Set(s); n.add(d.id); return n; });
     setReprocessErrors((e) => { const n = { ...e }; delete n[d.id]; return n; });
