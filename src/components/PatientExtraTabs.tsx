@@ -106,6 +106,10 @@ export function PatientProfileBuilderTab({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
 
+  useEffect(() => {
+    onMessagesChange?.(messages);
+  }, [messages, onMessagesChange]);
+
   async function send(text?: string, opts?: { mode?: "suggest_diagnosis" }) {
     const message = (text ?? input).trim();
     if (!message || sending) return;
