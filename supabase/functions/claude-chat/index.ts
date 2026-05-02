@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
       query_embedding,
       conversation_id,
       stream: wantStream = true,
+      mode,
     } = body;
     console.log(`[claude-chat:${reqId}] question len=${question?.length ?? 0}, stream=${wantStream}`);
 
