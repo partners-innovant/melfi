@@ -320,6 +320,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       return;
     }
     setAnalyzing(true);
+    setAnalyzeStage("transcribing");
     let newSegments: TranscriptSegment[] = [];
     try {
       // 1) Transcribe accumulated chunks (if any)
