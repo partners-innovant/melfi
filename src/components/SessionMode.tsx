@@ -823,6 +823,19 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 ))}
               </div>
             )}
+
+            {summaryBlocks.length > 0 && (
+              <div className="mt-6">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+                  📝 Resumen de lo conversado
+                </div>
+                <div className="space-y-2">
+                  {summaryBlocks.map((block, idx) => (
+                    <SummaryBlockCard key={block.t} block={block} defaultOpen={idx === 0} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
