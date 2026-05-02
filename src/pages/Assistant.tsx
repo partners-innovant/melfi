@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
