@@ -3,9 +3,9 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw,
+  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye,
 } from "lucide-react";
-import { extractPdfText, extractTxtText, chunkText } from "@/lib/pdf";
+import { extractPdfText, extractTxtText, chunkText, renderPdfPagesToBase64 } from "@/lib/pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,6 +62,7 @@ interface DocRow {
   source_url: string | null;
   created_at: string;
   chunk_count: number;
+  processing_mode: "text" | "vision" | null;
 }
 
 export default function AdminDocuments() {
@@ -90,6 +91,11 @@ export default function AdminDocuments() {
   const [recentlyProcessed, setRecentlyProcessed] = useState<Record<string, number>>({});
   // Bulk progress
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // Vision reprocessing
+  const [visionProgress, setVisionProgress] = useState<Record<string, { current: number; total: number }>>({});
+  const [confirmVision, setConfirmVision] = useState<DocRow | null>(null);
+  const [confirmVisionBulk, setConfirmVisionBulk] = useState(false);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -176,7 +182,7 @@ export default function AdminDocuments() {
     // Pull all global documents
     const { data: docs, error } = await supabase
       .from("documents")
-      .select("id,title,author,year,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at")
+      .select("id,title,author,year,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at,processing_mode")
       .eq("is_global", true)
       .order("created_at", { ascending: false });
     if (error) {
@@ -572,6 +578,131 @@ export default function AdminDocuments() {
     }
   }
 
+  async function reprocessWithVision(d: DocRow): Promise<{ ok: boolean; count?: number; error?: string }> {
+    if (!d.storage_path) return { ok: false, error: "El documento no tiene archivo en storage" };
+    const lower = d.storage_path.toLowerCase();
+    if (!(lower.endsWith(".pdf"))) {
+      return { ok: false, error: "El procesamiento con visión solo soporta archivos PDF" };
+    }
+    setReprocessing((s) => { const n = new Set(s); n.add(d.id); return n; });
+    setReprocessErrors((e) => { const n = { ...e }; delete n[d.id]; return n; });
+    setVisionProgress((p) => ({ ...p, [d.id]: { current: 0, total: 0 } }));
+    try {
+      const { data: blob, error: dlErr } = await supabase.storage.from("documents").download(d.storage_path);
+      if (dlErr || !blob) throw new Error(dlErr?.message ?? "No se pudo descargar el archivo");
+
+      const file = new File([blob], d.storage_path.split("/").pop() ?? "doc.pdf", {
+        type: blob.type || "application/pdf",
+      });
+
+      // Render every page to base64 PNG
+      const pages = await renderPdfPagesToBase64(file, {
+        scale: 1.5,
+        onProgress: (current, total) => {
+          setVisionProgress((p) => ({ ...p, [d.id]: { current, total } }));
+        },
+      });
+      if (pages.length === 0) throw new Error("PDF sin páginas");
+
+      // Extract text per page using Claude vision (sequential to keep things controlled)
+      const pageTexts: { content: string; page_number: number; index: number }[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        setVisionProgress((vp) => ({ ...vp, [d.id]: { current: i + 1, total: pages.length } }));
+        const { data: vData, error: vErr } = await supabase.functions.invoke("vision-extract-page", {
+          body: {
+            image_base64: p.base64,
+            media_type: "image/png",
+            page_number: p.pageNumber,
+          },
+        });
+        if (vErr) throw vErr;
+        if (vData?.error) throw new Error(vData.error);
+        const text = String(vData?.text ?? "").trim();
+        if (text) {
+          pageTexts.push({ content: text, page_number: p.pageNumber, index: i });
+        }
+      }
+
+      if (pageTexts.length === 0) throw new Error("Visión no extrajo contenido de ninguna página");
+
+      // Replace existing chunks
+      await supabase.from("document_chunks").delete().eq("document_id", d.id);
+
+      // Embed via Voyage in batches and insert
+      const batchSize = 8;
+      for (let i = 0; i < pageTexts.length; i += batchSize) {
+        const batch = pageTexts.slice(i, i + batchSize);
+        const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
+          body: { input: batch.map((c) => c.content), input_type: "document" },
+        });
+        if (embErr) throw embErr;
+        if (embData?.error) throw new Error(embData.error);
+        const embeddings: number[][] = embData.embeddings;
+        const insertRows = batch.map((c, idx) => ({
+          document_id: d.id,
+          psychologist_id: profile!.id,
+          chunk_index: c.index,
+          content: c.content,
+          page_number: c.page_number,
+          embedding: embeddings[idx] as any,
+          clinical_areas: d.clinical_areas ?? [],
+          source_institution: d.source_institution ?? null,
+          source_institution_type: d.source_institution_type ?? null,
+          document_type: d.document_type,
+          is_global: d.is_global,
+        }));
+        const { error: insErr } = await supabase.from("document_chunks").insert(insertRows);
+        if (insErr) throw insErr;
+      }
+
+      // Mark document as vision-processed
+      await supabase.from("documents").update({ processing_mode: "vision" } as any).eq("id", d.id);
+
+      setRows((rs) => rs.map((r) =>
+        r.id === d.id ? { ...r, chunk_count: pageTexts.length, processing_mode: "vision" } : r,
+      ));
+      setRecentlyProcessed((p) => ({ ...p, [d.id]: Date.now() }));
+      return { ok: true, count: pageTexts.length };
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      setReprocessErrors((er) => ({ ...er, [d.id]: msg }));
+      return { ok: false, error: msg };
+    } finally {
+      setReprocessing((s) => { const n = new Set(s); n.delete(d.id); return n; });
+      setVisionProgress((p) => { const n = { ...p }; delete n[d.id]; return n; });
+    }
+  }
+
+  async function reprocessVisionSingle(d: DocRow) {
+    const tid = toast.loading(`🔍 Procesando "${d.title}" con visión...`);
+    const res = await reprocessWithVision(d);
+    if (res.ok) {
+      toast.success(`✅ ${res.count} página(s) indexada(s) con visión`, { id: tid });
+    } else {
+      toast.error(`❌ ${res.error}`, { id: tid });
+    }
+  }
+
+  async function reprocessVisionBulk() {
+    const targets = rows.filter((r) => selected.has(r.id));
+    if (targets.length === 0) return;
+    let ok = 0;
+    let fail = 0;
+    setBulkProgress({ current: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      setBulkProgress({ current: i + 1, total: targets.length });
+      const res = await reprocessWithVision(targets[i]);
+      if (res.ok) ok++; else fail++;
+    }
+    setBulkProgress(null);
+    if (fail === 0) {
+      toast.success(`✅ ${ok} documento(s) procesado(s) con visión`);
+    } else {
+      toast.warning(`✅ ${ok} con visión · ❌ ${fail} con error`);
+    }
+  }
+
 
   async function openViewer(d: DocRow) {
     setViewDoc(d);
@@ -721,6 +852,15 @@ export default function AdminDocuments() {
               <><RotateCw className="h-4 w-4 mr-1" /> Re-procesar documentos sin chunks</>
             )}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setConfirmVisionBulk(true)}
+            disabled={!!bulkProgress}
+            className="border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+          >
+            <ScanEye className="h-4 w-4 mr-1" /> Re-procesar seleccionados con visión
+          </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
           </Button>
@@ -744,16 +884,17 @@ export default function AdminDocuments() {
               <TableHead>Fuente</TableHead>
               <TableHead>Idioma</TableHead>
               <TableHead className="w-20 text-center">Chunks</TableHead>
+              <TableHead className="w-24">Modo</TableHead>
               <TableHead>Origen</TableHead>
               <TableHead>Subido</TableHead>
-              <TableHead className="w-24">Acciones</TableHead>
+              <TableHead className="w-32">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
             ) : paged.length === 0 ? (
-              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
             ) : paged.map((d) => (
               <TableRow key={d.id} className={cn(
                 selected.has(d.id) && "bg-primary/5",
@@ -823,8 +964,11 @@ export default function AdminDocuments() {
                 </TableCell>
                 <TableCell className="text-center text-sm tabular-nums">
                   {reprocessing.has(d.id) ? (
-                    <span className="inline-flex items-center gap-1 text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" /> …
+                    <span className="inline-flex items-center gap-1 text-muted-foreground text-[11px]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      {visionProgress[d.id] && visionProgress[d.id].total > 0
+                        ? <>🔍 {visionProgress[d.id].current} de {visionProgress[d.id].total}</>
+                        : "…"}
                     </span>
                   ) : recentlyProcessed[d.id] && d.chunk_count > 0 ? (
                     <div className="flex flex-col items-center gap-0.5">
@@ -873,6 +1017,17 @@ export default function AdminDocuments() {
                   )}
                 </TableCell>
                 <TableCell>
+                  {d.processing_mode === "vision" ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                      🔍 Visión
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+                      ⚡ Texto
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
                   <Badge variant="secondary" className="text-[10px]">{d.import_source ?? "upload"}</Badge>
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
@@ -891,6 +1046,18 @@ export default function AdminDocuments() {
                       {singleClassifyId === d.id
                         ? <Loader2 className="h-4 w-4 animate-spin" />
                         : <Sparkles className="h-4 w-4 text-primary" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+                      onClick={() => setConfirmVision(d)}
+                      disabled={reprocessing.has(d.id) || !d.storage_path}
+                      title="Re-procesar con OCR y visión"
+                    >
+                      {reprocessing.has(d.id) && visionProgress[d.id]
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <ScanEye className="h-4 w-4" />}
                     </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewer(d)} title="Ver documento">
                       <Eye className="h-4 w-4" />
@@ -1132,6 +1299,61 @@ export default function AdminDocuments() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm vision reprocess (single) */}
+      <AlertDialog open={!!confirmVision} onOpenChange={(o) => !o && setConfirmVision(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ScanEye className="h-5 w-5 text-purple-600" /> ¿Re-procesar con OCR y visión?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Se analizará cada página del documento como imagen, capturando diagramas, tablas y gráficos.
+              Los chunks actuales serán reemplazados. Este proceso es más lento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+              onClick={() => {
+                const d = confirmVision;
+                setConfirmVision(null);
+                if (d) reprocessVisionSingle(d);
+              }}
+            >
+              Re-procesar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm vision reprocess (bulk) */}
+      <AlertDialog open={confirmVisionBulk} onOpenChange={setConfirmVisionBulk}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ScanEye className="h-5 w-5 text-purple-600" /> ¿Re-procesar {selected.size} documento(s) con visión?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Cada página de cada documento se analizará como imagen para capturar diagramas, tablas y gráficos.
+              Los chunks actuales serán reemplazados. Este proceso es más lento y se ejecuta secuencialmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-teal-600 hover:bg-teal-700 text-white"
+              onClick={() => {
+                setConfirmVisionBulk(false);
+                reprocessVisionBulk();
+              }}
+            >
+              Re-procesar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

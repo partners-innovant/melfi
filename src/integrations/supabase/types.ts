@@ -625,6 +625,7 @@ export type Database = {
           import_source: string | null
           is_global: boolean
           language: string | null
+          processing_mode: string | null
           psychologist_id: string
           source_institution: string | null
           source_institution_type: string | null
@@ -642,6 +643,7 @@ export type Database = {
           import_source?: string | null
           is_global?: boolean
           language?: string | null
+          processing_mode?: string | null
           psychologist_id: string
           source_institution?: string | null
           source_institution_type?: string | null
@@ -659,6 +661,7 @@ export type Database = {
           import_source?: string | null
           is_global?: boolean
           language?: string | null
+          processing_mode?: string | null
           psychologist_id?: string
           source_institution?: string | null
           source_institution_type?: string | null
