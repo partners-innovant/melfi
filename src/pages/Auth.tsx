@@ -200,7 +200,8 @@ export default function Auth() {
               <Label htmlFor="pwd">Contraseña</Label>
               <Input id="pwd" type="password" required minLength={6} value={form.password} onChange={(e) => update("password", e.target.value)} />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <AuthEthicalDisclaimer checked={acceptedDisclaimer} onChange={setAcceptedDisclaimer} />
+            <Button type="submit" className="w-full" disabled={loading || !acceptedDisclaimer}>
               {loading ? "..." : mode === "signin" ? "Entrar" : "Crear cuenta"}
             </Button>
           </form>
