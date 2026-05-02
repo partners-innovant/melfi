@@ -467,6 +467,22 @@ export default function Assistant() {
           </div>
         )}
 
+        {/* Filter bar */}
+        <div className="px-4 md:px-6 pt-3">
+          <FilterBar
+            yearFrom={yearFrom}
+            setYearFrom={setYearFrom}
+            allAreas={ALL_AREAS}
+            selectedAreas={selectedAreas}
+            setSelectedAreas={setSelectedAreas}
+            availableSources={availableSources}
+            selectedSources={selectedSources}
+            setSelectedSources={setSelectedSources}
+            anyActive={anyFilterActive}
+            onReset={resetFilters}
+          />
+        </div>
+
         {/* Messages OR welcome+centered input */}
         {isEmpty ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 py-6">
