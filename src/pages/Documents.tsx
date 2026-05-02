@@ -586,6 +586,11 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       let title = item.file.name.replace(/\.(pdf|txt)$/i, "");
       let author = "";
       let year = "";
+      let docType: DocType = "articulo_cientifico";
+      let clinicalAreas: string[] = [];
+      let sourceInstitution = "";
+      let sourceInstitutionType = "";
+      const autoFilled = { docType: false, clinicalAreas: false, sourceInstitution: false };
 
       if (item.file.type === "application/pdf" || item.file.name.toLowerCase().endsWith(".pdf")) {
         const { text: t, meta } = await extractPdfTextAndMeta(item.file);
@@ -597,23 +602,36 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         text = await extractTxtText(item.file);
       }
 
-      // If any field is missing, ask AI
-      if (!title || !author || !year) {
-        update(item.id, { statusText: "Completando metadatos con IA..." });
-        try {
-          const { data, error } = await supabase.functions.invoke("extract-metadata", {
-            body: { text },
-          });
-          if (!error && data && !data.error) {
-            if (!title && data.title) title = data.title;
-            if (!author && data.author) author = data.author;
-            if (!year && data.year) year = data.year;
-          } else if (error || data?.error) {
-            console.warn("[upload] metadata AI failed:", error ?? data?.error);
+      // Always call AI for clinical classification (in addition to bibliographic metadata).
+      update(item.id, { statusText: "Clasificando con IA..." });
+      try {
+        const { data, error } = await supabase.functions.invoke("extract-metadata", {
+          body: { text },
+        });
+        if (!error && data && !data.error) {
+          if (!title && data.title) title = data.title;
+          if (!author && data.author) author = data.author;
+          if (!year && data.year) year = data.year;
+          if (data.document_type && (DOC_TYPES as readonly string[]).includes(data.document_type)) {
+            docType = data.document_type as DocType;
+            autoFilled.docType = true;
           }
-        } catch (e) {
-          console.warn("[upload] metadata AI exception:", e);
+          if (Array.isArray(data.clinical_areas) && data.clinical_areas.length > 0) {
+            clinicalAreas = (data.clinical_areas as string[])
+              .filter((a) => (CLINICAL_AREAS as readonly string[]).includes(a))
+              .slice(0, MAX_CLINICAL_AREAS);
+            autoFilled.clinicalAreas = clinicalAreas.length > 0;
+          }
+          if (data.source_institution) {
+            sourceInstitution = String(data.source_institution);
+            autoFilled.sourceInstitution = true;
+          }
+          if (data.source_institution_type) sourceInstitutionType = String(data.source_institution_type);
+        } else if (error || data?.error) {
+          console.warn("[upload] metadata AI failed:", error ?? data?.error);
         }
+      } catch (e) {
+        console.warn("[upload] metadata AI exception:", e);
       }
 
       // Duplicate detection by title (case-insensitive, owner + global docs).
@@ -630,6 +648,11 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         title,
         author,
         year,
+        docType,
+        clinicalAreas,
+        sourceInstitution,
+        sourceInstitutionType,
+        autoFilled,
         cachedText: text,
         duplicate,
         dupAction: duplicate ? "pending" : undefined,
@@ -650,12 +673,15 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
       year: "",
       docType: "articulo_cientifico",
       isGlobal: false,
+      clinicalAreas: [],
+      sourceInstitution: "",
+      sourceInstitutionType: "",
+      autoFilled: { docType: false, clinicalAreas: false, sourceInstitution: false },
       status: "pending",
       progress: 0,
       statusText: "En cola",
     }));
     setItems((prev) => [...prev, ...next]);
-    // Kick off analysis sequentially to avoid CPU/memory spike on large PDFs
     (async () => {
       for (const it of next) await analyzeFile(it);
     })();
