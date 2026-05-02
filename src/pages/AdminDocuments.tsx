@@ -456,7 +456,7 @@ export default function AdminDocuments() {
         const embeddings: number[][] = embData.embeddings;
         const insertRows = batch.map((c, idx) => ({
           document_id: d.id,
-          psychologist_id: d.is_global ? d.psychologist_id ?? profile!.id : profile!.id,
+          psychologist_id: profile!.id,
           chunk_index: c.index,
           content: c.content,
           page_number: c.page_number,
