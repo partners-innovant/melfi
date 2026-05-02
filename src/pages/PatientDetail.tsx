@@ -21,6 +21,7 @@ import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 import TransferPatientDialog from "@/components/TransferPatientDialog";
 import SessionSchedulePill from "@/components/SessionSchedulePill";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export default function PatientDetail() {
   const { id } = useParams();
