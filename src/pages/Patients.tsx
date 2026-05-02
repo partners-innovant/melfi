@@ -229,9 +229,19 @@ export default function Patients() {
         </Card>
       ) : (
         <div className="grid gap-2">
-          {patients.map((p) => {
+          {[...patients].sort((a, b) => {
+            if (sortMode !== "schedule") return 0;
+            const ad = a.session_day ? DAY_ORDER[a.session_day] ?? 99 : 99;
+            const bd = b.session_day ? DAY_ORDER[b.session_day] ?? 99 : 99;
+            if (ad !== bd) return ad - bd;
+            const at = a.session_time ?? "99:99";
+            const bt = b.session_time ?? "99:99";
+            return at.localeCompare(bt);
+          }).map((p) => {
             const age = calcAge(p.birth_date);
             const transferDate = transferredMap[p.id];
+            const dl = p.session_day ? DAY_LABELS[p.session_day] : null;
+            const tl = p.session_time ? String(p.session_time).slice(0, 5) : null;
             return (
               <Link key={p.id} to={`/patients/${p.id}`}>
                 <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4">
@@ -250,6 +260,9 @@ export default function Patients() {
                     <div className="text-sm text-muted-foreground truncate">
                       {age !== null && `${age} años`}{age !== null && p.diagnosis && " · "}{p.diagnosis ?? (age === null ? "Sin información" : "")}
                     </div>
+                    {dl && tl && (
+                      <div className="text-xs text-primary mt-0.5">📅 {dl} {tl}</div>
+                    )}
                   </div>
                 </Card>
               </Link>
