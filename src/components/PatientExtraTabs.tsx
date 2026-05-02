@@ -372,7 +372,10 @@ export function PatientProfileBuilderTab({
   }
 
   return (
-    <Card className="p-0 overflow-hidden flex flex-col" style={{ height: "calc(100vh - 280px)", minHeight: 500 }}>
+    <Card
+      className={embedded ? "p-0 overflow-hidden flex flex-col h-full rounded-none border-0 shadow-none" : "p-0 overflow-hidden flex flex-col"}
+      style={embedded ? undefined : { height: "calc(100vh - 280px)", minHeight: 500 }}
+    >
       <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
         <Wand2 className="h-4 w-4 text-primary" />
         <h3 className="font-semibold text-sm">Constructor de Perfil con IA</h3>
