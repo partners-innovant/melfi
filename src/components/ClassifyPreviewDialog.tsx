@@ -603,7 +603,7 @@ function ViewDocumentLink({
 
   const hasAny = Boolean(storagePath || sourceUrl);
 
-  async function handleClick(e: MouseEvent | React.MouseEvent) {
+  async function handleClick(e: ReactMouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (loading) return;
