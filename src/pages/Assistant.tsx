@@ -284,6 +284,43 @@ export default function Assistant() {
     }
   }
 
+  // Fetch a diagram for the latest assistant message and patch it in.
+  // Failures are silent — diagrams are an enhancement, not core content.
+  async function fetchDiagramFor(answerText: string) {
+    try {
+      const { data, error } = await supabase.functions.invoke("assistant-diagram", {
+        body: { text: stripCitations(answerText) },
+      });
+      if (error) throw error;
+      const diagram = (data as any)?.diagram ?? null;
+      setMessages((m) => {
+        const copy = [...m];
+        // Patch the most recent assistant message that's awaiting a diagram.
+        for (let i = copy.length - 1; i >= 0; i--) {
+          const msg = copy[i];
+          if (msg.role === "assistant" && msg.diagramLoading) {
+            copy[i] = { ...msg, diagram, diagramLoading: false };
+            break;
+          }
+        }
+        return copy;
+      });
+    } catch (e) {
+      console.warn("[assistant-diagram] failed", e);
+      setMessages((m) => {
+        const copy = [...m];
+        for (let i = copy.length - 1; i >= 0; i--) {
+          const msg = copy[i];
+          if (msg.role === "assistant" && msg.diagramLoading) {
+            copy[i] = { ...msg, diagram: null, diagramLoading: false };
+            break;
+          }
+        }
+        return copy;
+      });
+    }
+  }
+
   async function send(textOverride?: string, opts?: { mode?: string }) {
     const q = (textOverride ?? input).trim();
     if (!q || busy) return;
