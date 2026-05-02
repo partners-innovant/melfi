@@ -529,6 +529,7 @@ export default function AdminDocuments() {
       }
 
       setRows((rs) => rs.map((r) => (r.id === d.id ? { ...r, chunk_count: chunks.length } : r)));
+      setRecentlyProcessed((p) => ({ ...p, [d.id]: Date.now() }));
       return { ok: true, count: chunks.length };
     } catch (e: any) {
       const msg = e?.message ?? String(e);
@@ -555,17 +556,19 @@ export default function AdminDocuments() {
       toast.info("Ningún documento seleccionado tiene 0 chunks");
       return;
     }
-    const tid = toast.loading(`Re-procesando ${targets.length} documento(s)...`);
     let ok = 0;
     let fail = 0;
-    for (const d of targets) {
-      const res = await reprocessDoc(d);
+    setBulkProgress({ current: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      setBulkProgress({ current: i + 1, total: targets.length });
+      const res = await reprocessDoc(targets[i]);
       if (res.ok) ok++; else fail++;
     }
+    setBulkProgress(null);
     if (fail === 0) {
-      toast.success(`✅ ${ok} documento(s) re-procesado(s)`, { id: tid });
+      toast.success(`✅ ${ok} documento(s) procesado(s)`);
     } else {
-      toast.warning(`Completado: ${ok} ok, ${fail} con error`, { id: tid });
+      toast.warning(`✅ ${ok} documentos procesados · ❌ ${fail} con error`);
     }
   }
 
