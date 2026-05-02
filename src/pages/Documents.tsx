@@ -786,6 +786,21 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
         workers.push(runWorker());
       }
       await Promise.all(workers);
+
+      // After analysis, override fields with PubMed prefill (user picks them as canonical).
+      if (consumedPrefill && prefillTargetId) {
+        update(prefillTargetId, {
+          title: consumedPrefill.title || undefined,
+          author: consumedPrefill.author || undefined,
+          year: consumedPrefill.year || undefined,
+          sourceInstitution: consumedPrefill.source_institution,
+          sourceInstitutionType: consumedPrefill.source_institution_type,
+          autoFilled: {
+            title: true, author: !!consumedPrefill.author, year: !!consumedPrefill.year,
+            docType: true, clinicalAreas: false, sourceInstitution: true,
+          },
+        });
+      }
     })();
   }
 
