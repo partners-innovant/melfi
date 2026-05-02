@@ -410,7 +410,7 @@ async function importPubMedArticle(
   article: PubMedArticle,
   isAdmin: boolean,
   setStatus: (s: string) => void,
-): Promise<ClassifyTarget> {
+): Promise<{ target: ClassifyTarget; usedPdf: boolean }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
