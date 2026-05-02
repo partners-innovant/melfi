@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { EMOTIONAL_STATES } from "@/components/SessionsTab";
 import ReactMarkdown from "react-markdown";
 
-type TranscriptSegment = { speaker: "Terapeuta" | "Paciente" | "Hablante" | string; text: string; t: number };
+type TranscriptSegment = { speaker: "Terapeuta" | "Paciente" | "Hablante" | "Error" | string; text: string; t: number; error?: boolean };
 type RecState = "idle" | "recording" | "paused";
 
 type Entry = { t: number; text: string };
@@ -90,6 +90,8 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptEditable, setTranscriptEditable] = useState(false);
   const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
+  const [chunkCount, setChunkCount] = useState(0);
+  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
 
   const liveRecorderRef = useRef<MediaRecorder | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
@@ -107,6 +109,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
   useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => {
+    if (activeTab !== "transcript") return;
+    const el = transcriptScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [transcript, activeTab]);
 
   // Init session row when overlay opens
   useEffect(() => {
@@ -278,7 +285,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
 
   async function processChunk(blob: Blob) {
     if (!blob || blob.size < 2000) return; // skip tiny chunks
+    setChunkCount((n) => n + 1);
     setTranscribing(true);
+    let errorSeg: TranscriptSegment | null = null;
     try {
       const audio = await blobToBase64(blob);
       const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
@@ -288,7 +297,10 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       });
       if (error) throw error;
       const segs: any[] = (data as any)?.segments ?? [];
-      if (!segs.length) return;
+      if (!segs.length) {
+        if ((data as any)?.error) throw new Error(String((data as any).error));
+        return;
+      }
       const now = Date.now();
       const enriched: TranscriptSegment[] = segs
         .filter((s) => s && typeof s.text === "string" && s.text.trim())
@@ -306,9 +318,14 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       checkSuggestionsUsed(enriched.map((e) => `${e.speaker}: ${e.text}`).join("\n"));
     } catch (e: any) {
       console.error("transcribe chunk failed", e);
-      // Soft-fail: do not interrupt the session
+      errorSeg = { speaker: "Error", text: "⚠️ Error transcribiendo fragmento", t: Date.now(), error: true };
     } finally {
       setTranscribing(false);
+      if (errorSeg) {
+        const next = [...transcriptRef.current, errorSeg];
+        transcriptRef.current = next;
+        setTranscript(next);
+      }
     }
   }
 
@@ -363,16 +380,17 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       mr.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           liveChunksRef.current.push(e.data);
-          // Process every chunk that arrives (timeslice = 30s)
+          // Process every chunk that arrives (timeslice = 10s)
           processChunk(e.data);
         }
       };
       mr.onerror = (ev) => { console.error("MediaRecorder error", ev); toast.error("Error de grabación"); };
-      mr.start(30000); // 30s timeslice
+      mr.start(10000); // 10s timeslice — more responsive real-time transcription
       liveRecorderRef.current = mr;
       liveStartRef.current = Date.now();
       livePausedAccumRef.current = 0;
       setRecElapsed(0);
+      setChunkCount(0);
       setRecState("recording");
       startLiveTimer();
       setActiveTab("transcript");
@@ -632,6 +650,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
             </span>
           )}
+          {recState !== "idle" && (
+            <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
+              Fragmentos procesados: {chunkCount}
+            </span>
+          )}
         </div>
       </div>
 
@@ -799,29 +822,34 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             </TabsContent>
 
             <TabsContent value="transcript" className="flex-1 min-h-0 mt-0">
-              <div className="h-full overflow-y-auto p-4 space-y-2">
+              <div ref={transcriptScrollRef} className="h-full overflow-y-auto p-4 space-y-2">
                 {transcript.length === 0 ? (
                   <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
                     {recState === "idle"
                       ? 'La transcripción aparecerá aquí. Pulsa "🔴 Grabar sesión" para empezar.'
-                      : "Escuchando… los segmentos aparecerán cada ~30 segundos."}
+                      : "Escuchando… los segmentos aparecerán cada ~10 segundos."}
                   </div>
                 ) : (
                   transcript.map((seg, i) => {
                     const isPatient = seg.speaker === "Paciente";
                     const isTher = seg.speaker === "Terapeuta";
-                    const tone = isPatient
+                    const isError = seg.error || seg.speaker === "Error";
+                    const tone = isError
+                      ? "border-l-red-400 bg-red-500/5"
+                      : isPatient
                       ? "border-l-blue-400 bg-blue-500/5"
                       : isTher
                       ? "border-l-teal-400 bg-teal-500/5"
                       : "border-l-amber-400 bg-amber-500/5";
+                    const emoji = isError ? "⚠️" : isPatient ? "👤" : isTher ? "🧑‍⚕️" : "🗣️";
+                    const label = isError ? "Error" : isPatient ? "Paciente" : isTher ? "Terapeuta" : "Sin identificar";
                     return (
                       <div key={i} className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${tone}`}>
                         <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5 flex items-center justify-between">
                           <span>
-                            {isPatient ? "Paciente" : isTher ? "Terapeuta" : "⚠️ Sin identificar"} [{clockFromTimestamp(seg.t)}]
+                            {emoji} {label} [{clockFromTimestamp(seg.t)}]
                           </span>
-                          {transcriptEditable && (
+                          {transcriptEditable && !isError && (
                             <select
                               value={seg.speaker}
                               onChange={(e) => {
@@ -840,7 +868,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                             </select>
                           )}
                         </div>
-                        {transcriptEditable ? (
+                        {transcriptEditable && !isError ? (
                           <Textarea
                             value={seg.text}
                             onChange={(e) => {
