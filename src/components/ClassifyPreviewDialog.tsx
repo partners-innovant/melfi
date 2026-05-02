@@ -262,7 +262,7 @@ export function ClassifyPreviewDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className={isSingle ? "space-y-3" : "flex-1 overflow-y-auto pr-1 space-y-3"}>
+        <div className={isSingle ? "flex-1 overflow-y-auto pr-1 space-y-3" : "flex-1 overflow-y-auto pr-1 space-y-3"}>
           {cards.map((c) => (
             <ClassifyCard key={c.id} card={c} onChange={(p) => patchCard(c.id, p)} />
           ))}
