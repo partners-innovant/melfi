@@ -128,6 +128,10 @@ export default function Assistant() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sourcesInitialized, setSourcesInitialized] = useState(false);
 
+  // Dynamic per-patient suggestions cache (key = patient_id)
+  const [suggestionsCache, setSuggestionsCache] = useState<Record<string, string[]>>({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const patientsMap = useMemo(
@@ -137,7 +141,32 @@ export default function Assistant() {
 
   const activePatientName = patientId !== NONE ? patientsMap.get(patientId) ?? null : null;
 
+  const fetchPatientSuggestions = useCallback(async (force = false) => {
+    if (patientId === NONE) return;
+    if (!force && suggestionsCache[patientId]?.length) return;
+    setLoadingSuggestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("patient-suggestions", {
+        body: { patient_id: patientId, patient_kind: patientKind },
+      });
+      if (error) throw new Error(error.message);
+      const arr: string[] = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      if (arr.length) {
+        setSuggestionsCache((c) => ({ ...c, [patientId]: arr }));
+      }
+    } catch (e: any) {
+      console.error("[patient-suggestions]", e);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [patientId, patientKind, suggestionsCache]);
+
   useEffect(() => {
+    if (patientId !== NONE && !suggestionsCache[patientId]) {
+      void fetchPatientSuggestions();
+    }
+  }, [patientId, suggestionsCache, fetchPatientSuggestions]);
+
     (async () => {
       const table = patientKind === "child" ? "child_patients" : "patients";
       const { data } = await supabase
