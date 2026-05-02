@@ -578,6 +578,131 @@ export default function AdminDocuments() {
     }
   }
 
+  async function reprocessWithVision(d: DocRow): Promise<{ ok: boolean; count?: number; error?: string }> {
+    if (!d.storage_path) return { ok: false, error: "El documento no tiene archivo en storage" };
+    const lower = d.storage_path.toLowerCase();
+    if (!(lower.endsWith(".pdf"))) {
+      return { ok: false, error: "El procesamiento con visión solo soporta archivos PDF" };
+    }
+    setReprocessing((s) => { const n = new Set(s); n.add(d.id); return n; });
+    setReprocessErrors((e) => { const n = { ...e }; delete n[d.id]; return n; });
+    setVisionProgress((p) => ({ ...p, [d.id]: { current: 0, total: 0 } }));
+    try {
+      const { data: blob, error: dlErr } = await supabase.storage.from("documents").download(d.storage_path);
+      if (dlErr || !blob) throw new Error(dlErr?.message ?? "No se pudo descargar el archivo");
+
+      const file = new File([blob], d.storage_path.split("/").pop() ?? "doc.pdf", {
+        type: blob.type || "application/pdf",
+      });
+
+      // Render every page to base64 PNG
+      const pages = await renderPdfPagesToBase64(file, {
+        scale: 1.5,
+        onProgress: (current, total) => {
+          setVisionProgress((p) => ({ ...p, [d.id]: { current, total } }));
+        },
+      });
+      if (pages.length === 0) throw new Error("PDF sin páginas");
+
+      // Extract text per page using Claude vision (sequential to keep things controlled)
+      const pageTexts: { content: string; page_number: number; index: number }[] = [];
+      for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        setVisionProgress((vp) => ({ ...vp, [d.id]: { current: i + 1, total: pages.length } }));
+        const { data: vData, error: vErr } = await supabase.functions.invoke("vision-extract-page", {
+          body: {
+            image_base64: p.base64,
+            media_type: "image/png",
+            page_number: p.pageNumber,
+          },
+        });
+        if (vErr) throw vErr;
+        if (vData?.error) throw new Error(vData.error);
+        const text = String(vData?.text ?? "").trim();
+        if (text) {
+          pageTexts.push({ content: text, page_number: p.pageNumber, index: i });
+        }
+      }
+
+      if (pageTexts.length === 0) throw new Error("Visión no extrajo contenido de ninguna página");
+
+      // Replace existing chunks
+      await supabase.from("document_chunks").delete().eq("document_id", d.id);
+
+      // Embed via Voyage in batches and insert
+      const batchSize = 8;
+      for (let i = 0; i < pageTexts.length; i += batchSize) {
+        const batch = pageTexts.slice(i, i + batchSize);
+        const { data: embData, error: embErr } = await supabase.functions.invoke("voyage-embed", {
+          body: { input: batch.map((c) => c.content), input_type: "document" },
+        });
+        if (embErr) throw embErr;
+        if (embData?.error) throw new Error(embData.error);
+        const embeddings: number[][] = embData.embeddings;
+        const insertRows = batch.map((c, idx) => ({
+          document_id: d.id,
+          psychologist_id: profile!.id,
+          chunk_index: c.index,
+          content: c.content,
+          page_number: c.page_number,
+          embedding: embeddings[idx] as any,
+          clinical_areas: d.clinical_areas ?? [],
+          source_institution: d.source_institution ?? null,
+          source_institution_type: d.source_institution_type ?? null,
+          document_type: d.document_type,
+          is_global: d.is_global,
+        }));
+        const { error: insErr } = await supabase.from("document_chunks").insert(insertRows);
+        if (insErr) throw insErr;
+      }
+
+      // Mark document as vision-processed
+      await supabase.from("documents").update({ processing_mode: "vision" } as any).eq("id", d.id);
+
+      setRows((rs) => rs.map((r) =>
+        r.id === d.id ? { ...r, chunk_count: pageTexts.length, processing_mode: "vision" } : r,
+      ));
+      setRecentlyProcessed((p) => ({ ...p, [d.id]: Date.now() }));
+      return { ok: true, count: pageTexts.length };
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      setReprocessErrors((er) => ({ ...er, [d.id]: msg }));
+      return { ok: false, error: msg };
+    } finally {
+      setReprocessing((s) => { const n = new Set(s); n.delete(d.id); return n; });
+      setVisionProgress((p) => { const n = { ...p }; delete n[d.id]; return n; });
+    }
+  }
+
+  async function reprocessVisionSingle(d: DocRow) {
+    const tid = toast.loading(`🔍 Procesando "${d.title}" con visión...`);
+    const res = await reprocessWithVision(d);
+    if (res.ok) {
+      toast.success(`✅ ${res.count} página(s) indexada(s) con visión`, { id: tid });
+    } else {
+      toast.error(`❌ ${res.error}`, { id: tid });
+    }
+  }
+
+  async function reprocessVisionBulk() {
+    const targets = rows.filter((r) => selected.has(r.id));
+    if (targets.length === 0) return;
+    let ok = 0;
+    let fail = 0;
+    setBulkProgress({ current: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      setBulkProgress({ current: i + 1, total: targets.length });
+      const res = await reprocessWithVision(targets[i]);
+      if (res.ok) ok++; else fail++;
+    }
+    setBulkProgress(null);
+    if (fail === 0) {
+      toast.success(`✅ ${ok} documento(s) procesado(s) con visión`);
+    } else {
+      toast.warning(`✅ ${ok} con visión · ❌ ${fail} con error`);
+    }
+  }
+
 
   async function openViewer(d: DocRow) {
     setViewDoc(d);
