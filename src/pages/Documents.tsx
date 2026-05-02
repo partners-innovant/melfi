@@ -600,6 +600,7 @@ interface QueueItem {
   duplicate?: DuplicateDoc | null;
   dupAction?: DupAction;
   chunksCount?: number;
+  pubmedPrefill?: PubMedUploadPrefill | null;
 }
 
 interface UploadResults {
