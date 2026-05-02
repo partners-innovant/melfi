@@ -163,13 +163,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               const claudeLink = (
                 <NavLink
                   to="/claude"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, rgba(255,140,60,0.22) 0%, rgba(255,140,60,0.10) 50%, rgba(255,140,60,0.22) 100%)",
+                    backdropFilter: "blur(6px)",
+                    WebkitBackdropFilter: "blur(6px)",
+                    boxShadow:
+                      "0 1px 0 rgba(255,255,255,0.06) inset, 0 0 18px rgba(255,140,60,0.18)",
+                  }}
                   className={({ isActive }) =>
                     cn(
-                      "relative flex items-center rounded-lg text-sm font-medium transition-colors",
+                      "relative flex items-center rounded-[12px] text-sm font-medium transition-all",
+                      "border border-[rgba(255,140,60,0.25)]",
+                      "hover:shadow-[0_0_24px_rgba(255,140,60,0.28)]",
                       collapsed ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
                       isActive
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                        ? "text-sidebar-accent-foreground ring-1 ring-[rgba(255,140,60,0.35)]"
+                        : "text-sidebar-foreground",
                     )
                   }
                 >
