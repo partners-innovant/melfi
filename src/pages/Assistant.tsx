@@ -905,109 +905,132 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
   const citations = assistant.citations ?? [];
   const dateStr = new Date().toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" });
 
-  const TEAL = "#0d9488"; // matches --primary teal
-  const TEAL_DARK = "#0f766e";
-  const GRAY = "#6b7280";
-  const YELLOW_BG = "#fef3c7";
-
+  const TEAL = "#0d9488";
+  const GRAY = "#666";
   const answerHtml = renderAnswerHtml(assistant.content, citations);
-  const PBA = "page-break-inside:avoid;break-inside:avoid;";
 
-  // A4 @ 96dpi = 794 x 1123px. Margins 60px all sides.
-  const PAGE_W = 794;
-  const PAGE_H = 1123;
-  const MARGIN = 60;
-  const CONTENT_W = PAGE_W - MARGIN * 2; // 674
-
-  const headerHtml = `
-    <div data-pdf-section style="${PBA}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-        <div style="font-size:24px;font-weight:800;color:${TEAL};letter-spacing:-0.02em;">Psicoasist</div>
-        <div style="font-size:11px;color:${GRAY};text-align:right;line-height:1.5;">${escapeHtml(dateStr)}</div>
-      </div>
-      ${patientName ? `<div style="margin-top:8px;font-size:13px;color:#374151;">Consulta sobre: <strong>${escapeHtml(patientName)}</strong></div>` : ""}
-      <hr style="border:none;border-top:2px solid ${TEAL};margin:16px 0 20px 0;" />
-    </div>
-    <div data-pdf-section style="${PBA}">
-      <h2 style="color:${TEAL_DARK};font-size:16px;font-weight:700;margin:0 0 8px 0;">Pregunta:</h2>
-      <div style="font-size:13px;line-height:1.7;color:#111827;margin-bottom:20px;white-space:pre-wrap;">${escapeHtml(question)}</div>
-    </div>
-    <div data-pdf-section style="${PBA}">
-      <h2 style="color:${TEAL_DARK};font-size:16px;font-weight:700;margin:0 0 8px 0;">Respuesta:</h2>
-    </div>
-  `;
-
-  const citationsHtml = citations.length === 0 ? "" : `
-    <div data-pdf-section style="${PBA}">
-      <h2 style="color:${TEAL_DARK};font-size:16px;font-weight:700;margin:24px 0 12px 0;">Fuentes citadas:</h2>
-    </div>
-    ${citations.map((c, i) => `
-      <div data-pdf-section style="border:1px solid #e5e7eb;border-radius:8px;padding:16px;background:#ffffff;margin-bottom:12px;${PBA}">
-        <div style="display:flex;gap:8px;align-items:baseline;">
-          <span style="color:${TEAL};font-weight:700;font-size:11px;">[${i + 1}]</span>
-          <div style="font-weight:700;color:#111827;font-size:11px;">${escapeHtml(c.document_title || "Sin título")}</div>
+  const citationsBlock = citations.length === 0 ? "" : `
+    <div>
+      <p style="color:${TEAL}; font-weight:700; font-size:14px; margin-bottom:12px">Fuentes citadas:</p>
+      ${citations.map((c, i) => `
+        <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:10px; page-break-inside:avoid">
+          <p style="font-weight:600; margin:0 0 4px">${i + 1}. ${escapeHtml(c.document_title || "Sin título")}</p>
+          <p style="color:#666; font-size:11px; margin:0 0 8px">${escapeHtml(c.author || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}</p>
+          ${c.excerpt ? `<p style="background:#fef9c3; padding:8px; border-radius:4px; font-style:italic; font-size:12px; margin:0">"${escapeHtml(c.excerpt)}"</p>` : ""}
         </div>
-        <div style="color:${GRAY};font-size:11px;margin-top:4px;line-height:1.7;">
-          ${escapeHtml(c.author || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}
-        </div>
-        ${c.excerpt ? `<div style="margin-top:8px;background:${YELLOW_BG};padding:10px 12px;border-radius:4px;font-style:italic;color:#1f2937;font-size:11px;line-height:1.7;">"${escapeHtml(c.excerpt)}"</div>` : ""}
-      </div>
-    `).join("")}
-  `;
-
-  const footerHtml = `
-    <div data-pdf-section style="margin-top:30px;padding-top:12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:${GRAY};${PBA}">
-      <span><strong style="color:${TEAL};">Generado por Psicoasist</strong></span>
-      <span style="text-align:right;max-width:60%;">Las respuestas se basan únicamente en documentos clínicos verificados</span>
+      `).join("")}
     </div>
   `;
 
   const container = document.createElement("div");
-  container.style.cssText = `position:fixed;left:-10000px;top:0;width:${CONTENT_W}px;background:#ffffff;color:#111827;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;font-size:13px;line-height:1.7;box-sizing:border-box;`;
-  // Wrap answer paragraphs as individual sections for pagination
-  const answerWrapped = `<div data-pdf-section style="${PBA}font-size:13px;line-height:1.7;color:#111827;">${answerHtml}</div>`;
-  container.innerHTML = headerHtml + answerWrapped + citationsHtml + footerHtml;
+  container.id = "pdf-export-content";
+  container.style.cssText = "width:794px; padding:60px; font-family:Inter,sans-serif; font-size:13px; line-height:1.7; background:white; color:#1a1a1a; box-sizing:border-box; visibility:hidden; position:absolute; left:-9999px; top:0;";
+  container.innerHTML = `
+    <div style="display:flex; justify-content:space-between; margin-bottom:24px">
+      <span style="color:${TEAL}; font-size:20px; font-weight:700">Psicoasist</span>
+      <span style="color:${GRAY}; font-size:11px">${escapeHtml(dateStr)}</span>
+    </div>
+    ${patientName ? `<div style="font-size:12px; color:#444; margin-bottom:16px">Consulta sobre: <strong>${escapeHtml(patientName)}</strong></div>` : ""}
+    <hr style="border:none; border-top:2px solid ${TEAL}; margin-bottom:24px">
+    <div style="margin-bottom:20px">
+      <p style="color:${TEAL}; font-weight:700; font-size:15px; margin-bottom:8px">Pregunta:</p>
+      <p style="margin:0; white-space:pre-wrap">${escapeHtml(question)}</p>
+    </div>
+    <div style="margin-bottom:28px">
+      <p style="color:${TEAL}; font-weight:700; font-size:15px; margin-bottom:8px">Respuesta:</p>
+      <div>${answerHtml}</div>
+    </div>
+    ${citationsBlock}
+    <div style="margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between">
+      <span style="color:${TEAL}; font-weight:600; font-size:11px">Generado por Psicoasist</span>
+      <span style="color:#999; font-size:10px">Las respuestas se basan únicamente en documentos clínicos verificados</span>
+    </div>
+  `;
   document.body.appendChild(container);
 
+  // Wait for fonts/layout to settle
+  await new Promise((r) => setTimeout(r, 500));
+
   try {
-    // Capture each top-level section individually to avoid mid-content cuts
-    const sections = Array.from(container.querySelectorAll<HTMLElement>(":scope > [data-pdf-section]"));
-    const pdf = new jsPDF({ unit: "pt", format: "a4" });
-    const ptPageW = pdf.internal.pageSize.getWidth();
-    const ptPageH = pdf.internal.pageSize.getHeight();
-    const ptMargin = 60 * (ptPageW / PAGE_W); // scale 60px → pt
-    const ptContentW = ptPageW - ptMargin * 2;
-    const ptContentH = ptPageH - ptMargin * 2;
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 794,
+      onclone: (clonedDoc) => {
+        const el = clonedDoc.getElementById("pdf-export-content");
+        if (el) {
+          el.style.width = "794px";
+          el.style.position = "static";
+          el.style.left = "auto";
+          el.style.visibility = "visible";
+          el.style.display = "block";
+        }
+      },
+    });
 
-    const rendered: { data: string; ptH: number }[] = [];
-    for (const sec of sections) {
-      const c = await html2canvas(sec, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
-      const ptH = (c.height * ptContentW) / c.width;
-      rendered.push({ data: c.toDataURL("image/jpeg", 0.92), ptH });
-    }
+    // A4 page in canvas pixels at scale 2
+    const PAGE_W = 794 * 2;   // 1588
+    const PAGE_H = 1123 * 2;  // 2246
 
-    let cursorY = ptMargin;
-    let pageNum = 1;
-    const pageStarts: number[] = [pageNum];
-    for (const { data, ptH } of rendered) {
-      if (cursorY + ptH > ptMargin + ptContentH && cursorY > ptMargin) {
-        pdf.addPage();
-        pageNum++;
-        pageStarts.push(pageNum);
-        cursorY = ptMargin;
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const PDF_W_MM = 210;
+    const PDF_H_MM = 297;
+
+    let currentY = 0;
+    let pageNum = 0;
+    while (currentY < canvas.height) {
+      const sliceH = Math.min(PAGE_H, canvas.height - currentY);
+
+      // Avoid cutting mid-paragraph: scan upward for a horizontal band of mostly-white pixels
+      let cutH = sliceH;
+      if (currentY + sliceH < canvas.height) {
+        const ctxFull = canvas.getContext("2d");
+        if (ctxFull) {
+          const scanFromTop = Math.max(0, sliceH - 300); // search last 300px of slice
+          try {
+            const imgData = ctxFull.getImageData(0, currentY + scanFromTop, canvas.width, sliceH - scanFromTop);
+            const rows = imgData.height;
+            const cols = imgData.width;
+            // walk from bottom up, find a row where >99% of pixels are near-white
+            for (let r = rows - 1; r >= 0; r--) {
+              let whiteCount = 0;
+              const rowOffset = r * cols * 4;
+              for (let c = 0; c < cols; c++) {
+                const i = rowOffset + c * 4;
+                const rr = imgData.data[i], gg = imgData.data[i + 1], bb = imgData.data[i + 2];
+                if (rr > 240 && gg > 240 && bb > 240) whiteCount++;
+              }
+              if (whiteCount / cols > 0.995) {
+                cutH = scanFromTop + r;
+                break;
+              }
+            }
+            if (cutH < sliceH * 0.5) cutH = sliceH; // fallback if no good break found
+          } catch {
+            cutH = sliceH;
+          }
+        }
       }
-      pdf.addImage(data, "JPEG", ptMargin, cursorY, ptContentW, ptH);
-      cursorY += ptH;
-    }
 
-    const totalPages = pageNum;
-    if (totalPages > 1) {
-      for (let p = 1; p <= totalPages; p++) {
-        pdf.setPage(p);
-        pdf.setFontSize(9);
-        pdf.setTextColor(120, 120, 120);
-        pdf.text(`Página ${p} de ${totalPages}`, ptPageW / 2, ptPageH - 20, { align: "center" });
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = PAGE_W;
+      tempCanvas.height = PAGE_H;
+      const tctx = tempCanvas.getContext("2d");
+      if (tctx) {
+        tctx.fillStyle = "#ffffff";
+        tctx.fillRect(0, 0, PAGE_W, PAGE_H);
+        tctx.drawImage(canvas, 0, currentY, PAGE_W, cutH, 0, 0, PAGE_W, cutH);
       }
+
+      const pageImg = tempCanvas.toDataURL("image/jpeg", 0.92);
+      if (pageNum > 0) pdf.addPage();
+      pdf.addImage(pageImg, "JPEG", 0, 0, PDF_W_MM, PDF_H_MM);
+
+      currentY += cutH;
+      pageNum++;
     }
 
     pdf.save(`consulta-${new Date().toISOString().slice(0, 10)}.pdf`);
