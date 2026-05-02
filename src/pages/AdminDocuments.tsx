@@ -608,6 +608,13 @@ export default function AdminDocuments() {
           />
           Sin clasificar
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={noChunksOnly}
+            onCheckedChange={(v) => { setNoChunksOnly(!!v); setPage(1); }}
+          />
+          Sin chunks
+        </label>
       </div>
 
       {/* Bulk action bar */}
