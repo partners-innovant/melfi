@@ -425,16 +425,19 @@ async function importPubMedArticle(
   let docText = "";
   let usedPdf = false;
 
-  if (article.pmc_id) {
+  const status: PubMedPdfStatus =
+    article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
+
+  if (status === "pdf_available" && article.pmc_id) {
     try {
       setStatus("Descargando PDF...");
-      const { data, error } = await supabase.functions.invoke("fetch-pubmed-pdf", {
-        body: { pmc_id: article.pmc_id },
+      const { data, error } = await supabase.functions.invoke("search-pubmed", {
+        body: { action: "download_pdf", pmc_id: article.pmc_id, pdf_url: article.pdf_url ?? null },
       });
-      if (!error && data?.ok && data?.base64) {
-        const bytes = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
+      if (!error && data?.success && data?.pdf_base64) {
+        const bytes = Uint8Array.from(atob(data.pdf_base64), (c) => c.charCodeAt(0));
         const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" });
-        const file = new File([blob], `PMC${article.pmc_id}.pdf`, { type: "application/pdf" });
+        const file = new File([blob], `${article.pmc_id}.pdf`, { type: "application/pdf" });
         setStatus("Extrayendo texto...");
         try {
           docText = await extractPdfText(file);
@@ -444,7 +447,7 @@ async function importPubMedArticle(
         }
         if (docText && docText.trim().length > 200) {
           setStatus("Subiendo PDF...");
-          storagePath = `${user.id}/pubmed/PMC${article.pmc_id}-${crypto.randomUUID()}.pdf`;
+          storagePath = `${user.id}/pubmed/${article.pmc_id}-${crypto.randomUUID()}.pdf`;
           const { error: upErr } = await supabase.storage
             .from("documents")
             .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
@@ -457,6 +460,8 @@ async function importPubMedArticle(
         } else {
           docText = "";
         }
+      } else if (data?.error) {
+        console.warn("[pubmed] download_pdf error:", data.error);
       }
     } catch (e) {
       console.warn("[pubmed] PDF fetch failed:", e);
