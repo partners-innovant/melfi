@@ -280,7 +280,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
 
   async function processChunk(blob: Blob) {
     if (!blob || blob.size < 2000) return; // skip tiny chunks
+    setChunkCount((n) => n + 1);
     setTranscribing(true);
+    let errorSeg: TranscriptSegment | null = null;
     try {
       const audio = await blobToBase64(blob);
       const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
@@ -290,7 +292,10 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       });
       if (error) throw error;
       const segs: any[] = (data as any)?.segments ?? [];
-      if (!segs.length) return;
+      if (!segs.length) {
+        if ((data as any)?.error) throw new Error(String((data as any).error));
+        return;
+      }
       const now = Date.now();
       const enriched: TranscriptSegment[] = segs
         .filter((s) => s && typeof s.text === "string" && s.text.trim())
@@ -308,9 +313,14 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       checkSuggestionsUsed(enriched.map((e) => `${e.speaker}: ${e.text}`).join("\n"));
     } catch (e: any) {
       console.error("transcribe chunk failed", e);
-      // Soft-fail: do not interrupt the session
+      errorSeg = { speaker: "Error", text: "⚠️ Error transcribiendo fragmento", t: Date.now(), error: true };
     } finally {
       setTranscribing(false);
+      if (errorSeg) {
+        const next = [...transcriptRef.current, errorSeg];
+        transcriptRef.current = next;
+        setTranscript(next);
+      }
     }
   }
 
