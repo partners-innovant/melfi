@@ -58,6 +58,7 @@ export function PatientProfileBuilderTab({
   const [analyzingFile, setAnalyzingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const builderTaRef = useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
