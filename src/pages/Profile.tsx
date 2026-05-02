@@ -91,6 +91,10 @@ export default function Profile() {
 
   const saveSection = async (section: string, fields: string[]) => {
     if (!user || !data) return;
+    if (fields.includes("rut") && data.rut && !validateRUT(data.rut)) {
+      toast.error("El RUT ingresado no es válido");
+      return;
+    }
     setSavingSection(section);
     const patch: ProfileRow = {};
     for (const f of fields) patch[f] = data[f] ?? null;
