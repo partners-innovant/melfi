@@ -892,9 +892,9 @@ export default function AdminDocuments() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
             ) : paged.length === 0 ? (
-              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
             ) : paged.map((d) => (
               <TableRow key={d.id} className={cn(
                 selected.has(d.id) && "bg-primary/5",
