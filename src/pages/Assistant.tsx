@@ -667,6 +667,92 @@ function SidebarBody({
   );
 }
 
+function SuggestionChips({
+  patientId, patientKind, patientName, dynamic, loading, onPick, onRefresh,
+}: {
+  patientId: string;
+  patientKind: "adult" | "child";
+  patientName: string | null;
+  dynamic: string[];
+  loading: boolean;
+  onPick: (s: string) => void;
+  onRefresh: () => void;
+}) {
+  const hasPatient = patientId !== NONE;
+
+  if (hasPatient) {
+    return (
+      <div className="mt-5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-medium text-muted-foreground">
+            {patientName ? `Sugerencias para ${patientName}` : "Sugerencias para este paciente"}
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+            Actualizar sugerencias
+          </button>
+        </div>
+        {loading && dynamic.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-14 rounded-xl border border-border bg-muted/30 animate-pulse" />
+            ))}
+          </div>
+        ) : dynamic.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {dynamic.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPick(s)}
+                className="text-left text-sm border border-border rounded-full px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">No se pudieron generar sugerencias.</p>
+        )}
+      </div>
+    );
+  }
+
+  const groups = patientKind === "child" ? CHILD_GENERAL_SUGGESTIONS : GENERAL_SUGGESTIONS;
+  const byLabel = new Map<string, string[]>();
+  for (const g of groups) {
+    if (!byLabel.has(g.label)) byLabel.set(g.label, []);
+    byLabel.get(g.label)!.push(g.question);
+  }
+
+  return (
+    <div className="mt-5 space-y-3">
+      {Array.from(byLabel.entries()).map(([label, qs]) => (
+        <div key={label}>
+          <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
+          <div className="flex flex-wrap gap-2">
+            {qs.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPick(s)}
+                className="text-left text-sm border border-border rounded-full px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function InputBox({
   value, onChange, onSend, busy, autoFocus,
 }: {
