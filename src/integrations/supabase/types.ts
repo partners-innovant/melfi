@@ -64,6 +64,59 @@ export type Database = {
           },
         ]
       }
+      allowed_therapists: {
+        Row: {
+          created_by: string | null
+          email: string
+          first_name: string | null
+          id: string
+          institution: string | null
+          invited_at: string
+          is_active: boolean
+          joined_at: string | null
+          last_name: string | null
+          notes: string | null
+          phone: string | null
+          specialty: string | null
+        }
+        Insert: {
+          created_by?: string | null
+          email: string
+          first_name?: string | null
+          id?: string
+          institution?: string | null
+          invited_at?: string
+          is_active?: boolean
+          joined_at?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          specialty?: string | null
+        }
+        Update: {
+          created_by?: string | null
+          email?: string
+          first_name?: string | null
+          id?: string
+          institution?: string | null
+          invited_at?: string
+          is_active?: boolean
+          joined_at?: string | null
+          last_name?: string | null
+          notes?: string | null
+          phone?: string | null
+          specialty?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "allowed_therapists_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       behavioral_tracking: {
         Row: {
           behavior_name: string
@@ -1288,6 +1341,7 @@ export type Database = {
     }
     Functions: {
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_email_allowed: { Args: { _email: string }; Returns: boolean }
       match_chunks: {
         Args: {
           match_count?: number

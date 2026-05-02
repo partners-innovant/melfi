@@ -1,6 +1,7 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Profile {
   id: string;
@@ -63,21 +64,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(data as Profile | null);
   };
 
+  const enforceWhitelist = async (u: User): Promise<boolean> => {
+    const email = u.email;
+    if (!email) return true;
+    try {
+      const { data, error } = await supabase.rpc("is_email_allowed", { _email: email });
+      if (error) {
+        console.error("Whitelist check failed", error);
+        return true; // fail-open to avoid locking everyone out on RPC error
+      }
+      if (data === true) return true;
+      // Not allowed — sign out and notify
+      await supabase.auth.signOut();
+      toast.error(
+        "Tu cuenta no está autorizada para acceder a Psicoasist. Si eres psicólogo y quieres solicitar acceso, contacta al administrador.",
+        { duration: 8000 },
+      );
+      return false;
+    } catch (e) {
+      console.error(e);
+      return true;
+    }
+  };
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        setTimeout(() => loadProfile(sess.user), 0);
+        setTimeout(async () => {
+          const ok = await enforceWhitelist(sess.user);
+          if (ok) loadProfile(sess.user);
+        }, 0);
       } else {
         setProfile(null);
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
+    supabase.auth.getSession().then(async ({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) loadProfile(sess.user);
+      if (sess?.user) {
+        const ok = await enforceWhitelist(sess.user);
+        if (ok) await loadProfile(sess.user);
+      }
       setLoading(false);
     });
 
