@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
 import { ChildDocumentsTab, ChildSessionNotesTab, ChildTestsTab } from "@/components/ChildExtraTabs";
+import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 
 const BEHAVIOR_COLORS = ["hsl(174 72% 46%)", "hsl(38 92% 50%)", "hsl(260 70% 60%)", "hsl(210 80% 55%)", "hsl(340 75% 55%)", "hsl(150 60% 45%)"];
 
@@ -124,8 +125,9 @@ export default function ChildDetail() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid grid-cols-5 md:grid-cols-10 w-full">
+        <TabsList className="grid grid-cols-5 md:grid-cols-11 w-full">
           <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="team">Equipo</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
           <TabsTrigger value="notes">Apuntes</TabsTrigger>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
@@ -223,6 +225,10 @@ export default function ChildDetail() {
               </div>
             )}
           </Card>
+        </TabsContent>
+
+        <TabsContent value="team" className="mt-4">
+          <TreatmentTeamTab patientId={child.id} kind="child" />
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-4">
