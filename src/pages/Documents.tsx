@@ -386,9 +386,6 @@ function DocList({
                       <FileText className="h-4 w-4 text-primary flex-shrink-0" />
                       <span className="font-medium truncate">{d.title}</span>
                     </button>
-                    {d.author && (
-                      <div className="text-[11px] text-muted-foreground truncate ml-6">{d.author}</div>
-                    )}
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex flex-wrap gap-1">
