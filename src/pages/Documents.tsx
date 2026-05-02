@@ -1151,12 +1151,19 @@ function QueueRow({
 
       {(item.status === "ready" || item.status === "done") && (
         <div className="space-y-2 pt-1">
+          {item.analysisFailed && (
+            <div className="rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-1.5 text-xs text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              No se pudo auto-clasificar — completa los campos manualmente
+            </div>
+          )}
+
           {/* Row 1: Título (full width) */}
           <div>
-            <Label className="text-xs">Título *</Label>
+            <FieldLabel text="Título *" ai={item.autoFilled.title} />
             <Input
               value={item.title}
-              onChange={(e) => onChange({ title: e.target.value })}
+              onChange={(e) => onChange({ title: e.target.value, autoFilled: { ...item.autoFilled, title: false } })}
               disabled={!editable || disabled}
               className="h-8 text-sm"
             />
@@ -1165,19 +1172,19 @@ function QueueRow({
           {/* Row 1b: Autor + Año (auxiliary) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="sm:col-span-2">
-              <Label className="text-xs">Autor</Label>
+              <FieldLabel text="Autor" ai={item.autoFilled.author} />
               <Input
                 value={item.author}
-                onChange={(e) => onChange({ author: e.target.value })}
+                onChange={(e) => onChange({ author: e.target.value, autoFilled: { ...item.autoFilled, author: false } })}
                 disabled={!editable || disabled}
                 className="h-8 text-sm"
               />
             </div>
             <div>
-              <Label className="text-xs">Año</Label>
+              <FieldLabel text="Año" ai={item.autoFilled.year} />
               <Input
                 value={item.year}
-                onChange={(e) => onChange({ year: e.target.value })}
+                onChange={(e) => onChange({ year: e.target.value, autoFilled: { ...item.autoFilled, year: false } })}
                 disabled={!editable || disabled}
                 className="h-8 text-sm"
               />
@@ -1187,10 +1194,10 @@ function QueueRow({
           {/* Row 2: Tipo (1/3) | Fuente / Institución (2/3) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
-              <Label className="text-xs">Tipo</Label>
+              <FieldLabel text="Tipo" ai={item.autoFilled.docType} />
               <Select
                 value={item.docType}
-                onValueChange={(v) => onChange({ docType: v as DocType })}
+                onValueChange={(v) => onChange({ docType: v as DocType, autoFilled: { ...item.autoFilled, docType: false } })}
                 disabled={!editable || disabled}
               >
                 <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
@@ -1200,13 +1207,14 @@ function QueueRow({
               </Select>
             </div>
             <div className="sm:col-span-2">
-              <Label className="text-xs">Fuente / Institución</Label>
+              <FieldLabel text="Fuente / Institución" ai={item.autoFilled.sourceInstitution} />
               <SourceInstitutionPicker
                 value={item.sourceInstitution}
                 onChange={(name, type) =>
                   onChange({
                     sourceInstitution: name,
                     sourceInstitutionType: type ?? item.sourceInstitutionType,
+                    autoFilled: { ...item.autoFilled, sourceInstitution: false },
                   })
                 }
                 disabled={!editable || disabled}
@@ -1216,10 +1224,10 @@ function QueueRow({
 
           {/* Row 3: Áreas clínicas (full width multi-select with chips) */}
           <div>
-            <Label className="text-xs">Área(s) clínica(s)</Label>
+            <FieldLabel text="Área(s) clínica(s)" ai={item.autoFilled.clinicalAreas} />
             <ClinicalAreasPicker
               value={item.clinicalAreas}
-              onChange={(areas) => onChange({ clinicalAreas: areas })}
+              onChange={(areas) => onChange({ clinicalAreas: areas, autoFilled: { ...item.autoFilled, clinicalAreas: false } })}
               disabled={!editable || disabled}
             />
           </div>
