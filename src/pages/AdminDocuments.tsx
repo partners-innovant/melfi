@@ -92,6 +92,11 @@ export default function AdminDocuments() {
   // Bulk progress
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // Vision reprocessing
+  const [visionProgress, setVisionProgress] = useState<Record<string, { current: number; total: number }>>({});
+  const [confirmVision, setConfirmVision] = useState<DocRow | null>(null);
+  const [confirmVisionBulk, setConfirmVisionBulk] = useState(false);
+
   // Pagination
   const [page, setPage] = useState(1);
 
