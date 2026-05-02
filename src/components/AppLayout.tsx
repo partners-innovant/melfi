@@ -12,7 +12,6 @@ import FeedbackButton from "@/components/FeedbackButton";
 const baseItems = [
   { to: "/", label: "Inicio", icon: LayoutDashboard, end: true },
   { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
-  { to: "/claude", label: "Claude", icon: Sparkles },
   { to: "/patients", label: "Pacientes", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/calendar", label: "Calendario", icon: Calendar },
