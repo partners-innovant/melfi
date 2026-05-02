@@ -122,6 +122,55 @@ export default function AdminDocuments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.is_admin]);
 
+  // Tick every 30s so "hace X min" stays fresh
+  useEffect(() => {
+    if (!noChunksSearchAt) return;
+    const t = setInterval(() => setNowTick((n) => n + 1), 30000);
+    return () => clearInterval(t);
+  }, [noChunksSearchAt]);
+
+  // Auto-clear "recently processed" highlight after 3s
+  useEffect(() => {
+    const ids = Object.keys(recentlyProcessed);
+    if (ids.length === 0) return;
+    const timers = ids.map((id) => {
+      const elapsed = Date.now() - recentlyProcessed[id];
+      const remaining = Math.max(0, 3000 - elapsed);
+      return setTimeout(() => {
+        setRecentlyProcessed((prev) => {
+          if (!(id in prev)) return prev;
+          const n = { ...prev };
+          delete n[id];
+          return n;
+        });
+      }, remaining);
+    });
+    return () => timers.forEach(clearTimeout);
+  }, [recentlyProcessed]);
+
+  function formatRelative(d: Date): string {
+    const sec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+    if (sec < 60) return "hace unos segundos";
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `hace ${h} h`;
+    return d.toLocaleString("es-CL");
+  }
+
+  function runNoChunksSearch() {
+    const ids = new Set(rows.filter((r) => r.chunk_count === 0).map((r) => r.id));
+    setNoChunksSnapshot(ids);
+    setNoChunksSearchAt(new Date());
+    setPage(1);
+    if (ids.size === 0) {
+      toast.success("No hay documentos sin chunks 🎉");
+    } else {
+      toast.info(`${ids.size} documento(s) sin chunks`);
+    }
+  }
+
+
   async function load() {
     setLoading(true);
     // Pull all global documents
