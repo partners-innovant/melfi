@@ -1417,6 +1417,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_therapist_child_patients: {
+        Args: { _therapist_id: string }
+        Returns: {
+          birth_date: string
+          diagnosis: string
+          first_name: string
+          guardian_name: string
+          id: string
+          last_name: string
+        }[]
+      }
       admin_list_therapist_patients: {
         Args: { _therapist_id: string }
         Returns: {
@@ -1441,6 +1452,14 @@ export type Database = {
           phone: string
           rut: string
         }[]
+      }
+      admin_transfer_child_patient: {
+        Args: {
+          _child_patient_id: string
+          _to_therapist_id: string
+          _transfer_notes?: string
+        }
+        Returns: string
       }
       admin_transfer_patient: {
         Args: {
