@@ -109,6 +109,8 @@ Deno.serve(async (req) => {
       patient_id,
       patient_kind = "adult",
       document_type,
+      clinical_area,
+      source_institution,
       query_embedding,
       conversation_id,
       stream: wantStream = true,
@@ -128,6 +130,8 @@ Deno.serve(async (req) => {
       match_count: 5,
       p_psychologist_id: user.id,
       p_document_type: document_type || null,
+      p_clinical_area: clinical_area || null,
+      p_source_institution: source_institution || null,
     });
     if (matchErr) {
       console.error(`[claude-chat:${reqId}] match_chunks error`, matchErr);
@@ -141,7 +145,7 @@ Deno.serve(async (req) => {
     const docIds = [...new Set((chunks ?? []).map((c: any) => c.document_id))];
     const { data: docs } = await supabase
       .from("documents")
-      .select("id, title, author, year, document_type")
+      .select("id, title, author, year, document_type, source_institution, source_institution_type, clinical_areas")
       .in("id", docIds);
     const docMap = new Map((docs ?? []).map((d: any) => [d.id, d]));
 
