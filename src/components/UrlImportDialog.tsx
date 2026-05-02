@@ -68,6 +68,16 @@ export default function UrlImportDialog({
   async function processOne(it: QItem, userId: string): Promise<boolean> {
     update(it.id, { status: "downloading", message: "Descargando…" });
     try {
+      // If user chose "reimport", delete the existing record + chunks first.
+      if (it.duplicate && it.dupAction === "reimport") {
+        update(it.id, { message: "Eliminando importación previa…" });
+        try {
+          await deleteDocumentAndChunks(it.duplicate);
+        } catch (e: any) {
+          console.warn("[url-import] delete previous failed:", e?.message);
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("fetch-url-document", {
         body: { url: it.url },
       });
@@ -135,7 +145,8 @@ export default function UrlImportDialog({
     }
   }
 
-  async function handleProcess() {
+  // Phase 1: parse URLs, validate, and check each against existing documents.
+  async function handleCheck() {
     const urls = text
       .split(/\r?\n/)
       .map((l) => l.trim())
@@ -146,29 +157,68 @@ export default function UrlImportDialog({
       return;
     }
 
-    const valid: QItem[] = [];
-    for (const u of urls) {
+    const initial: QItem[] = urls.map((u) => {
       try {
         const parsed = new URL(u);
         if (!/^https?:$/.test(parsed.protocol)) throw new Error("protocolo");
-        valid.push({ id: crypto.randomUUID(), url: u, status: "queued", message: "En cola" });
+        return { id: crypto.randomUUID(), url: u, status: "checking" as Status, message: "Comprobando duplicados…" };
       } catch {
-        valid.push({ id: crypto.randomUUID(), url: u, status: "error", message: "URL inválida" });
+        return { id: crypto.randomUUID(), url: u, status: "error" as Status, message: "URL inválida" };
       }
-    }
-    setItems(valid);
+    });
+    setItems(initial);
 
     setBusy(true);
-    let success = 0, failed = 0;
+    try {
+      for (const it of initial) {
+        if (it.status === "error") continue;
+        try {
+          const dup = await findDuplicateByUrl(it.url);
+          if (dup) {
+            update(it.id, {
+              status: "duplicate",
+              duplicate: dup,
+              dupAction: "pending",
+              message: `Ya importado el ${formatDate(dup.created_at)} como: ${dup.title}`,
+            });
+          } else {
+            update(it.id, { status: "queued", message: "Listo para importar" });
+          }
+        } catch (e) {
+          console.warn("[url-import] dup check failed:", e);
+          update(it.id, { status: "queued", message: "Listo para importar" });
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Phase 2: actually import all queued items + duplicates flagged "reimport".
+  async function handleImport() {
+    setBusy(true);
+    let success = 0, failed = 0, skipped = 0;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
-      for (const it of valid) {
-        if (it.status === "error") { failed++; continue; }
-        const ok = await processOne(it, user.id);
-        if (ok) success++; else failed++;
+      const live = await new Promise<QItem[]>((resolve) => {
+        setItems((prev) => { resolve(prev); return prev; });
+      });
+      for (const it of live) {
+        if (it.status === "queued") {
+          const ok = await processOne(it, user.id);
+          if (ok) success++; else failed++;
+        } else if (it.status === "duplicate" && it.dupAction === "reimport") {
+          const ok = await processOne(it, user.id);
+          if (ok) success++; else failed++;
+        } else if (it.status === "duplicate" && it.dupAction === "skip") {
+          update(it.id, { status: "skipped", message: "Saltado (ya existía)" });
+          skipped++;
+        }
       }
-      toast.success(`${success} documento${success === 1 ? "" : "s"} importado${success === 1 ? "" : "s"} correctamente, ${failed} con error${failed === 1 ? "" : "es"}.`);
+      const parts = [`${success} importado${success === 1 ? "" : "s"}`, `${failed} con error${failed === 1 ? "" : "es"}`];
+      if (skipped > 0) parts.push(`${skipped} saltado${skipped === 1 ? "" : "s"}`);
+      toast.success(parts.join(", "));
       if (success > 0) onImported();
     } catch (e: any) {
       toast.error(e?.message ?? "Error general");
