@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Loader2, AlertCircle, Check, ChevronsUpDown, X } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, Check, ChevronsUpDown, X, ExternalLink } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
