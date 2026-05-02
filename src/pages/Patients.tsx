@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Users as UsersIcon } from "lucide-react";
+import { Plus, Users as UsersIcon, Inbox, X } from "lucide-react";
 import { calcAge, SEX_OPTIONS, MARITAL_OPTIONS } from "@/lib/clinical";
 
 interface Patient {
@@ -21,6 +21,17 @@ interface Patient {
   birth_date: string | null;
   diagnosis: string | null;
 }
+
+interface IncomingTransfer {
+  id: string;
+  new_patient_id: string | null;
+  transferred_at: string;
+  from_first_name: string | null;
+  from_last_name: string | null;
+  patient_name: string;
+}
+
+const DISMISSED_KEY = "transfers:dismissed";
 
 const empty = {
   first_name: "", last_name: "", birth_date: "", sex: "",
@@ -33,13 +44,67 @@ export default function Patients() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [transferredMap, setTransferredMap] = useState<Record<string, string>>({}); // patientId -> ISO date received
+  const [incoming, setIncoming] = useState<IncomingTransfer[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]"));
+    } catch {
+      return new Set();
+    }
+  });
 
   async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from("patients")
       .select("id, first_name, last_name, birth_date, diagnosis")
       .order("created_at", { ascending: false });
     setPatients((data as Patient[]) ?? []);
+
+    if (user) {
+      // Transfers received by this therapist
+      const { data: trs } = await supabase
+        .from("patient_transfers")
+        .select("id, new_patient_id, transferred_at, from_psychologist_id, snapshot")
+        .eq("to_psychologist_id", user.id)
+        .order("transferred_at", { ascending: false });
+
+      const map: Record<string, string> = {};
+      const incomingList: IncomingTransfer[] = [];
+      const fromIds = Array.from(
+        new Set((trs ?? []).map((t: any) => t.from_psychologist_id).filter(Boolean)),
+      );
+      let fromProfiles: Record<string, { first_name: string; last_name: string }> = {};
+      if (fromIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", fromIds);
+        (profs ?? []).forEach((p: any) => {
+          fromProfiles[p.id] = { first_name: p.first_name, last_name: p.last_name };
+        });
+      }
+
+      (trs ?? []).forEach((t: any) => {
+        if (t.new_patient_id) map[t.new_patient_id] = t.transferred_at;
+        const from = fromProfiles[t.from_psychologist_id];
+        const patientName = t.snapshot?.patient
+          ? `${t.snapshot.patient.first_name ?? ""} ${t.snapshot.patient.last_name ?? ""}`.trim()
+          : "Paciente transferido";
+        incomingList.push({
+          id: t.id,
+          new_patient_id: t.new_patient_id,
+          transferred_at: t.transferred_at,
+          from_first_name: from?.first_name ?? null,
+          from_last_name: from?.last_name ?? null,
+          patient_name: patientName,
+        });
+      });
+      setTransferredMap(map);
+      setIncoming(incomingList);
+    }
+
     setLoading(false);
   }
 
@@ -99,6 +164,40 @@ export default function Patients() {
         </Dialog>
       </header>
 
+      {/* Incoming transfer banners */}
+      {incoming
+        .filter((i) => !dismissed.has(i.id))
+        .slice(0, 3)
+        .map((i) => {
+          const fromName =
+            [i.from_first_name, i.from_last_name].filter(Boolean).join(" ").trim() ||
+            "otro terapeuta";
+          return (
+            <div
+              key={i.id}
+              className="mb-3 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary-soft/40 p-3 text-sm"
+            >
+              <Inbox className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                📋 Tienes un nuevo paciente transferido:{" "}
+                <strong>{i.patient_name}</strong> — enviado por <strong>{fromName}</strong>
+              </div>
+              <button
+                onClick={() => {
+                  const next = new Set(dismissed);
+                  next.add(i.id);
+                  setDismissed(next);
+                  localStorage.setItem(DISMISSED_KEY, JSON.stringify(Array.from(next)));
+                }}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
+
       {loading ? (
         <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-16 bg-card rounded-xl animate-pulse" />)}</div>
       ) : patients.length === 0 ? (
@@ -112,6 +211,7 @@ export default function Patients() {
         <div className="grid gap-2">
           {patients.map((p) => {
             const age = calcAge(p.birth_date);
+            const transferDate = transferredMap[p.id];
             return (
               <Link key={p.id} to={`/patients/${p.id}`}>
                 <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4">
@@ -119,7 +219,14 @@ export default function Patients() {
                     {p.first_name[0]}{p.last_name[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium">{p.first_name} {p.last_name}</div>
+                    <div className="font-medium flex items-center gap-2">
+                      <span>{p.first_name} {p.last_name}</span>
+                      {transferDate && (
+                        <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded">
+                          Transferido · {new Date(transferDate).toLocaleDateString("es-CL")}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-muted-foreground truncate">
                       {age !== null && `${age} años`}{age !== null && p.diagnosis && " · "}{p.diagnosis ?? (age === null ? "Sin información" : "")}
                     </div>

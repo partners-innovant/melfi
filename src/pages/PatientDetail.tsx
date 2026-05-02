@@ -8,7 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Pencil, Sparkles } from "lucide-react";
+import { ArrowLeft, Pencil, Sparkles, Send } from "lucide-react";
 import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { PatientForm } from "./Patients";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
@@ -17,6 +17,7 @@ import MedicationsSection from "@/components/MedicationsSection";
 import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
 import PatientProfileBuilderPanel from "@/components/PatientProfileBuilderPanel";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
+import TransferPatientDialog from "@/components/TransferPatientDialog";
 
 export default function PatientDetail() {
   const { id } = useParams();
@@ -29,6 +30,7 @@ export default function PatientDetail() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -93,9 +95,14 @@ export default function PatientDetail() {
               <p className="text-sm text-muted-foreground">{patient.diagnosis ?? "Sin diagnóstico registrado"}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
-            <Pencil className="h-3.5 w-3.5" />Editar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)} className="gap-1.5">
+              <Send className="h-3.5 w-3.5" />Transferir a otro terapeuta
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
+              <Pencil className="h-3.5 w-3.5" />Editar
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -196,6 +203,19 @@ export default function PatientDetail() {
       <PatientProfileBuilderPanel
         patientId={patient.id}
         onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
+      />
+
+      <TransferPatientDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        patient={{
+          id: patient.id,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          birth_date: patient.birth_date,
+          diagnosis: patient.diagnosis,
+          start_date: patient.start_date,
+        }}
       />
     </div>
   );

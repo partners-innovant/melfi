@@ -1019,6 +1019,68 @@ export type Database = {
           },
         ]
       }
+      patient_transfers: {
+        Row: {
+          from_psychologist_id: string | null
+          id: string
+          new_patient_id: string | null
+          notes: string | null
+          patient_id: string | null
+          snapshot: Json | null
+          to_psychologist_id: string | null
+          transferred_at: string
+        }
+        Insert: {
+          from_psychologist_id?: string | null
+          id?: string
+          new_patient_id?: string | null
+          notes?: string | null
+          patient_id?: string | null
+          snapshot?: Json | null
+          to_psychologist_id?: string | null
+          transferred_at?: string
+        }
+        Update: {
+          from_psychologist_id?: string | null
+          id?: string
+          new_patient_id?: string | null
+          notes?: string | null
+          patient_id?: string | null
+          snapshot?: Json | null
+          to_psychologist_id?: string | null
+          transferred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_transfers_from_psychologist_id_fkey"
+            columns: ["from_psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_transfers_new_patient_id_fkey"
+            columns: ["new_patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_transfers_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_transfers_to_psychologist_id_fkey"
+            columns: ["to_psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           birth_date: string | null
@@ -1340,6 +1402,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_id_by_email: { Args: { _email: string }; Returns: string }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_email_allowed: { Args: { _email: string }; Returns: boolean }
       match_chunks: {

@@ -33,8 +33,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Pencil, Plus, Power, Search, Trash2, Upload, X, Save } from "lucide-react";
+import { Pencil, Plus, Power, Search, Trash2, Upload, X, Save, UserPlus, History } from "lucide-react";
 import { Navigate } from "react-router-dom";
+import TransferPatientDialog from "@/components/TransferPatientDialog";
+import TransferHistoryPanel from "@/components/TransferHistoryPanel";
 
 type Therapist = {
   id: string;
@@ -110,6 +112,13 @@ export default function AdminTherapists() {
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<Therapist | null>(null);
+
+  // Transfer
+  const [transferTarget, setTransferTarget] = useState<Therapist | null>(null);
+
+  // History
+  const [historyTarget, setHistoryTarget] = useState<Therapist | null>(null);
+  const [historyUserId, setHistoryUserId] = useState<string | null>(null);
 
   // CSV
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -288,6 +297,13 @@ export default function AdminTherapists() {
     toast.success("Terapeuta eliminado de la lista");
     setDeleteTarget(null);
     fetchAll();
+  }
+
+  async function openHistory(t: Therapist) {
+    setHistoryTarget(t);
+    setHistoryUserId(null);
+    const { data } = await supabase.rpc("get_user_id_by_email", { _email: t.email });
+    setHistoryUserId((data as string | null) ?? null);
   }
 
   function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -572,6 +588,22 @@ export default function AdminTherapists() {
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                title="Transferir paciente"
+                                onClick={() => setTransferTarget(t)}
+                              >
+                                <UserPlus className="h-4 w-4 text-primary" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title="Ver historial de transferencias"
+                                onClick={() => openHistory(t)}
+                              >
+                                <History className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
                                 title={t.is_active ? "Desactivar" : "Activar"}
                                 onClick={() => toggleActive(t)}
                               >
@@ -752,6 +784,39 @@ export default function AdminTherapists() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer dialog */}
+      <TransferPatientDialog
+        open={!!transferTarget}
+        onOpenChange={(o) => !o && setTransferTarget(null)}
+        therapist={
+          transferTarget
+            ? {
+                id: transferTarget.id,
+                email: transferTarget.email,
+                first_name: transferTarget.first_name,
+                last_name: transferTarget.last_name,
+              }
+            : undefined
+        }
+        onTransferred={() => setTransferTarget(null)}
+      />
+
+      {/* Transfer history */}
+      <TransferHistoryPanel
+        open={!!historyTarget}
+        onOpenChange={(o) => !o && setHistoryTarget(null)}
+        therapistUserId={historyUserId}
+        therapistEmail={historyTarget?.email}
+        therapistLabel={
+          historyTarget
+            ? [historyTarget.first_name, historyTarget.last_name]
+                .filter(Boolean)
+                .join(" ")
+                .trim() || historyTarget.email
+            : undefined
+        }
+      />
     </div>
   );
 }
