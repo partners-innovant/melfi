@@ -7,13 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-function htmlRedirect(url: string, message: string) {
-  return new Response(
-    `<!doctype html><meta charset="utf-8"><title>Google Calendar</title>
-    <meta http-equiv="refresh" content="0;url=${url}">
-    <p style="font-family:system-ui;padding:24px">${message} <a href="${url}">Continuar</a></p>`,
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
-  );
+function htmlRedirect(url: string, _message: string) {
+  // 302 redirect directly — avoids HTML/meta-refresh and any charset mojibake.
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: url,
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 Deno.serve(async (req) => {
