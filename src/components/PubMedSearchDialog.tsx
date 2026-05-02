@@ -20,7 +20,7 @@ import { ClassifyPreviewDialog, type ClassifyTarget } from "@/components/Classif
 import { extractPdfText, chunkText } from "@/lib/pdf";
 import type { DocType } from "@/lib/clinical";
 
-export type PubMedPdfStatus = "available" | "abstract_only" | "no_open_access";
+export type PubMedPdfStatus = "pdf_available" | "abstract_only" | "no_access";
 
 export interface PubMedArticle {
   pubmed_id: string;
@@ -32,6 +32,7 @@ export interface PubMedArticle {
   year: string | null;
   has_free_pdf: boolean;
   pdf_status?: PubMedPdfStatus;
+  pdf_url?: string | null;
   abstract: string | null;
   url: string;
   pmc_url: string | null;
