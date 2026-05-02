@@ -300,16 +300,10 @@ function ArticleCard({
   async function handleImport() {
     setImporting(true);
     try {
-      const { target, usedPdf } = await importPubMedArticle(article, isAdmin, setStatusText);
+      const { target } = await importPubMedArticle(article, isAdmin, setStatusText);
       setDone(true);
       onImported(target);
-      if (usedPdf) {
-        toast.success("✅ Importado correctamente");
-      } else {
-        toast.success("✅ Importado correctamente", {
-          description: "ℹ️ PDF no disponible en acceso libre — se importó el abstract del artículo",
-        });
-      }
+      toast.success("✅ Abstract importado correctamente");
     } catch (e) {
       console.error(e);
       toast.error(e instanceof Error ? e.message : "Error al importar");
@@ -400,9 +394,7 @@ function ArticleCard({
             ) : (
               <>
                 <Plus className="h-3 w-3" />
-                {(article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : "abstract_only")) === "pdf_available"
-                  ? "Importar"
-                  : "Solo abstract"}
+                Importar abstract
               </>
             )}
           </Button>
@@ -413,10 +405,9 @@ function ArticleCard({
 }
 
 /**
- * Imports a PubMed article into the documents library (global if admin).
- * Tries the PMC PDF first, falls back to abstract.
- * Returns a ClassifyTarget for the newly created document so the caller
- * can open the classification preview dialog.
+ * Imports a PubMed article into the documents library (global if admin)
+ * as an abstract-only document. PDF download is currently disabled —
+ * we always import the abstract text.
  */
 async function importPubMedArticle(
   article: PubMedArticle,
@@ -426,86 +417,39 @@ async function importPubMedArticle(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  let storagePath: string | null = null;
+  const storagePath: string | null = null;
   let docText = "";
-  let usedPdf = false;
+  const usedPdf = false;
 
-  const status: PubMedPdfStatus =
-    article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
-
-  if (status === "pdf_available" && article.pmc_id) {
+  // Always import as abstract for now
+  let abstractText = article.abstract ?? "";
+  if (!abstractText.trim()) {
     try {
-      setStatus("Descargando PDF...");
-      const { data, error } = await supabase.functions.invoke("search-pubmed", {
-        body: { action: "download_pdf", pmc_id: article.pmc_id, pdf_url: article.pdf_url ?? null },
+      setStatus("Obteniendo abstract...");
+      const { data } = await supabase.functions.invoke("search-pubmed", {
+        body: { action: "get_abstract", pubmed_id: article.pubmed_id },
       });
-      if (!error && data?.success && data?.pdf_base64) {
-        const bytes = Uint8Array.from(atob(data.pdf_base64), (c) => c.charCodeAt(0));
-        const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" });
-        const file = new File([blob], `${article.pmc_id}.pdf`, { type: "application/pdf" });
-        setStatus("Extrayendo texto...");
-        try {
-          docText = await extractPdfText(file);
-        } catch (e) {
-          console.warn("[pubmed] extract failed, falling back:", e);
-          docText = "";
-        }
-        if (docText && docText.trim().length > 200) {
-          setStatus("Subiendo PDF...");
-          storagePath = `${user.id}/pubmed/${article.pmc_id}-${crypto.randomUUID()}.pdf`;
-          const { error: upErr } = await supabase.storage
-            .from("documents")
-            .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
-          if (upErr) {
-            console.warn("[pubmed] storage upload failed:", upErr);
-            storagePath = null;
-          } else {
-            usedPdf = true;
-          }
-        } else {
-          docText = "";
-        }
-      } else if (data?.error) {
-        console.warn("[pubmed] download_pdf error:", data.error);
+      if (data?.abstract && typeof data.abstract === "string") {
+        abstractText = data.abstract;
       }
     } catch (e) {
-      console.warn("[pubmed] PDF fetch failed:", e);
+      console.warn("[pubmed] get_abstract failed:", e);
     }
   }
-
-  // Fallback to abstract text
-  if (!usedPdf) {
-    let abstractText = article.abstract ?? "";
-    if (!abstractText.trim()) {
-      try {
-        setStatus("Obteniendo abstract...");
-        const { data } = await supabase.functions.invoke("search-pubmed", {
-          body: { action: "get_abstract", pubmed_id: article.pubmed_id },
-        });
-        if (data?.abstract && typeof data.abstract === "string") {
-          abstractText = data.abstract;
-        }
-      } catch (e) {
-        console.warn("[pubmed] get_abstract failed:", e);
-      }
-    }
-    const note = status === "pdf_available"
-      ? "Documento importado como abstract — la descarga del PDF falló"
-      : "Documento importado como abstract — PDF no disponible en PMC Open Access";
-    const parts = [
-      `# ${article.title}`,
-      article.authors ? `Autores: ${article.authors}` : "",
-      article.journal ? `Revista: ${article.journal}` : "",
-      article.year ? `Año: ${article.year}` : "",
-      article.doi ? `DOI: ${article.doi}` : "",
-      article.url ? `PubMed: ${article.url}` : "",
-      "",
-      `> ${note}`,
-      "",
-      abstractText.trim() || "(Sin abstract disponible)",
-    ].filter(Boolean);
-    docText = parts.join("\n");
-  }
+  const note = "Documento importado como abstract";
+  const parts = [
+    `# ${article.title}`,
+    article.authors ? `Autores: ${article.authors}` : "",
+    article.journal ? `Revista: ${article.journal}` : "",
+    article.year ? `Año: ${article.year}` : "",
+    article.doi ? `DOI: ${article.doi}` : "",
+    article.url ? `PubMed: ${article.url}` : "",
+    "",
+    `> ${note}`,
+    "",
+    abstractText.trim() || "(Sin abstract disponible)",
+  ].filter(Boolean);
+  docText = parts.join("\n");
 
   setStatus("Indexando...");
   const chunks = chunkText(docText);
