@@ -566,7 +566,7 @@ export default function GoogleDriveImport({
 }
 
 function StatusIcon({ status }: { status: Status }) {
-  if (status === "downloading" || status === "analyzing" || status === "uploading")
+  if (status === "checking" || status === "downloading" || status === "analyzing" || status === "uploading")
     return <Loader2 className="h-4 w-4 mt-0.5 text-primary animate-spin" />;
   if (status === "done") return <CheckCircle2 className="h-4 w-4 mt-0.5 text-green-600" />;
   if (status === "error") return <AlertCircle className="h-4 w-4 mt-0.5 text-destructive" />;
