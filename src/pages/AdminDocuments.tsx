@@ -3,8 +3,10 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye,
+  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye, Calendar as CalendarIcon, Filter,
 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format as formatDateFn } from "date-fns";
 import { extractPdfText, extractTxtText, chunkText, renderPdfPagesToBase64 } from "@/lib/pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
