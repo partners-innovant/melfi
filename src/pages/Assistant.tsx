@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import ResponseFeedbackBar from "@/components/ResponseFeedbackBar";
 import { chunkText } from "@/lib/pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
