@@ -16,7 +16,7 @@ import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
 import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
-import PatientProfileBuilderPanel from "@/components/PatientProfileBuilderPanel";
+import PatientProfileBuilderPanel, { ProfileBuilderLauncher } from "@/components/PatientProfileBuilderPanel";
 import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 import TransferPatientDialog from "@/components/TransferPatientDialog";
