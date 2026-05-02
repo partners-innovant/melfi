@@ -755,7 +755,10 @@ export default function AdminDocuments() {
             ) : paged.length === 0 ? (
               <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
             ) : paged.map((d) => (
-              <TableRow key={d.id} className={selected.has(d.id) ? "bg-primary/5" : undefined}>
+              <TableRow key={d.id} className={cn(
+                selected.has(d.id) && "bg-primary/5",
+                recentlyProcessed[d.id] && "bg-emerald-500/10 transition-colors duration-1000",
+              )}>
                 <TableCell>
                   <Checkbox
                     checked={selected.has(d.id)}
