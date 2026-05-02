@@ -113,6 +113,13 @@ export default function AdminTherapists() {
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<Therapist | null>(null);
 
+  // Transfer
+  const [transferTarget, setTransferTarget] = useState<Therapist | null>(null);
+
+  // History
+  const [historyTarget, setHistoryTarget] = useState<Therapist | null>(null);
+  const [historyUserId, setHistoryUserId] = useState<string | null>(null);
+
   // CSV
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvPreview, setCsvPreview] = useState<
