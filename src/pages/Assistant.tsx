@@ -42,6 +42,8 @@ interface ChatMessage {
   streaming?: boolean;
   general?: boolean;
   generalLoading?: boolean;
+  diagram?: AssistantDiagramData | null;
+  diagramLoading?: boolean;
 }
 
 const NO_INFO_PHRASE = "No tengo información suficiente en los documentos cargados";
