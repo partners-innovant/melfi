@@ -17,6 +17,8 @@ import {
 import { toast } from "sonner";
 import { Camera, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RutInput } from "@/components/RutInput";
+import { validateRUT } from "@/lib/rut";
 
 const REGIONS = [
   "Arica y Parinacota", "Tarapacá", "Antofagasta", "Atacama", "Coquimbo",
@@ -89,6 +91,10 @@ export default function Profile() {
 
   const saveSection = async (section: string, fields: string[]) => {
     if (!user || !data) return;
+    if (fields.includes("rut") && data.rut && !validateRUT(data.rut)) {
+      toast.error("El RUT ingresado no es válido");
+      return;
+    }
     setSavingSection(section);
     const patch: ProfileRow = {};
     for (const f of fields) patch[f] = data[f] ?? null;
@@ -246,7 +252,7 @@ export default function Profile() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><Label>Nombre</Label><Input value={data.first_name ?? ""} onChange={(e) => set("first_name", e.target.value)} /></div>
                 <div><Label>Apellido</Label><Input value={data.last_name ?? ""} onChange={(e) => set("last_name", e.target.value)} /></div>
-                <div><Label>RUT</Label><Input value={data.rut ?? ""} onChange={(e) => set("rut", e.target.value)} /></div>
+                <div><Label>RUT</Label><RutInput value={data.rut ?? ""} onChange={(v) => set("rut", v)} /></div>
                 <div><Label>Teléfono</Label><Input value={data.phone ?? ""} onChange={(e) => set("phone", e.target.value)} /></div>
                 <div><Label>Email</Label><Input value={user?.email ?? ""} readOnly disabled /></div>
                 <div><Label>Ciudad</Label><Input value={data.city ?? ""} onChange={(e) => set("city", e.target.value)} /></div>

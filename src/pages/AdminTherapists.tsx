@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RutInput } from "@/components/RutInput";
+import { validateRUT } from "@/lib/rut";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -250,6 +252,10 @@ export default function AdminTherapists() {
   }
 
   async function saveEdit(id: string) {
+    if (editForm.rut && !validateRUT(editForm.rut)) {
+      toast.error("El RUT ingresado no es válido");
+      return;
+    }
     const { error } = await supabase
       .from("profiles")
       .update({
@@ -516,10 +522,11 @@ export default function AdminTherapists() {
                         <td className="px-3 py-2">{r.email ?? "—"}</td>
                         <td className="px-3 py-2">
                           {isEditing ? (
-                            <Input
+                            <RutInput
                               className="h-8"
                               value={editForm.rut}
-                              onChange={(e) => setEditForm((f) => ({ ...f, rut: e.target.value }))}
+                              onChange={(v) => setEditForm((f) => ({ ...f, rut: v }))}
+                              showFeedback={false}
                             />
                           ) : (
                             r.rut ?? "—"

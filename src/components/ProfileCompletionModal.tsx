@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { RutInput } from "@/components/RutInput";
+import { validateRUT } from "@/lib/rut";
 
 export default function ProfileCompletionModal() {
   const { user, profile, needsProfileCompletion, refreshProfile } = useAuth();
@@ -28,6 +30,10 @@ export default function ProfileCompletionModal() {
     if (!user) return;
     if (!first.trim() || !last.trim() || !rut.trim() || !phone.trim()) {
       toast.error("Todos los campos son obligatorios");
+      return;
+    }
+    if (!validateRUT(rut)) {
+      toast.error("El RUT ingresado no es válido");
       return;
     }
     setSaving(true);
@@ -68,7 +74,7 @@ export default function ProfileCompletionModal() {
           </div>
           <div>
             <Label htmlFor="pf-rut">RUT *</Label>
-            <Input id="pf-rut" value={rut} onChange={(e) => setRut(e.target.value)} placeholder="12.345.678-9" required />
+            <RutInput id="pf-rut" value={rut} onChange={setRut} required />
           </div>
           <div>
             <Label htmlFor="pf-phone">Teléfono *</Label>

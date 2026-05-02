@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { Brain } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
 import { AuthEthicalDisclaimer } from "@/components/EthicalDisclaimer";
+import { RutInput } from "@/components/RutInput";
+import { validateRUT } from "@/lib/rut";
 
 export default function Auth() {
   const { user } = useAuth();
@@ -79,6 +81,11 @@ export default function Auth() {
       if (mode === "signup") {
         if (!form.first_name || !form.last_name) {
           toast.error("Nombre y apellido son obligatorios");
+          setLoading(false);
+          return;
+        }
+        if (form.rut && !validateRUT(form.rut)) {
+          toast.error("El RUT ingresado no es válido");
           setLoading(false);
           return;
         }
@@ -183,7 +190,7 @@ export default function Auth() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="rut">RUT</Label>
-                    <Input id="rut" value={form.rut} onChange={(e) => update("rut", e.target.value)} />
+                    <RutInput id="rut" value={form.rut} onChange={(v) => update("rut", v)} />
                   </div>
                   <div>
                     <Label htmlFor="phone">Teléfono</Label>
