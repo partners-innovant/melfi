@@ -439,15 +439,17 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       liveMimeRef.current = mr.mimeType || mime || "audio/webm";
       liveChunksRef.current = [];
+      unprocessedChunksRef.current = [];
       mr.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
           liveChunksRef.current.push(e.data);
-          // Process every chunk that arrives (timeslice = 10s)
-          processChunk(e.data);
+          unprocessedChunksRef.current.push(e.data);
+          setChunkCount((n) => n + 1);
         }
       };
       mr.onerror = (ev) => { console.error("MediaRecorder error", ev); toast.error("Error de grabación"); };
-      mr.start(10000); // 10s timeslice — more responsive real-time transcription
+      // Smaller timeslice keeps blob granularity for on-demand transcription
+      mr.start(5000);
       liveRecorderRef.current = mr;
       liveStartRef.current = Date.now();
       livePausedAccumRef.current = 0;
