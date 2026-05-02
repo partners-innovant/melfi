@@ -420,7 +420,9 @@ export default function GoogleDriveImport({
     setItems((prev) => prev.filter((it) => it.driveId !== id));
   }
 
-  const pendingCount = items.filter((it) => it.status === "pending").length;
+  const pendingCount = items.filter(
+    (it) => it.status === "pending" && (!it.duplicate || (it.dupAction && it.dupAction !== "pending")),
+  ).length;
   const allDone = items.length > 0 && items.every((it) => it.status === "done" || it.status === "error");
 
   const handleMainClick = () => {
