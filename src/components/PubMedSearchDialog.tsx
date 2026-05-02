@@ -556,16 +556,19 @@ async function importPubMedArticle(
   }
 
   return {
-    id: doc.id,
-    title: doc.title,
-    author: doc.author,
-    year: doc.year,
-    document_type: doc.document_type as DocType,
-    clinical_areas: doc.clinical_areas ?? [],
-    source_institution: doc.source_institution,
-    source_institution_type: doc.source_institution_type,
-    language: doc.language,
-    storage_path: doc.storage_path,
-    source_url: doc.source_url,
+    target: {
+      id: doc.id,
+      title: doc.title,
+      author: doc.author,
+      year: doc.year,
+      document_type: doc.document_type as DocType,
+      clinical_areas: doc.clinical_areas ?? [],
+      source_institution: doc.source_institution,
+      source_institution_type: doc.source_institution_type,
+      language: doc.language,
+      storage_path: doc.storage_path,
+      source_url: doc.source_url,
+    },
+    usedPdf,
   };
 }
