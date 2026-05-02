@@ -72,6 +72,7 @@ export default function Documents() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<Doc | null>(null);
+  const [pubmedOpen, setPubmedOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
   const [deleting, setDeleting] = useState(false);
