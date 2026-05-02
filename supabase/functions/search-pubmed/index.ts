@@ -51,17 +51,25 @@ async function resolveOaPdfUrl(pmcId: string): Promise<string | null> {
     const oaText = await oaRes.text();
     if (/<error\b/i.test(oaText)) return null;
 
-    // Prefer an https PDF link if present.
-    const httpsMatch = oaText.match(/href="(https:\/\/[^"]+\.pdf[^"]*)"/i);
-    if (httpsMatch) return httpsMatch[1];
+    // Only treat as available if OA explicitly returns a PDF link.
+    // Look for <link format="pdf" href="..."> specifically.
+    const pdfLinkMatch = oaText.match(/<link[^>]*format="pdf"[^>]*href="([^"]+)"/i)
+      || oaText.match(/href="([^"]+\.pdf[^"]*)"[^>]*format="pdf"/i);
+    let pdfHref: string | null = pdfLinkMatch?.[1] ?? null;
 
-    // Fall back: any FTP link (PDF or tar.gz) means the article is in OA — use the
-    // EuropePMC mirror which serves the rendered PDF over HTTPS reliably.
-    const ftpMatch = oaText.match(/href="(ftp:\/\/[^"]+)"/i);
-    if (ftpMatch) {
-      return `https://europepmc.org/backend/ptpmcrender.fcgi?accid=PMC${cleanId}&blobtype=pdf`;
+    // Fallback: any href ending in .pdf (some responses order attributes differently)
+    if (!pdfHref) {
+      const anyPdfHref = oaText.match(/href="((?:https?|ftp):\/\/[^"]+\.pdf[^"]*)"/i);
+      pdfHref = anyPdfHref?.[1] ?? null;
     }
-    return null;
+
+    if (!pdfHref) return null;
+
+    // Edge runtime cannot fetch ftp://. NCBI's FTP host serves the same paths over HTTPS.
+    if (pdfHref.startsWith("ftp://")) {
+      pdfHref = pdfHref.replace(/^ftp:\/\//i, "https://");
+    }
+    return pdfHref;
   } catch (e) {
     console.warn("[search-pubmed] OA lookup failed for PMC", pmcId, e);
     return null;
