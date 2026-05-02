@@ -522,10 +522,11 @@ export default function AdminTherapists() {
                         <td className="px-3 py-2">{r.email ?? "—"}</td>
                         <td className="px-3 py-2">
                           {isEditing ? (
-                            <Input
+                            <RutInput
                               className="h-8"
                               value={editForm.rut}
-                              onChange={(e) => setEditForm((f) => ({ ...f, rut: e.target.value }))}
+                              onChange={(v) => setEditForm((f) => ({ ...f, rut: v }))}
+                              showFeedback={false}
                             />
                           ) : (
                             r.rut ?? "—"
