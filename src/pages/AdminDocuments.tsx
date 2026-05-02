@@ -364,7 +364,7 @@ export default function AdminDocuments() {
 
     if (Object.keys(patch).length === 0) return;
 
-    const { error: upErr } = await supabase.from("documents").update(patch).eq("id", doc.id);
+    const { error: upErr } = await supabase.from("documents").update(patch as any).eq("id", doc.id);
     if (upErr) throw new Error(upErr.message);
 
     const chunkPatch: Record<string, unknown> = {};
@@ -374,7 +374,7 @@ export default function AdminDocuments() {
     if (patch.document_type) chunkPatch.document_type = patch.document_type;
     if (patch.language) chunkPatch.language = patch.language;
     if (Object.keys(chunkPatch).length > 0) {
-      await supabase.from("document_chunks").update(chunkPatch).eq("document_id", doc.id);
+      await supabase.from("document_chunks").update(chunkPatch as any).eq("document_id", doc.id);
     }
 
     setRows((rs) => rs.map((r) => (r.id === doc.id ? { ...r, ...(patch as Partial<DocRow>) } : r)));
