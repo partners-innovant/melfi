@@ -40,6 +40,14 @@ export default function PatientDetail() {
   const { state: sidebarState } = useSidebar();
   const sidebarCollapsed = sidebarState === "collapsed";
   const builderWidthPx = sidebarCollapsed ? 560 : 400;
+  const [isXl, setIsXl] = useState<boolean>(
+    typeof window !== "undefined" ? window.innerWidth >= 1280 : true,
+  );
+  useEffect(() => {
+    const onResize = () => setIsXl(window.innerWidth >= 1280);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   async function load() {
     if (!id) return;
