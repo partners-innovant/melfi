@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight } from "lucide-react";
+import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +58,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [profile?.is_admin]);
 
   const items = profile?.is_admin
-    ? [...baseItems, { to: "/feedback", label: "Feedback", icon: Inbox, badge: newCount }]
+    ? [
+        ...baseItems,
+        { to: "/admin/documents", label: "Gestor de documentos", icon: Database },
+        { to: "/feedback", label: "Feedback", icon: Inbox, badge: newCount },
+      ]
     : baseItems;
 
   const sidebarWidth = collapsed ? "w-16" : "w-64";
