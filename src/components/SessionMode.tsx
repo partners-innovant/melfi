@@ -38,7 +38,9 @@ type AnalyzedSuggestion = {
   addressed?: boolean;
 };
 type SummaryBlock = { t: number; bullets: string[] };
-const TRANSCRIPTION_USD = 0.18;
+const HAIKU_USD = 0.02;
+const SONNET_USD = 0.08;
+const TRANSCRIPTION_USD = HAIKU_USD + SONNET_USD;
 
 interface Props {
   open: boolean;
