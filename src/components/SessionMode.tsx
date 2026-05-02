@@ -696,65 +696,164 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
 
         {/* Right 45% */}
         <div className="basis-[45%] flex flex-col min-h-0 bg-muted/20">
-          <div className="px-4 py-3 border-b flex items-center justify-between">
-            <div className="font-semibold flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" /> Apoyo clínico en tiempo real
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
+            <div className="px-4 py-2 border-b flex items-center justify-between gap-2">
+              <TabsList>
+                <TabsTrigger value="suggestions" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> Apoyo clínico
+                </TabsTrigger>
+                <TabsTrigger value="transcript" className="gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Transcripción
+                  {transcript.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{transcript.length}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              {activeTab === "suggestions" ? (
+                <Button size="sm" onClick={requestSuggestions} disabled={loadingSuggestions || !sessionId} className="gap-2">
+                  {loadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Pedir sugerencias
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setTranscriptEditable((v) => !v)}
+                  disabled={transcript.length === 0}
+                  className="gap-1.5"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  {transcriptEditable ? "Listo" : "Editar"}
+                </Button>
+              )}
             </div>
-            <Button size="sm" onClick={requestSuggestions} disabled={loadingSuggestions || !sessionId} className="gap-2">
-              {loadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Pedir sugerencias
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {loadingSuggestions && (
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Claude analizando...
-              </div>
-            )}
 
-            <SuggestionGroup
-              icon={<MessageCircle className="h-4 w-4" />}
-              title="Preguntas sugeridas"
-              tone="blue"
-              items={suggestions.questions}
-              onUse={(t) => markUsed("question", t)}
-            />
-            <SuggestionGroup
-              icon={<Eye className="h-4 w-4" />}
-              title="Patrones observados"
-              tone="purple"
-              items={suggestions.patterns}
-              onUse={(t) => markUsed("pattern", t)}
-            />
-            <SuggestionGroup
-              icon={<Lightbulb className="h-4 w-4" />}
-              title="Intervenciones"
-              tone="teal"
-              items={suggestions.interventions}
-              onUse={(t) => markUsed("intervention", t)}
-            />
-            <SuggestionGroup
-              icon={<AlertTriangle className="h-4 w-4" />}
-              title="No explorado"
-              tone="amber"
-              items={suggestions.unexplored}
-              onUse={(t) => markUsed("unexplored", t)}
-            />
+            <TabsContent value="suggestions" className="flex-1 min-h-0 mt-0">
+              <div className="h-full overflow-y-auto p-4 space-y-4">
+                {loadingSuggestions && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Claude analizando...
+                  </div>
+                )}
 
-            {usedSuggestions.length > 0 && (
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1.5 mt-4">
-                  Sugerencias usadas ({usedSuggestions.length})
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {usedSuggestions.map((u, i) => (
-                    <Badge key={i} variant="secondary" className="text-[11px]">✓ {u.text}</Badge>
-                  ))}
-                </div>
+                <SuggestionGroup
+                  icon={<MessageCircle className="h-4 w-4" />}
+                  title="Preguntas sugeridas"
+                  tone="blue"
+                  items={suggestions.questions}
+                  onUse={(t) => markUsed("question", t)}
+                />
+                <SuggestionGroup
+                  icon={<Eye className="h-4 w-4" />}
+                  title="Patrones observados"
+                  tone="purple"
+                  items={suggestions.patterns}
+                  onUse={(t) => markUsed("pattern", t)}
+                />
+                <SuggestionGroup
+                  icon={<Lightbulb className="h-4 w-4" />}
+                  title="Intervenciones"
+                  tone="teal"
+                  items={suggestions.interventions}
+                  onUse={(t) => markUsed("intervention", t)}
+                />
+                <SuggestionGroup
+                  icon={<AlertTriangle className="h-4 w-4" />}
+                  title="No explorado"
+                  tone="amber"
+                  items={suggestions.unexplored}
+                  onUse={(t) => markUsed("unexplored", t)}
+                />
+
+                {usedSuggestions.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1.5 mt-4">
+                      Sugerencias usadas ({usedSuggestions.length})
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {usedSuggestions.map((u, i) => (
+                        <Badge key={i} variant="secondary" className="text-[11px]">✓ {u.text}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+
+            <TabsContent value="transcript" className="flex-1 min-h-0 mt-0">
+              <div className="h-full overflow-y-auto p-4 space-y-2">
+                {transcript.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
+                    {recState === "idle"
+                      ? 'La transcripción aparecerá aquí. Pulsa "🔴 Grabar sesión" para empezar.'
+                      : "Escuchando… los segmentos aparecerán cada ~30 segundos."}
+                  </div>
+                ) : (
+                  transcript.map((seg, i) => {
+                    const isPatient = seg.speaker === "Paciente";
+                    const isTher = seg.speaker === "Terapeuta";
+                    const tone = isPatient
+                      ? "border-l-blue-400 bg-blue-500/5"
+                      : isTher
+                      ? "border-l-teal-400 bg-teal-500/5"
+                      : "border-l-amber-400 bg-amber-500/5";
+                    return (
+                      <div key={i} className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${tone}`}>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5 flex items-center justify-between">
+                          <span>
+                            {isPatient ? "Paciente" : isTher ? "Terapeuta" : "⚠️ Sin identificar"} [{clockFromTimestamp(seg.t)}]
+                          </span>
+                          {transcriptEditable && (
+                            <select
+                              value={seg.speaker}
+                              onChange={(e) => {
+                                const next = [...transcript];
+                                next[i] = { ...seg, speaker: e.target.value };
+                                setTranscript(next);
+                                if (sessionIdRef.current) {
+                                  supabase.from("sessions").update({ live_transcript: next }).eq("id", sessionIdRef.current);
+                                }
+                              }}
+                              className="text-[10px] bg-background border rounded px-1"
+                            >
+                              <option value="Paciente">Paciente</option>
+                              <option value="Terapeuta">Terapeuta</option>
+                              <option value="Hablante">Hablante</option>
+                            </select>
+                          )}
+                        </div>
+                        {transcriptEditable ? (
+                          <Textarea
+                            value={seg.text}
+                            onChange={(e) => {
+                              const next = [...transcript];
+                              next[i] = { ...seg, text: e.target.value };
+                              setTranscript(next);
+                            }}
+                            onBlur={() => {
+                              if (sessionIdRef.current) {
+                                supabase.from("sessions").update({ live_transcript: transcript }).eq("id", sessionIdRef.current);
+                              }
+                            }}
+                            className="min-h-[60px] text-sm"
+                          />
+                        ) : (
+                          <div className="whitespace-pre-wrap">{seg.text}</div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                {transcribing && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1.5 p-2">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Transcribiendo siguiente fragmento…
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
+      </div>
       </div>
 
       {/* End-session dialog — must render above the z-[9999] fullscreen overlay */}
