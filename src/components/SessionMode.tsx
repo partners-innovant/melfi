@@ -972,26 +972,26 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       {/* Recording disclaimer modal */}
       <Dialog open={showRecDisclaimer} onOpenChange={setShowRecDisclaimer}>
         <DialogContent
-          className="max-w-lg max-h-[90vh] overflow-y-auto z-[10001]"
-          style={{ zIndex: 10001 }}
+          className="overflow-y-auto z-[10001] sm:max-w-none"
+          style={{ zIndex: 10001, width: "min(560px, calc(100vw - 32px))", maxWidth: "min(560px, calc(100vw - 32px))", maxHeight: "80vh", padding: "32px" }}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" /> Aviso de grabación
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription style={{ fontSize: "14px", lineHeight: 1.7 }}>
               Antes de grabar esta sesión, asegúrate de que:
             </DialogDescription>
           </DialogHeader>
-          <ul className="text-sm space-y-2 list-disc pl-5">
+          <ul className="list-disc pl-5 flex flex-col" style={{ fontSize: "14px", lineHeight: 1.7, gap: "8px" }}>
             <li>El paciente ha sido informado y ha dado su consentimiento para la grabación.</li>
             <li>El audio será procesado por inteligencia artificial para generar una transcripción automática.</li>
             <li>La transcripción se usará para completar los apuntes de esta sesión.</li>
             <li>El audio original será eliminado permanentemente una vez que confirmes el resumen post-sesión.</li>
             <li>La transcripción quedará almacenada como parte del registro clínico de esta sesión.</li>
           </ul>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground" style={{ fontSize: "14px", lineHeight: 1.7 }}>
             Al continuar, confirmas que cuentas con el consentimiento del paciente.
           </p>
           <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
@@ -1001,19 +1001,19 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             />
             No mostrar de nuevo en esta sesión
           </label>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRecDisclaimer(false)}>
-              Cancelar
-            </Button>
+          <div className="flex flex-col" style={{ gap: "8px" }}>
             <Button
               variant="destructive"
               onClick={() => { setShowRecDisclaimer(false); actuallyStartLiveRecording(); }}
-              className="gap-2"
+              className="w-full gap-2"
             >
               <Circle className="h-4 w-4 fill-white" />
               El paciente ha dado su consentimiento — Comenzar grabación
             </Button>
-          </DialogFooter>
+            <Button variant="outline" className="w-full" onClick={() => setShowRecDisclaimer(false)}>
+              Cancelar
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
