@@ -161,6 +161,10 @@ export default function PatientDetail() {
           <PatientDocumentsTab patientId={patient.id} />
         </TabsContent>
 
+        <TabsContent value="team" className="mt-4">
+          <TreatmentTeamTab patientId={patient.id} kind="adult" />
+        </TabsContent>
+
         <TabsContent value="profile" className="mt-4 space-y-4">
           <LastSessionCard
             key={refreshKey}
