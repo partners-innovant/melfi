@@ -76,6 +76,16 @@ export default function Documents() {
   const [deleting, setDeleting] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const importUrlParam = searchParams.get("import_url") ?? undefined;
+  const uploadParam = searchParams.get("upload");
+
+  useEffect(() => {
+    if (uploadParam === "1") {
+      setOpen(true);
+      searchParams.delete("upload");
+      setSearchParams(searchParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadParam]);
 
   const isAdmin = !!profile?.is_admin;
 
