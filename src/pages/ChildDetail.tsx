@@ -282,6 +282,18 @@ export default function ChildDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TransferChildPatientDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        patient={{
+          id: child.id,
+          first_name: child.first_name,
+          last_name: child.last_name,
+          birth_date: child.birth_date,
+          diagnosis: child.medical_diagnosis ?? null,
+        }}
+      />
     </div>
   );
 }
