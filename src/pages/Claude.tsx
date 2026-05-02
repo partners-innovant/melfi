@@ -493,6 +493,7 @@ export default function Claude() {
             <div className="w-full max-w-2xl space-y-3">
               <div className="relative">
                 <Textarea
+                  ref={emptyTaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -503,8 +504,11 @@ export default function Claude() {
                   }}
                   placeholder="Escribe tu mensaje..."
                   rows={3}
-                  className="resize-none pr-12"
+                  className="resize-none pr-12 pb-9"
                 />
+                <div className="absolute bottom-2 left-3">
+                  <ImprovePromptButton value={input} onChange={setInput} textareaRef={emptyTaRef} disabled={streaming} />
+                </div>
                 <Button
                   size="icon"
                   className="absolute bottom-2 right-2 h-8 w-8"
