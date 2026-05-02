@@ -38,6 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ImportMemoryDialog from "@/components/ImportMemoryDialog";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Conv = { id: string; title: string | null; updated_at: string };
@@ -64,6 +65,7 @@ export default function Claude() {
   const [streaming, setStreaming] = useState(false);
   const [memory, setMemory] = useState<Memory | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Snapshot of messages used for memory updates (used in beforeunload)
   const messagesRef = useRef<Msg[]>([]);
@@ -368,6 +370,14 @@ export default function Claude() {
                   <SheetTitle>Lo que Claude recuerda de ti</SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-teal-500/60 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/30"
+                    onClick={() => setImportOpen(true)}
+                  >
+                    📥 Importar contexto desde otra IA
+                  </Button>
                   {!hasMemory ? (
                     <div className="text-sm text-muted-foreground">
                       Aún no hay nada guardado. Conversa con Claude y la memoria se construirá automáticamente.
@@ -459,6 +469,11 @@ export default function Claude() {
                 </div>
               </SheetContent>
             </Sheet>
+            <ImportMemoryDialog
+              open={importOpen}
+              onOpenChange={setImportOpen}
+              onImported={loadMemory}
+            />
             {messages.length > 0 && (
               <Button size="sm" variant="outline" onClick={exportConversation}>
                 <Download className="h-4 w-4" /> Exportar
