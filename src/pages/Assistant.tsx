@@ -8,9 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
+import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -103,6 +106,15 @@ export default function Assistant() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [history, setHistory] = useState<ConversationItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Filters
+  const ALL_AREAS: string[] = Array.from(CLINICAL_AREAS);
+  const [yearFrom, setYearFrom] = useState<number | null>(null);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>(ALL_AREAS);
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
+  const [sourcesInitialized, setSourcesInitialized] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const patientsMap = useMemo(
@@ -120,6 +132,33 @@ export default function Assistant() {
       setPatients((data as Patient[]) ?? []);
     })();
   }, [patientKind]);
+
+  // Load distinct source institutions present in the library
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("documents")
+        .select("source_institution")
+        .not("source_institution", "is", null);
+      const uniq = Array.from(
+        new Set(((data as any[]) ?? []).map((r) => r.source_institution).filter(Boolean) as string[]),
+      ).sort();
+      setAvailableSources(uniq);
+      setSelectedSources(uniq);
+      setSourcesInitialized(true);
+    })();
+  }, []);
+
+  function resetFilters() {
+    setYearFrom(null);
+    setSelectedAreas(ALL_AREAS);
+    setSelectedSources(availableSources);
+  }
+
+  const yearFromActive = yearFrom !== null;
+  const areasActive = selectedAreas.length !== ALL_AREAS.length;
+  const sourcesActive = sourcesInitialized && selectedSources.length !== availableSources.length;
+  const anyFilterActive = yearFromActive || areasActive || sourcesActive;
 
   const loadHistory = useCallback(async () => {
     const { data } = await supabase
@@ -166,6 +205,7 @@ export default function Assistant() {
     setConversationId(null);
     setInput("");
     setSidebarOpen(false);
+    resetFilters();
   }
 
   async function loadConversation(cid: string) {
@@ -229,6 +269,9 @@ export default function Assistant() {
           patient_id: patientId !== NONE ? patientId : null,
           patient_kind: patientKind,
           document_type: docType !== ALL ? docType : null,
+          year_from: yearFrom,
+          clinical_areas: areasActive ? selectedAreas : null,
+          source_institutions: sourcesActive ? selectedSources : null,
           conversation_id: conversationId,
         }),
       });
@@ -424,6 +467,22 @@ export default function Assistant() {
           </div>
         )}
 
+        {/* Filter bar */}
+        <div className="px-4 md:px-6 pt-3">
+          <FilterBar
+            yearFrom={yearFrom}
+            setYearFrom={setYearFrom}
+            allAreas={ALL_AREAS}
+            selectedAreas={selectedAreas}
+            setSelectedAreas={setSelectedAreas}
+            availableSources={availableSources}
+            selectedSources={selectedSources}
+            setSelectedSources={setSelectedSources}
+            anyActive={anyFilterActive}
+            onReset={resetFilters}
+          />
+        </div>
+
         {/* Messages OR welcome+centered input */}
         {isEmpty ? (
           <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-6 py-6">
@@ -441,6 +500,13 @@ export default function Assistant() {
                 onSend={() => send()}
                 busy={busy}
                 autoFocus
+              />
+              <FilterIndicator
+                yearFrom={yearFrom}
+                areasCount={selectedAreas.length}
+                allAreasCount={ALL_AREAS.length}
+                sourcesCount={selectedSources.length}
+                allSourcesCount={availableSources.length}
               />
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(patientKind === "child" ? CHILD_SUGGESTIONS : SUGGESTIONS).map((s) => (
@@ -475,6 +541,13 @@ export default function Assistant() {
             <div className="border-t border-border bg-card px-4 md:px-6 py-3">
               <div className="max-w-3xl mx-auto">
                 <InputBox value={input} onChange={setInput} onSend={() => send()} busy={busy} />
+                <FilterIndicator
+                  yearFrom={yearFrom}
+                  areasCount={selectedAreas.length}
+                  allAreasCount={ALL_AREAS.length}
+                  sourcesCount={selectedSources.length}
+                  allSourcesCount={availableSources.length}
+                />
               </div>
             </div>
           </>
@@ -1282,5 +1355,187 @@ function ImportSourceButton({ url }: { url: string }) {
         </>
       )}
     </Button>
+  );
+}
+
+// ============================== Filter Bar ==============================
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 2000 + 1 }, (_, i) => CURRENT_YEAR - i);
+
+function FilterBar({
+  yearFrom, setYearFrom,
+  allAreas, selectedAreas, setSelectedAreas,
+  availableSources, selectedSources, setSelectedSources,
+  anyActive, onReset,
+}: {
+  yearFrom: number | null;
+  setYearFrom: (v: number | null) => void;
+  allAreas: string[];
+  selectedAreas: string[];
+  setSelectedAreas: (v: string[]) => void;
+  availableSources: string[];
+  selectedSources: string[];
+  setSelectedSources: (v: string[]) => void;
+  anyActive: boolean;
+  onReset: () => void;
+}) {
+  const yearActive = yearFrom !== null;
+  const areasActive = selectedAreas.length !== allAreas.length;
+  const sourcesActive = selectedSources.length !== availableSources.length;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              yearActive
+                ? "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/40"
+                : "bg-muted text-muted-foreground border-border hover:bg-accent",
+            )}
+          >
+            <Filter className="h-3 w-3" />
+            {yearActive ? `Desde ${yearFrom}` : "Todos los años"}
+            <ChevronDown className="h-3 w-3 opacity-60" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1 max-h-72 overflow-y-auto" align="start">
+          <button
+            onClick={() => setYearFrom(null)}
+            className={cn(
+              "w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent",
+              yearFrom === null && "bg-accent font-medium",
+            )}
+          >
+            Todos los años
+          </button>
+          {YEAR_OPTIONS.map((y) => (
+            <button
+              key={y}
+              onClick={() => setYearFrom(y)}
+              className={cn(
+                "w-full text-left px-2 py-1.5 rounded text-sm hover:bg-accent",
+                yearFrom === y && "bg-accent font-medium",
+              )}
+            >
+              Desde {y}
+            </button>
+          ))}
+        </PopoverContent>
+      </Popover>
+
+      <MultiPill
+        active={areasActive}
+        labelAll="Todas las áreas"
+        labelActive={`${selectedAreas.length} áreas`}
+        items={allAreas}
+        getLabel={(v) => CLINICAL_AREA_LABELS[v as ClinicalArea] ?? v}
+        selected={selectedAreas}
+        onChange={setSelectedAreas}
+      />
+
+      <MultiPill
+        active={sourcesActive}
+        labelAll="Todas las fuentes"
+        labelActive={`${selectedSources.length} fuentes`}
+        items={availableSources}
+        getLabel={(v) => v}
+        selected={selectedSources}
+        onChange={setSelectedSources}
+        emptyHint="No hay fuentes disponibles"
+      />
+
+      {anyActive && (
+        <button
+          onClick={onReset}
+          className="ml-auto text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 underline-offset-2 hover:underline"
+        >
+          Restablecer filtros
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MultiPill({
+  active, labelAll, labelActive, items, getLabel, selected, onChange, emptyHint,
+}: {
+  active: boolean;
+  labelAll: string;
+  labelActive: string;
+  items: string[];
+  getLabel: (v: string) => string;
+  selected: string[];
+  onChange: (v: string[]) => void;
+  emptyHint?: string;
+}) {
+  function toggle(v: string) {
+    if (selected.includes(v)) onChange(selected.filter((x) => x !== v));
+    else onChange([...selected, v]);
+  }
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            active
+              ? "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/40"
+              : "bg-muted text-muted-foreground border-border hover:bg-accent",
+          )}
+        >
+          <Filter className="h-3 w-3" />
+          {active ? labelActive : labelAll}
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2 max-h-80 overflow-y-auto" align="start">
+        {items.length === 0 ? (
+          <div className="text-xs text-muted-foreground p-2">{emptyHint ?? "Sin opciones"}</div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between px-1 pb-2 border-b border-border mb-1">
+              <button onClick={() => onChange(items)} className="text-[11px] text-teal-600 hover:underline">Todos</button>
+              <button onClick={() => onChange([])} className="text-[11px] text-muted-foreground hover:underline">Ninguno</button>
+            </div>
+            {items.map((v) => (
+              <label
+                key={v}
+                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm"
+              >
+                <Checkbox checked={selected.includes(v)} onCheckedChange={() => toggle(v)} />
+                <span className="truncate">{getLabel(v)}</span>
+              </label>
+            ))}
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function FilterIndicator({
+  yearFrom, areasCount, allAreasCount, sourcesCount, allSourcesCount,
+}: {
+  yearFrom: number | null;
+  areasCount: number;
+  allAreasCount: number;
+  sourcesCount: number;
+  allSourcesCount: number;
+}) {
+  const yearActive = yearFrom !== null;
+  const areasActive = areasCount !== allAreasCount;
+  const sourcesActive = sourcesCount !== allSourcesCount;
+  if (!yearActive && !areasActive && !sourcesActive) return null;
+  const parts: string[] = [];
+  if (yearActive) parts.push(`desde ${yearFrom}`);
+  if (areasActive) parts.push(`${areasCount} ${areasCount === 1 ? "área" : "áreas"}`);
+  if (sourcesActive) parts.push(`${sourcesCount} ${sourcesCount === 1 ? "fuente" : "fuentes"}`);
+  return (
+    <div className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1.5">
+      <Filter className="h-3 w-3" />
+      Buscando en documentos {parts.join(" · ")}
+    </div>
   );
 }

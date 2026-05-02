@@ -1292,9 +1292,12 @@ export type Database = {
         Args: {
           match_count?: number
           p_clinical_area?: string
+          p_clinical_areas?: string[]
           p_document_type?: string
           p_psychologist_id?: string
           p_source_institution?: string
+          p_source_institutions?: string[]
+          p_year_from?: number
           query_embedding: string
         }
         Returns: {
