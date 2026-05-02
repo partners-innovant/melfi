@@ -46,6 +46,8 @@ interface CardState {
   title: string;
   status: "analyzing" | "ready" | "error";
   error?: string;
+  storagePath: string | null;
+  sourceUrl: string | null;
   // editable values
   docType: DocType;
   year: string;
