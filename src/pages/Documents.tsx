@@ -738,6 +738,9 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
           storage_path: storagePath,
           source_url: item.file.name,
           import_source: 'upload',
+          clinical_areas: item.clinicalAreas,
+          source_institution: item.sourceInstitution || null,
+          source_institution_type: item.sourceInstitutionType || null,
         } as any)
         .select()
         .single();
@@ -769,6 +772,12 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
           content: c.content,
           page_number: c.page_number,
           embedding: embeddings[idx] as any,
+          // Denormalized classification copied from parent doc:
+          clinical_areas: item.clinicalAreas,
+          source_institution: item.sourceInstitution || null,
+          source_institution_type: item.sourceInstitutionType || null,
+          document_type: item.docType,
+          is_global: item.isGlobal && isAdmin,
         }));
         const { error: insErr } = await supabase.from("document_chunks").insert(rows);
         if (insErr) throw insErr;
