@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5-20250929",
+        // Using Haiku — memory fact extraction from conversations, simple structured task
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 1024,
         system: EXTRACT_PROMPT,
         messages: [{ role: "user", content: `Conversación:\n\n${convoText}` }],
