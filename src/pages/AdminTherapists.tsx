@@ -784,6 +784,39 @@ export default function AdminTherapists() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer dialog */}
+      <TransferPatientDialog
+        open={!!transferTarget}
+        onOpenChange={(o) => !o && setTransferTarget(null)}
+        therapist={
+          transferTarget
+            ? {
+                id: transferTarget.id,
+                email: transferTarget.email,
+                first_name: transferTarget.first_name,
+                last_name: transferTarget.last_name,
+              }
+            : undefined
+        }
+        onTransferred={() => setTransferTarget(null)}
+      />
+
+      {/* Transfer history */}
+      <TransferHistoryPanel
+        open={!!historyTarget}
+        onOpenChange={(o) => !o && setHistoryTarget(null)}
+        therapistUserId={historyUserId}
+        therapistEmail={historyTarget?.email}
+        therapistLabel={
+          historyTarget
+            ? [historyTarget.first_name, historyTarget.last_name]
+                .filter(Boolean)
+                .join(" ")
+                .trim() || historyTarget.email
+            : undefined
+        }
+      />
     </div>
   );
 }
