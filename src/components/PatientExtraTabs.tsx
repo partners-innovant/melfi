@@ -395,6 +395,7 @@ export function PatientProfileBuilderTab({
         >
           <RotateCcw className="h-3 w-3" />↺ Reiniciar
         </Button>
+        {headerExtra}
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4">
