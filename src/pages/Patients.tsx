@@ -160,19 +160,28 @@ export default function Patients() {
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Pacientes</h1>
           <p className="text-muted-foreground text-sm mt-1">{patients.length} {patients.length === 1 ? "paciente" : "pacientes"}</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2"><Plus className="h-4 w-4" />Nuevo paciente</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Nuevo paciente</DialogTitle></DialogHeader>
-            <PatientForm form={form} setForm={setForm} />
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Select value={sortMode} onValueChange={(v) => setSortMode(v as any)}>
+            <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Más recientes</SelectItem>
+              <SelectItem value="schedule">Ordenar por día y hora de sesión</SelectItem>
+            </SelectContent>
+          </Select>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2"><Plus className="h-4 w-4" />Nuevo paciente</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>Nuevo paciente</DialogTitle></DialogHeader>
+              <PatientForm form={form} setForm={setForm} />
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+                <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       {/* Incoming transfer banners */}
