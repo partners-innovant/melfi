@@ -294,6 +294,9 @@ Notas clínicas: ${p.notes ?? "ninguna"}
 Documentos e informes externos del paciente:
 ${(adultDocs ?? []).map((d: any) => `- ${d.document_date ?? "s/f"} · ${d.title}${d.document_type ? ` (${d.document_type})` : ""}${d.professional_name ? ` — ${d.professional_name}${d.professional_role ? `, ${d.professional_role}` : ""}` : ""}${d.notes ? ` · ${String(d.notes).slice(0, 150)}` : ""}`).join("\n") || "- (sin documentos)"}
 
+Equipo tratante:
+${(team ?? []).map((t: any) => `- ${t.professional_name} (${t.professional_role}${t.specialty ? `, ${t.specialty}` : ""})${t.institution ? ` — ${t.institution}` : ""}${t.email ? ` · ${t.email}` : ""}${t.phone ? ` · ${t.phone}` : ""}${t.is_primary_contact ? " · ⭐ contacto principal" : ""}`).join("\n") || "- (sin profesionales registrados)"}
+
 `;
       }
     }
