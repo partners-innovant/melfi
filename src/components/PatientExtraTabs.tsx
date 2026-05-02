@@ -347,6 +347,20 @@ export function PatientProfileBuilderTab({
       </div>
 
       <div className="border-t border-border p-3 space-y-2 bg-background">
+        {messages.length > 0 && messages.length >= 2 && (
+          <div className="flex flex-wrap gap-1.5">
+            {DIAGNOSTIC_CHIPS.map((s) => (
+              <button
+                key={s}
+                onClick={() => send(s)}
+                disabled={sending}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-primary-soft text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <Textarea
             value={input}
@@ -361,6 +375,16 @@ export function PatientProfileBuilderTab({
             className="min-h-[44px] max-h-32 resize-none flex-1"
             disabled={sending}
           />
+          <Button
+            onClick={() => send("Dame tu hipótesis diagnóstica completa basada en toda la información disponible.", { mode: "suggest_diagnosis" })}
+            disabled={sending}
+            size="sm"
+            variant="outline"
+            className="self-end h-11 gap-1.5 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 text-xs"
+            title="Sugerir diagnóstico"
+          >
+            <Sparkles className="h-3.5 w-3.5" />💡 Sugerir diagnóstico
+          </Button>
           <Button onClick={() => send()} disabled={sending || !input.trim()} size="icon" className="self-end h-11 w-11">
             {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
