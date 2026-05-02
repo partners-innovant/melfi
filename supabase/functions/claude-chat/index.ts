@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
         .from("child_patients").select("*")
         .eq("id", patient_id).eq("psychologist_id", user.id).maybeSingle();
       if (c) {
-        const [{ data: goals }, { data: behaviors }, { data: wisc }, { data: comms }, { data: meds }, { data: childDocs }, { data: childNotes }, { data: childTests }] = await Promise.all([
+        const [{ data: goals }, { data: behaviors }, { data: wisc }, { data: comms }, { data: meds }, { data: childDocs }, { data: childNotes }, { data: childTests }, { data: team }] = await Promise.all([
           supabase.from("intervention_goals").select("title, status, estimated_date").eq("child_patient_id", patient_id).order("created_at", { ascending: false }).limit(10),
           supabase.from("behavioral_tracking").select("behavior_name, score, tracking_date").eq("child_patient_id", patient_id).order("tracking_date", { ascending: false }).limit(20),
           supabase.from("wisc_evaluations").select("version, evaluation_date, cit, icv, irp, imt, ivp, irf").eq("child_patient_id", patient_id).order("evaluation_date", { ascending: false }).limit(1),
@@ -207,6 +207,7 @@ Deno.serve(async (req) => {
           supabase.from("child_documents").select("title, document_type, professional_name, professional_role, document_date, notes").eq("child_patient_id", patient_id).order("document_date", { ascending: false, nullsFirst: false }).limit(10),
           supabase.from("child_session_notes").select("session_number, session_date, emotional_state, raw_notes, refined_notes, techniques_used, next_session_plan").eq("child_patient_id", patient_id).order("session_date", { ascending: false }).limit(5),
           supabase.from("child_tests").select("test_name, test_type, evaluation_date, results_structured, results_raw, generated_report").eq("child_patient_id", patient_id).order("evaluation_date", { ascending: false }).limit(10),
+          supabase.from("treatment_team").select("professional_name, professional_role, specialty, institution, email, phone, is_primary_contact").eq("child_patient_id", patient_id).order("is_primary_contact", { ascending: false }),
         ]);
         const latestWisc = wisc?.[0];
         const medsLine = (meds && meds.length > 0)
