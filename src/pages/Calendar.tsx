@@ -347,8 +347,8 @@ export default function Calendar() {
       {googleConnected && tokenExpired && (
         <Card className="p-3 border-dashed bg-amber-500/10 border-amber-500/30 flex items-center gap-3 text-sm flex-wrap">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <div className="flex-1">Tu sesión de Google expiró o fue revocada. Reconecta para continuar sincronizando.</div>
-          <Button size="sm" onClick={connectGoogle} disabled={connecting}>Reconectar Google Calendar</Button>
+          <div className="flex-1">Tu conexión con Google Calendar expiró. Reconecta tu cuenta para seguir sincronizando.</div>
+          <Button size="sm" onClick={connectGoogle} disabled={connecting}>Reconectar</Button>
         </Card>
       )}
 
