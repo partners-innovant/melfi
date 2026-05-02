@@ -38,7 +38,7 @@ import GoogleDriveImport from "@/components/GoogleDriveImport";
 import RecommendDocumentsButton from "@/components/RecommendDocumentsButton";
 import UrlImportDialog from "@/components/UrlImportDialog";
 import { findDuplicateByTitle, deleteDocumentAndChunks, nextAvailableTitle, formatDate, type DuplicateDoc } from "@/lib/duplicates";
-import { PubMedSearchDialog } from "@/components/PubMedSearchDialog";
+import { PubMedSearchDialog, type PubMedUploadPrefill } from "@/components/PubMedSearchDialog";
 
 type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search';
 
