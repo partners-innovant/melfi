@@ -470,6 +470,23 @@ async function importPubMedArticle(
 
   // Fallback to abstract text
   if (!usedPdf) {
+    let abstractText = article.abstract ?? "";
+    if (!abstractText.trim()) {
+      try {
+        setStatus("Obteniendo abstract...");
+        const { data } = await supabase.functions.invoke("search-pubmed", {
+          body: { action: "get_abstract", pubmed_id: article.pubmed_id },
+        });
+        if (data?.abstract && typeof data.abstract === "string") {
+          abstractText = data.abstract;
+        }
+      } catch (e) {
+        console.warn("[pubmed] get_abstract failed:", e);
+      }
+    }
+    const note = status === "pdf_available"
+      ? "Documento importado como abstract — la descarga del PDF falló"
+      : "Documento importado como abstract — PDF no disponible en PMC Open Access";
     const parts = [
       `# ${article.title}`,
       article.authors ? `Autores: ${article.authors}` : "",
@@ -478,7 +495,9 @@ async function importPubMedArticle(
       article.doi ? `DOI: ${article.doi}` : "",
       article.url ? `PubMed: ${article.url}` : "",
       "",
-      article.abstract ?? "(Sin abstract disponible)",
+      `> ${note}`,
+      "",
+      abstractText.trim() || "(Sin abstract disponible)",
     ].filter(Boolean);
     docText = parts.join("\n");
   }
