@@ -370,6 +370,14 @@ export default function Claude() {
                   <SheetTitle>Lo que Claude recuerda de ti</SheetTitle>
                 </SheetHeader>
                 <div className="mt-6 space-y-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-teal-500/60 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/30"
+                    onClick={() => setImportOpen(true)}
+                  >
+                    📥 Importar contexto desde otra IA
+                  </Button>
                   {!hasMemory ? (
                     <div className="text-sm text-muted-foreground">
                       Aún no hay nada guardado. Conversa con Claude y la memoria se construirá automáticamente.
