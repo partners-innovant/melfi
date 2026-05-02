@@ -534,6 +534,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     clearAudio();
     setSummaryDraft(""); setFeedbackDraft(""); setNextPlanDraft("");
     setEndStep(1); setEditing(false);
+    setTranscript([]); transcriptRef.current = [];
+    checkedSuggestionsRef.current = new Set();
+    setRecState("idle"); setRecElapsed(0);
+    setSuppressRecDisclaimer(false);
+    setActiveTab("suggestions"); setTranscriptEditable(false);
   }
 
   const elapsedMs = startedAt ? now - startedAt : 0;
