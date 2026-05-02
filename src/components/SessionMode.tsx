@@ -501,6 +501,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     liveRecorderRef.current = null;
     // Clear audio chunks from memory
     liveChunksRef.current = [];
+    unprocessedChunksRef.current = [];
     setRecState("idle");
   }
 
