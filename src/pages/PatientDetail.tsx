@@ -18,6 +18,7 @@ import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
 import PatientProfileBuilderPanel from "@/components/PatientProfileBuilderPanel";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
 import TransferPatientDialog from "@/components/TransferPatientDialog";
+import SessionSchedulePill from "@/components/SessionSchedulePill";
 
 export default function PatientDetail() {
   const { id } = useParams();
