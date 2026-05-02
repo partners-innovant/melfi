@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Loader2, AlertCircle, Check, ChevronsUpDown, X } from "lucide-react";
+import { Sparkles, Loader2, AlertCircle, Check, ChevronsUpDown, X, ExternalLink } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,8 @@ export interface ClassifyTarget {
   source_institution: string | null;
   source_institution_type: string | null;
   language: string | null;
+  storage_path?: string | null;
+  source_url?: string | null;
 }
 
 type LangCode = "es" | "en" | "otro";
@@ -43,6 +46,8 @@ interface CardState {
   title: string;
   status: "analyzing" | "ready" | "error";
   error?: string;
+  storagePath: string | null;
+  sourceUrl: string | null;
   // editable values
   docType: DocType;
   year: string;
@@ -102,6 +107,8 @@ export function ClassifyPreviewDialog({
         id: t.id,
         title: t.title,
         status: "analyzing",
+        storagePath: t.storage_path ?? null,
+        sourceUrl: t.source_url ?? null,
         docType: (t.document_type ?? "otro") as DocType,
         year: t.year ?? "",
         language: (normalizeLang(t.language) || "") as CardState["language"],
@@ -310,7 +317,10 @@ function ClassifyCard({
 }) {
   return (
     <Card className="p-3 space-y-2">
-      <div className="font-medium text-sm truncate" title={card.title}>{card.title}</div>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="font-medium text-sm truncate flex-1 min-w-0" title={card.title}>{card.title}</div>
+        <ViewDocumentLink storagePath={card.storagePath} sourceUrl={card.sourceUrl} />
+      </div>
 
       {card.status === "analyzing" && (
         <div className="space-y-2 pt-1">
@@ -579,5 +589,78 @@ function SourcePicker({
         </Command>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function ViewDocumentLink({
+  storagePath,
+  sourceUrl,
+}: {
+  storagePath: string | null;
+  sourceUrl: string | null;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const hasAny = Boolean(storagePath || sourceUrl);
+
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loading) return;
+    if (sourceUrl && !storagePath) {
+      window.open(sourceUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (storagePath) {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(storagePath, 60 * 10);
+        if (error || !data?.signedUrl) {
+          toast.error("No se pudo abrir el documento");
+          return;
+        }
+        window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    if (sourceUrl) {
+      window.open(sourceUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  if (!hasAny) {
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60 cursor-not-allowed shrink-0">
+              📄 Ver documento <ExternalLink className="h-3 w-3" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>URL original no disponible</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={loading}
+      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground hover:underline shrink-0"
+    >
+      {loading ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <>
+          📄 Ver documento <ExternalLink className="h-3 w-3" />
+        </>
+      )}
+    </button>
   );
 }
