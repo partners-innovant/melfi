@@ -361,10 +361,10 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         }
       }
 
-      // 2) Build context and call analyze-session-live
-      const transcriptText = transcriptRef.current
-        .filter((s) => !s.error)
-        .map((s) => `${s.speaker}: ${s.text}`).join("\n");
+      // 2) Build condensed context and call analyze (Sonnet) — only the NEW transcript chunk
+      const transcriptText = newSegments.length
+        ? newSegments.map((s) => `${s.speaker}: ${s.text}`).join("\n")
+        : transcriptRef.current.filter((s) => !s.error).slice(-12).map((s) => `${s.speaker}: ${s.text}`).join("\n");
       const therapistNotesText = therapistEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
       const patientNotesText = patientEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
       const activeWithIds: AnalyzedSuggestion[] = analyzedSuggestions.length
@@ -375,14 +375,17 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             ...suggestions.patterns.map((t, i) => ({ id: `p-${i}`, type: "pattern", text: t })),
             ...suggestions.unexplored.map((t, i) => ({ id: `u-${i}`, type: "alert", text: t })),
           ];
+      const recentBullets = (summaryBlocks[0]?.bullets ?? []).slice(0, 3);
 
-      const { data: ad, error: aerr } = await supabase.functions.invoke("analyze-session-live", {
+      const { data: ad, error: aerr } = await supabase.functions.invoke("transcribe-session-chunk", {
         body: {
+          action: "analyze",
           patient_id: patientId,
           transcript_text: transcriptText,
           therapist_notes: therapistNotesText,
           patient_notes: patientNotesText,
           active_suggestions: activeWithIds.map(({ id, type, text }) => ({ id, type, text })),
+          recent_summary_bullets: recentBullets,
         },
       });
       if (aerr) throw aerr;
