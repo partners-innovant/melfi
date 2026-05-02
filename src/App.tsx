@@ -13,6 +13,7 @@ import PatientDetail from "./pages/PatientDetail";
 import Children from "./pages/Children";
 import ChildDetail from "./pages/ChildDetail";
 import Documents from "./pages/Documents";
+import AdminDocuments from "./pages/AdminDocuments";
 import Assistant from "./pages/Assistant";
 import Calendar from "./pages/Calendar";
 import FeedbackPage from "./pages/Feedback";
