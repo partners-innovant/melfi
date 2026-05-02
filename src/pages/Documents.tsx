@@ -511,13 +511,23 @@ function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: bool
         }
       }
 
+      // Duplicate detection by title (case-insensitive, owner + global docs).
+      let duplicate: DuplicateDoc | null = null;
+      try {
+        duplicate = await findDuplicateByTitle(title);
+      } catch (e) {
+        console.warn("[upload] duplicate check failed:", e);
+      }
+
       update(item.id, {
         status: "ready",
-        statusText: "Listo para subir",
+        statusText: duplicate ? "Duplicado detectado — elige una acción" : "Listo para subir",
         title,
         author,
         year,
         cachedText: text,
+        duplicate,
+        dupAction: duplicate ? "pending" : undefined,
       });
     } catch (e: any) {
       console.error("[upload] analyze failed:", e);
