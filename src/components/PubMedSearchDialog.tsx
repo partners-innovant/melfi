@@ -419,51 +419,93 @@ function ArticleCard({
 }
 
 /**
- * Imports a PubMed article into the documents library (global if admin)
- * as an abstract-only document. PDF download is currently disabled —
- * we always import the abstract text.
+ * Imports an article into the documents library (global if admin).
+ * If `tryPdf` is true and a PDF is available via EuropePMC, downloads it,
+ * uploads to Storage and indexes the extracted text. Otherwise imports the
+ * abstract as a plain-text document.
  */
 async function importPubMedArticle(
   article: PubMedArticle,
   isAdmin: boolean,
   setStatus: (s: string) => void,
+  tryPdf: boolean = false,
 ): Promise<{ target: ClassifyTarget; usedPdf: boolean }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado");
 
-  const storagePath: string | null = null;
+  let storagePath: string | null = null;
   let docText = "";
-  const usedPdf = false;
+  let usedPdf = false;
 
-  // Always import as abstract for now
-  let abstractText = article.abstract ?? "";
-  if (!abstractText.trim()) {
+  if (tryPdf && article.source && article.europepmc_id) {
     try {
-      setStatus("Obteniendo abstract...");
-      const { data } = await supabase.functions.invoke("search-pubmed", {
-        body: { action: "get_abstract", pubmed_id: article.pubmed_id },
+      setStatus("Descargando PDF...");
+      const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("search-pubmed", {
+        body: { action: "download_pdf", source: article.source, europepmc_id: article.europepmc_id },
       });
-      if (data?.abstract && typeof data.abstract === "string") {
-        abstractText = data.abstract;
+      if (pdfErr) throw new Error(pdfErr.message);
+      if (pdfData?.success && pdfData.pdf_base64) {
+        // Decode base64 → Blob → File
+        const binary = atob(pdfData.pdf_base64 as string);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const pdfFile = new File([bytes], `${article.europepmc_id}.pdf`, { type: "application/pdf" });
+
+        setStatus("Subiendo PDF...");
+        const path = `${user.id}/${crypto.randomUUID()}.pdf`;
+        const { error: upErr } = await supabase.storage.from("documents").upload(path, pdfFile, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+        if (upErr) throw new Error(`Storage: ${upErr.message}`);
+        storagePath = path;
+
+        setStatus("Extrayendo texto...");
+        docText = await extractPdfText(pdfFile);
+        usedPdf = true;
+      } else {
+        console.warn("[pubmed] PDF download failed:", pdfData?.error);
       }
     } catch (e) {
-      console.warn("[pubmed] get_abstract failed:", e);
+      console.warn("[pubmed] PDF flow failed, falling back to abstract:", e);
     }
   }
-  const note = "Documento importado como abstract";
-  const parts = [
-    `# ${article.title}`,
-    article.authors ? `Autores: ${article.authors}` : "",
-    article.journal ? `Revista: ${article.journal}` : "",
-    article.year ? `Año: ${article.year}` : "",
-    article.doi ? `DOI: ${article.doi}` : "",
-    article.url ? `PubMed: ${article.url}` : "",
-    "",
-    `> ${note}`,
-    "",
-    abstractText.trim() || "(Sin abstract disponible)",
-  ].filter(Boolean);
-  docText = parts.join("\n");
+
+  if (!usedPdf) {
+    let abstractText = article.abstract ?? "";
+    if (!abstractText.trim()) {
+      try {
+        setStatus("Obteniendo abstract...");
+        const { data } = await supabase.functions.invoke("search-pubmed", {
+          body: {
+            action: "get_abstract",
+            source: article.source,
+            europepmc_id: article.europepmc_id,
+            pubmed_id: article.pubmed_id,
+          },
+        });
+        if (data?.abstract && typeof data.abstract === "string") {
+          abstractText = data.abstract;
+        }
+      } catch (e) {
+        console.warn("[pubmed] get_abstract failed:", e);
+      }
+    }
+    const note = "Documento importado como abstract";
+    const parts = [
+      `# ${article.title}`,
+      article.authors ? `Autores: ${article.authors}` : "",
+      article.journal ? `Revista: ${article.journal}` : "",
+      article.year ? `Año: ${article.year}` : "",
+      article.doi ? `DOI: ${article.doi}` : "",
+      article.url ? `PubMed: ${article.url}` : "",
+      "",
+      `> ${note}`,
+      "",
+      abstractText.trim() || "(Sin abstract disponible)",
+    ].filter(Boolean);
+    docText = parts.join("\n");
+  }
 
   setStatus("Indexando...");
   const chunks = chunkText(docText);
