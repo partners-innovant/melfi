@@ -20,7 +20,7 @@ import { ClassifyPreviewDialog, type ClassifyTarget } from "@/components/Classif
 import { extractPdfText, chunkText } from "@/lib/pdf";
 import type { DocType } from "@/lib/clinical";
 
-export type PubMedPdfStatus = "available" | "abstract_only" | "no_open_access";
+export type PubMedPdfStatus = "pdf_available" | "abstract_only" | "no_access";
 
 export interface PubMedArticle {
   pubmed_id: string;
@@ -32,6 +32,7 @@ export interface PubMedArticle {
   year: string | null;
   has_free_pdf: boolean;
   pdf_status?: PubMedPdfStatus;
+  pdf_url?: string | null;
   abstract: string | null;
   url: string;
   pmc_url: string | null;
@@ -342,11 +343,11 @@ function ArticleCard({
         <div className="flex flex-col items-end gap-1 shrink-0">
           {(() => {
             const status: PubMedPdfStatus =
-              article.pdf_status ?? (article.has_free_pdf ? "available" : article.pmc_id ? "abstract_only" : "no_open_access");
-            if (status === "available") {
+              article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
+            if (status === "pdf_available") {
               return (
                 <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-                  🟢 PDF disponible
+                  🟢 PDF Open Access
                 </Badge>
               );
             }
@@ -397,7 +398,12 @@ function ArticleCard({
             {importing ? (
               <><Loader2 className="h-3 w-3 animate-spin" /> {statusText || "Importando..."}</>
             ) : (
-              <><Plus className="h-3 w-3" /> Importar</>
+              <>
+                <Plus className="h-3 w-3" />
+                {(article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : "abstract_only")) === "pdf_available"
+                  ? "Importar"
+                  : "Solo abstract"}
+              </>
             )}
           </Button>
         )}
@@ -424,16 +430,19 @@ async function importPubMedArticle(
   let docText = "";
   let usedPdf = false;
 
-  if (article.pmc_id) {
+  const status: PubMedPdfStatus =
+    article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
+
+  if (status === "pdf_available" && article.pmc_id) {
     try {
       setStatus("Descargando PDF...");
-      const { data, error } = await supabase.functions.invoke("fetch-pubmed-pdf", {
-        body: { pmc_id: article.pmc_id },
+      const { data, error } = await supabase.functions.invoke("search-pubmed", {
+        body: { action: "download_pdf", pmc_id: article.pmc_id, pdf_url: article.pdf_url ?? null },
       });
-      if (!error && data?.ok && data?.base64) {
-        const bytes = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
+      if (!error && data?.success && data?.pdf_base64) {
+        const bytes = Uint8Array.from(atob(data.pdf_base64), (c) => c.charCodeAt(0));
         const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" });
-        const file = new File([blob], `PMC${article.pmc_id}.pdf`, { type: "application/pdf" });
+        const file = new File([blob], `${article.pmc_id}.pdf`, { type: "application/pdf" });
         setStatus("Extrayendo texto...");
         try {
           docText = await extractPdfText(file);
@@ -443,7 +452,7 @@ async function importPubMedArticle(
         }
         if (docText && docText.trim().length > 200) {
           setStatus("Subiendo PDF...");
-          storagePath = `${user.id}/pubmed/PMC${article.pmc_id}-${crypto.randomUUID()}.pdf`;
+          storagePath = `${user.id}/pubmed/${article.pmc_id}-${crypto.randomUUID()}.pdf`;
           const { error: upErr } = await supabase.storage
             .from("documents")
             .upload(storagePath, file, { contentType: "application/pdf", upsert: false });
@@ -456,6 +465,8 @@ async function importPubMedArticle(
         } else {
           docText = "";
         }
+      } else if (data?.error) {
+        console.warn("[pubmed] download_pdf error:", data.error);
       }
     } catch (e) {
       console.warn("[pubmed] PDF fetch failed:", e);
@@ -464,6 +475,23 @@ async function importPubMedArticle(
 
   // Fallback to abstract text
   if (!usedPdf) {
+    let abstractText = article.abstract ?? "";
+    if (!abstractText.trim()) {
+      try {
+        setStatus("Obteniendo abstract...");
+        const { data } = await supabase.functions.invoke("search-pubmed", {
+          body: { action: "get_abstract", pubmed_id: article.pubmed_id },
+        });
+        if (data?.abstract && typeof data.abstract === "string") {
+          abstractText = data.abstract;
+        }
+      } catch (e) {
+        console.warn("[pubmed] get_abstract failed:", e);
+      }
+    }
+    const note = status === "pdf_available"
+      ? "Documento importado como abstract — la descarga del PDF falló"
+      : "Documento importado como abstract — PDF no disponible en PMC Open Access";
     const parts = [
       `# ${article.title}`,
       article.authors ? `Autores: ${article.authors}` : "",
@@ -472,7 +500,9 @@ async function importPubMedArticle(
       article.doi ? `DOI: ${article.doi}` : "",
       article.url ? `PubMed: ${article.url}` : "",
       "",
-      article.abstract ?? "(Sin abstract disponible)",
+      `> ${note}`,
+      "",
+      abstractText.trim() || "(Sin abstract disponible)",
     ].filter(Boolean);
     docText = parts.join("\n");
   }
