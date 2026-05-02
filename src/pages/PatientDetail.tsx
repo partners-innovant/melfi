@@ -230,11 +230,6 @@ export default function PatientDetail() {
         </DialogContent>
       </Dialog>
 
-      <PatientProfileBuilderPanel
-        patientId={patient.id}
-        onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
-      />
-
       <TransferPatientDialog
         open={transferOpen}
         onOpenChange={setTransferOpen}
@@ -255,6 +250,32 @@ export default function PatientDetail() {
         patientName={`${patient.first_name} ${patient.last_name}`}
         onSessionSaved={() => { load(); setRefreshKey((k) => k + 1); setTab("sessions"); }}
       />
+        </div>
+      </div>
+
+      {/* Profile Builder side panel — animates width, never overlays.
+          On <1200px (xl breakpoint) the parent stacks vertically and this becomes a full-width block. */}
+      <div
+        className={
+          "transition-[width,height] duration-300 ease-out overflow-hidden " +
+          "xl:h-full " +
+          (builderOpen
+            ? "xl:w-[400px] h-[70vh] xl:h-full"
+            : "xl:w-0 h-0")
+        }
+        style={{ flexShrink: 0 }}
+      >
+        {builderOpen && (
+          <PatientProfileBuilderPanel
+            patientId={patient.id}
+            open={builderOpen}
+            onOpenChange={setBuilderOpen}
+            onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }}
+          />
+        )}
+      </div>
+
+      {!builderOpen && <ProfileBuilderLauncher onOpen={() => setBuilderOpen(true)} />}
     </div>
   );
 }
