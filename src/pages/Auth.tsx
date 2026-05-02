@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Brain } from "lucide-react";
 import { lovable } from "@/integrations/lovable";
+import { AuthEthicalDisclaimer } from "@/components/EthicalDisclaimer";
 
 export default function Auth() {
   const { user } = useAuth();
