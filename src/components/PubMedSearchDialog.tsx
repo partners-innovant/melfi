@@ -359,29 +359,19 @@ function ArticleCard({
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {(() => {
-            const status: PubMedPdfStatus =
-              article.pdf_status ?? (article.has_free_pdf ? "pdf_available" : article.pmc_id ? "abstract_only" : "no_access");
-            if (status === "pdf_available") {
-              return (
-                <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
-                  🟢 PDF Open Access
-                </Badge>
-              );
-            }
-            if (status === "abstract_only") {
-              return (
-                <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
-                  🟡 Solo abstract
-                </Badge>
-              );
-            }
-            return (
-              <Badge className="text-[10px] bg-muted text-muted-foreground border-border hover:bg-muted">
-                ⚪ Sin acceso libre
-              </Badge>
-            );
-          })()}
+          {status === "pdf_available" ? (
+            <Badge className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15">
+              🟢 PDF Open Access
+            </Badge>
+          ) : status === "abstract_only" ? (
+            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
+              🟡 Solo abstract
+            </Badge>
+          ) : (
+            <Badge className="text-[10px] bg-muted text-muted-foreground border-border hover:bg-muted">
+              ⚪ Sin acceso libre
+            </Badge>
+          )}
         </div>
       </div>
 
