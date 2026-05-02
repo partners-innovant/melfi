@@ -155,6 +155,27 @@ export function sourceIconFor(name: string | null | undefined, type?: string | n
   }
 }
 
+// Display-only short names for well-known institutions. Database keeps the full string.
+const SHORT_NAME_RULES: { test: RegExp; short: string }[] = [
+  { test: /national institute for health and care excellence|\bnice\b/i, short: "NICE" },
+  { test: /american psychiatric association/i, short: "APA Psychiatry" },
+  { test: /american psychological association/i, short: "APA" },
+  { test: /world health organization|\bwho\b|\boms\b/i, short: "WHO" },
+  { test: /pan american health organization|\bpaho\b|\bops\b/i, short: "OPS/PAHO" },
+  { test: /national institute of mental health|\bnimh\b/i, short: "NIMH" },
+  { test: /international association for suicide prevention|\biasp\b/i, short: "IASP" },
+  { test: /world psychiatric association|\bwpa\b/i, short: "WPA" },
+];
+
+export function shortInstitutionName(name: string | null | undefined): string {
+  if (!name) return "";
+  const trimmed = name.trim();
+  for (const rule of SHORT_NAME_RULES) {
+    if (rule.test.test(trimmed)) return rule.short;
+  }
+  return trimmed;
+}
+
 // Tailwind color classes for each clinical area badge.
 const AREA_COLORS = [
   "bg-teal-500/15 text-teal-700 border-teal-500/30 dark:text-teal-300",
