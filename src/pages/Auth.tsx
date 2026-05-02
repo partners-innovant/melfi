@@ -54,6 +54,10 @@ export default function Auth() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!acceptedDisclaimer) {
+      toast.error("Debes aceptar el aviso ético para continuar.");
+      return;
+    }
     setLoading(true);
     try {
       // Whitelist pre-check (signup or signin)
