@@ -420,6 +420,7 @@ export default function AdminDocuments() {
       toast.error(`Error: ${e?.message ?? "no se pudo clasificar"}`, { id: tid });
     } finally {
       setSingleClassifyId(null);
+    }
   }
 
   async function reprocessDoc(d: DocRow): Promise<{ ok: boolean; count?: number; error?: string }> {
