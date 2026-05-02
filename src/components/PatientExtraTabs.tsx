@@ -52,6 +52,9 @@ export function PatientProfileBuilderTab({
   const [patientName, setPatientName] = useState<string>("");
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [analyzingFile, setAnalyzingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
