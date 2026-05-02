@@ -635,6 +635,18 @@ export default function AdminDocuments() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8"
+                      onClick={() => classifySingle(d)}
+                      disabled={singleClassifyId === d.id}
+                      title="Auto-clasificar"
+                    >
+                      {singleClassifyId === d.id
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Sparkles className="h-4 w-4 text-primary" />}
+                    </Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewer(d)} title="Ver documento">
                       <Eye className="h-4 w-4" />
                     </Button>
