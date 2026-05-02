@@ -1499,6 +1499,57 @@ export type Database = {
           },
         ]
       }
+      treatment_team: {
+        Row: {
+          address: string | null
+          child_patient_id: string | null
+          created_at: string
+          email: string | null
+          id: string
+          institution: string | null
+          is_primary_contact: boolean
+          notes: string | null
+          patient_id: string | null
+          phone: string | null
+          professional_name: string
+          professional_role: string
+          psychologist_id: string
+          specialty: string | null
+        }
+        Insert: {
+          address?: string | null
+          child_patient_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          institution?: string | null
+          is_primary_contact?: boolean
+          notes?: string | null
+          patient_id?: string | null
+          phone?: string | null
+          professional_name: string
+          professional_role: string
+          psychologist_id: string
+          specialty?: string | null
+        }
+        Update: {
+          address?: string | null
+          child_patient_id?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          institution?: string | null
+          is_primary_contact?: boolean
+          notes?: string | null
+          patient_id?: string | null
+          phone?: string | null
+          professional_name?: string
+          professional_role?: string
+          psychologist_id?: string
+          specialty?: string | null
+        }
+        Relationships: []
+      }
       wisc_evaluations: {
         Row: {
           child_patient_id: string
