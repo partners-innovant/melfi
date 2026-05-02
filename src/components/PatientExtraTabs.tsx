@@ -1,0 +1,467 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2,
+} from "lucide-react";
+import ReactMarkdown from "react-markdown";
+
+const ADULT_BUCKET = "adult-files";
+
+const PROFILE_FIELDS = [
+  { key: "presenting_problem", label: "Motivo de consulta" },
+  { key: "clinical_history", label: "Historia clínica" },
+  { key: "family_context", label: "Contexto familiar" },
+  { key: "work_context", label: "Contexto laboral / ocupacional" },
+  { key: "previous_treatments", label: "Tratamientos previos" },
+  { key: "relevant_history", label: "Antecedentes relevantes" },
+  { key: "personal_resources", label: "Recursos personales" },
+  { key: "therapeutic_goals", label: "Objetivos terapéuticos" },
+  { key: "diagnosis", label: "Diagnóstico / hipótesis" },
+  { key: "notes", label: "Notas clínicas" },
+] as const;
+
+type ProfileField = typeof PROFILE_FIELDS[number]["key"];
+
+type Proposal = { field: ProfileField; label: string; value: string; reason: string };
+type Msg = { role: "user" | "assistant"; content: string; proposals?: Proposal[] };
+
+// ===================== TAB: Constructor de Perfil =====================
+export function PatientProfileBuilderTab({
+  patientId,
+  onProfileUpdated,
+}: {
+  patientId: string;
+  onProfileUpdated?: () => void;
+}) {
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("patient_profile_chat")
+      .select("role, content")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: true });
+    setMessages((data ?? []) as Msg[]);
+    setLoading(false);
+  }, [patientId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sending]);
+
+  async function send(text?: string) {
+    const message = (text ?? input).trim();
+    if (!message || sending) return;
+    setInput("");
+    setSending(true);
+    setMessages((m) => [...m, { role: "user", content: message }, { role: "assistant", content: "" }]);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/profile-builder-chat`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ patient_id: patientId, message }),
+      });
+      if (!resp.ok || !resp.body) {
+        const err = await resp.text();
+        throw new Error(err || "Error en el servidor");
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assistantText = "";
+      let proposals: Proposal[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+        for (const evt of events) {
+          const lines = evt.split("\n");
+          let eventName = "message";
+          let dataStr = "";
+          for (const l of lines) {
+            if (l.startsWith("event:")) eventName = l.slice(6).trim();
+            else if (l.startsWith("data:")) dataStr += l.slice(5).trim();
+          }
+          if (!dataStr) continue;
+          try {
+            const data = JSON.parse(dataStr);
+            if (eventName === "delta") {
+              assistantText += data.text ?? "";
+              setMessages((m) => {
+                const copy = [...m];
+                copy[copy.length - 1] = { role: "assistant", content: assistantText, proposals };
+                return copy;
+              });
+            } else if (eventName === "proposals") {
+              proposals = data.proposals ?? [];
+              setMessages((m) => {
+                const copy = [...m];
+                copy[copy.length - 1] = { role: "assistant", content: assistantText, proposals };
+                return copy;
+              });
+            } else if (eventName === "error") {
+              throw new Error(data.error ?? "Error");
+            }
+          } catch (_e) { /* ignore partial */ }
+        }
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al enviar mensaje");
+      setMessages((m) => m.slice(0, -2));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function applyProposal(messageIdx: number, proposal: Proposal) {
+    const { error } = await supabase
+      .from("patients")
+      .update({ [proposal.field]: proposal.value })
+      .eq("id", patientId);
+    if (error) return toast.error(error.message);
+    toast.success(`${proposal.label} actualizado`);
+    onProfileUpdated?.();
+    setMessages((m) => {
+      const copy = [...m];
+      const msg = copy[messageIdx];
+      if (msg?.proposals) {
+        msg.proposals = msg.proposals.filter((p) => p !== proposal);
+      }
+      return copy;
+    });
+  }
+
+  function dismissProposal(messageIdx: number, proposal: Proposal) {
+    setMessages((m) => {
+      const copy = [...m];
+      const msg = copy[messageIdx];
+      if (msg?.proposals) msg.proposals = msg.proposals.filter((p) => p !== proposal);
+      return copy;
+    });
+  }
+
+  const SUGGESTIONS = [
+    "Empecemos con el motivo de consulta",
+    "Ya tengo informes subidos, analízalos",
+    "Quiero completar el contexto familiar",
+    "Trabajemos los objetivos terapéuticos",
+  ];
+
+  return (
+    <Card className="p-0 overflow-hidden flex flex-col" style={{ height: "calc(100vh - 280px)", minHeight: 500 }}>
+      <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
+        <Wand2 className="h-4 w-4 text-primary" />
+        <h3 className="font-semibold text-sm">Constructor de Perfil con IA</h3>
+        <Badge variant="secondary" className="ml-auto text-[10px]">Claude Sonnet</Badge>
+      </div>
+
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4">
+        {loading ? (
+          <div className="text-center text-sm text-muted-foreground py-8">Cargando conversación...</div>
+        ) : messages.length === 0 ? (
+          <div className="text-center text-sm text-muted-foreground py-8 space-y-3">
+            <Sparkles className="h-8 w-8 mx-auto text-primary/60" />
+            <p>Te ayudaré a construir el perfil clínico de este paciente paso a paso.</p>
+            <div className="flex flex-wrap gap-2 justify-center pt-2">
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => send(s)}
+                  className="text-xs px-3 py-1.5 rounded-full bg-primary-soft text-primary hover:bg-primary/10 transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map((m, i) => (
+            <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
+              <div className={
+                m.role === "user"
+                  ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2.5 max-w-[80%] text-sm"
+                  : "bg-muted rounded-2xl rounded-bl-sm px-4 py-2.5 max-w-[85%] text-sm space-y-3"
+              }>
+                {m.role === "assistant" ? (
+                  <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1">
+                    <ReactMarkdown>{m.content || (sending && i === messages.length - 1 ? "..." : "")}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="whitespace-pre-wrap">{m.content}</div>
+                )}
+                {m.proposals && m.proposals.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    {m.proposals.map((p, j) => (
+                      <div key={j} className="bg-background border border-border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-xs font-semibold">{p.label}</span>
+                        </div>
+                        <div className="text-xs whitespace-pre-wrap text-foreground/90">{p.value}</div>
+                        {p.reason && (
+                          <div className="text-[11px] text-muted-foreground italic">{p.reason}</div>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                          <Button size="sm" className="h-7 gap-1 text-xs" onClick={() => applyProposal(i, p)}>
+                            <Check className="h-3 w-3" />Aplicar
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => dismissProposal(i, p)}>
+                            <X className="h-3 w-3" />Descartar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="border-t border-border p-3 flex gap-2 bg-background">
+        <Textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          placeholder="Cuéntame sobre el paciente o pide algo específico..."
+          className="min-h-[44px] max-h-32 resize-none flex-1"
+          disabled={sending}
+        />
+        <Button onClick={() => send()} disabled={sending || !input.trim()} size="icon" className="self-end h-11 w-11">
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+// ===================== TAB: Documentos e Informes =====================
+const ADULT_DOC_TYPES = [
+  { value: "informe_psicologico", label: "Informe psicológico" },
+  { value: "informe_neurologico", label: "Informe neurológico" },
+  { value: "informe_psiquiatrico", label: "Informe psiquiátrico" },
+  { value: "evaluacion_externa", label: "Evaluación externa" },
+  { value: "informe_medico", label: "Informe médico" },
+  { value: "informe_laboral", label: "Informe laboral" },
+  { value: "otro", label: "Otro" },
+];
+const adultDocLabel = (v?: string | null) =>
+  ADULT_DOC_TYPES.find((d) => d.value === v)?.label ?? "Otro";
+
+export function PatientDocumentsTab({ patientId }: { patientId: string }) {
+  const [docs, setDocs] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    title: "", document_type: "", professional_name: "", professional_role: "",
+    document_date: "", notes: "",
+  });
+  const [file, setFile] = useState<File | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.from("adult_documents")
+      .select("*").eq("patient_id", patientId)
+      .order("document_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    setDocs(data ?? []);
+  }, [patientId]);
+  useEffect(() => { load(); }, [load]);
+
+  function reset() {
+    setForm({ title: "", document_type: "", professional_name: "", professional_role: "", document_date: "", notes: "" });
+    setFile(null);
+  }
+
+  async function uploadFile(f: File): Promise<string> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("No auth");
+    const safe = f.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${user.id}/documents/${Date.now()}-${safe}`;
+    const { error } = await supabase.storage.from(ADULT_BUCKET).upload(path, f);
+    if (error) throw error;
+    return path;
+  }
+
+  async function openSigned(path: string) {
+    const { data, error } = await supabase.storage.from(ADULT_BUCKET).createSignedUrl(path, 600);
+    if (error || !data?.signedUrl) return toast.error("No se pudo abrir el archivo");
+    window.open(data.signedUrl, "_blank");
+  }
+
+  async function save() {
+    if (!form.title.trim()) return toast.error("Título obligatorio");
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let file_path: string | null = null;
+      if (file) file_path = await uploadFile(file);
+      const { error } = await supabase.from("adult_documents").insert({
+        patient_id: patientId,
+        psychologist_id: user!.id,
+        title: form.title.trim(),
+        document_type: form.document_type || null,
+        professional_name: form.professional_name || null,
+        professional_role: form.professional_role || null,
+        document_date: form.document_date || null,
+        notes: form.notes || null,
+        file_path,
+      });
+      if (error) throw error;
+      toast.success("Documento guardado");
+      setOpen(false); reset(); load();
+    } catch (e: any) {
+      toast.error(e.message ?? "Error al guardar");
+    } finally { setSaving(false); }
+  }
+
+  async function remove(d: any) {
+    if (!confirm(`¿Eliminar "${d.title}"?`)) return;
+    if (d.file_path) await supabase.storage.from(ADULT_BUCKET).remove([d.file_path]);
+    const { error } = await supabase.from("adult_documents").delete().eq("id", d.id);
+    if (error) return toast.error(error.message);
+    toast.success("Documento eliminado");
+    load();
+  }
+
+  // Group by type
+  const grouped = docs.reduce((acc: Record<string, any[]>, d) => {
+    const k = d.document_type ?? "otro";
+    (acc[k] ||= []).push(d);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">Documentos e informes</h3>
+          <p className="text-xs text-muted-foreground">Informes externos, evaluaciones y documentos clínicos del paciente</p>
+        </div>
+        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+          <Button onClick={() => setOpen(true)} className="gap-1.5"><Plus className="h-4 w-4" />Agregar</Button>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Nuevo documento</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Título *</Label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Tipo</Label>
+                  <Select value={form.document_type} onValueChange={(v) => setForm({ ...form, document_type: v })}>
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>
+                      {ADULT_DOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Fecha</Label>
+                  <Input type="date" value={form.document_date} onChange={(e) => setForm({ ...form, document_date: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Profesional</Label>
+                  <Input value={form.professional_name} onChange={(e) => setForm({ ...form, professional_name: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Rol</Label>
+                  <Input value={form.professional_role} onChange={(e) => setForm({ ...form, professional_role: e.target.value })} placeholder="Psiquiatra, Neurólogo..." />
+                </div>
+              </div>
+              <div>
+                <Label>Notas</Label>
+                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} />
+              </div>
+              <div>
+                <Label>Archivo (PDF, imagen)</Label>
+                <Input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+              <Button onClick={save} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {docs.length === 0 ? (
+        <Card className="p-8 text-center text-sm text-muted-foreground">
+          <FileText className="h-10 w-10 mx-auto mb-2 opacity-30" />
+          Aún no hay documentos cargados.
+        </Card>
+      ) : (
+        Object.entries(grouped).map(([type, list]) => (
+          <div key={type} className="space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{adultDocLabel(type)}</h4>
+            {list.map((d) => (
+              <Card key={d.id} className="p-4 flex items-start gap-3">
+                <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{d.title}</p>
+                      <div className="flex flex-wrap gap-2 mt-1 text-xs text-muted-foreground">
+                        <Badge variant="secondary" className="text-[10px]">{adultDocLabel(d.document_type)}</Badge>
+                        {d.professional_name && <span>{d.professional_name}{d.professional_role ? ` · ${d.professional_role}` : ""}</span>}
+                        {d.document_date && <span>{new Date(d.document_date).toLocaleDateString("es-CL")}</span>}
+                      </div>
+                      {d.notes && <p className="text-xs mt-1.5 text-foreground/80 line-clamp-2">{d.notes}</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    {d.file_path && (
+                      <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => openSigned(d.file_path)}>
+                        <Eye className="h-3 w-3" />Ver documento
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => remove(d)}>
+                      <Trash2 className="h-3 w-3" />Eliminar
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
