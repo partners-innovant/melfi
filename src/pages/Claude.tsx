@@ -38,6 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ImportMemoryDialog from "@/components/ImportMemoryDialog";
 
 type Msg = { role: "user" | "assistant"; content: string };
 type Conv = { id: string; title: string | null; updated_at: string };
