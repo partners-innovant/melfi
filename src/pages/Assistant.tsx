@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown } from "lucide-react";
+import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
@@ -54,18 +54,31 @@ interface ConversationItem {
 const ALL = "__all__";
 const NONE = "__none__";
 
-const SUGGESTIONS = [
-  "¿Qué dice la evidencia sobre TCC para ansiedad?",
-  "¿Cómo abordar la resistencia terapéutica?",
-  "¿Cuáles son los criterios diagnósticos del DSM-5 para depresión mayor?",
-  "¿Qué protocolos existen para el tratamiento del TDAH en adultos?",
+// General clinical suggestions when no patient is selected (organized by clinical moment)
+const GENERAL_SUGGESTIONS: { label: string; question: string }[] = [
+  {
+    label: "Antes de sesión",
+    question: "¿Qué protocolo de evaluación inicial usar con un paciente que presenta síntomas mixtos de ansiedad y depresión?",
+  },
+  {
+    label: "Antes de sesión",
+    question: "¿Cómo estructurar las primeras 3 sesiones con un paciente resistente al proceso terapéutico?",
+  },
+  {
+    label: "Durante el tratamiento",
+    question: "¿Cuándo está indicado cambiar de enfoque terapéutico cuando no hay avance después de 3 meses?",
+  },
+  {
+    label: "Durante el tratamiento",
+    question: "¿Qué señales de alarma indican necesidad de derivación psiquiátrica urgente?",
+  },
 ];
 
-const CHILD_SUGGESTIONS = [
-  "¿Qué actividades lúdicas recomiendas para trabajar [objetivo actual]?",
-  "¿Cómo interpreto los resultados del último test?",
-  "¿Qué incluir en el informe para el colegio?",
-  "¿Cómo involucrar más a los apoderados en el proceso?",
+const CHILD_GENERAL_SUGGESTIONS: { label: string; question: string }[] = [
+  { label: "Antes de sesión", question: "¿Qué actividades lúdicas recomiendas para trabajar regulación emocional en niños?" },
+  { label: "Antes de sesión", question: "¿Cómo estructurar la primera sesión con un niño derivado por conducta disruptiva?" },
+  { label: "Durante el tratamiento", question: "¿Qué incluir en el informe psicoeducativo para el colegio?" },
+  { label: "Durante el tratamiento", question: "¿Cómo involucrar más a los apoderados en el proceso terapéutico?" },
 ];
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -115,6 +128,10 @@ export default function Assistant() {
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [sourcesInitialized, setSourcesInitialized] = useState(false);
 
+  // Dynamic per-patient suggestions cache (key = patient_id)
+  const [suggestionsCache, setSuggestionsCache] = useState<Record<string, string[]>>({});
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const patientsMap = useMemo(
@@ -123,6 +140,32 @@ export default function Assistant() {
   );
 
   const activePatientName = patientId !== NONE ? patientsMap.get(patientId) ?? null : null;
+
+  const fetchPatientSuggestions = useCallback(async (force = false) => {
+    if (patientId === NONE) return;
+    if (!force && suggestionsCache[patientId]?.length) return;
+    setLoadingSuggestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("patient-suggestions", {
+        body: { patient_id: patientId, patient_kind: patientKind },
+      });
+      if (error) throw new Error(error.message);
+      const arr: string[] = Array.isArray(data?.suggestions) ? data.suggestions : [];
+      if (arr.length) {
+        setSuggestionsCache((c) => ({ ...c, [patientId]: arr }));
+      }
+    } catch (e: any) {
+      console.error("[patient-suggestions]", e);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [patientId, patientKind, suggestionsCache]);
+
+  useEffect(() => {
+    if (patientId !== NONE && !suggestionsCache[patientId]) {
+      void fetchPatientSuggestions();
+    }
+  }, [patientId, suggestionsCache, fetchPatientSuggestions]);
 
   useEffect(() => {
     (async () => {
@@ -508,17 +551,16 @@ export default function Assistant() {
                 sourcesCount={selectedSources.length}
                 allSourcesCount={availableSources.length}
               />
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {(patientKind === "child" ? CHILD_SUGGESTIONS : SUGGESTIONS).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => { setInput(s); }}
-                    className="text-left text-sm border border-border rounded-xl px-3 py-2.5 hover:bg-accent hover:border-primary/40 transition-colors"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              <SuggestionChips
+                patientId={patientId}
+                patientKind={patientKind}
+                patientName={activePatientName}
+                dynamic={patientId !== NONE ? suggestionsCache[patientId] ?? [] : []}
+                loading={loadingSuggestions}
+                onPick={(s) => setInput(s)}
+                onRefresh={() => fetchPatientSuggestions(true)}
+              />
+
             </div>
           </div>
         ) : (
@@ -621,6 +663,92 @@ function SidebarBody({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function SuggestionChips({
+  patientId, patientKind, patientName, dynamic, loading, onPick, onRefresh,
+}: {
+  patientId: string;
+  patientKind: "adult" | "child";
+  patientName: string | null;
+  dynamic: string[];
+  loading: boolean;
+  onPick: (s: string) => void;
+  onRefresh: () => void;
+}) {
+  const hasPatient = patientId !== NONE;
+
+  if (hasPatient) {
+    return (
+      <div className="mt-5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-medium text-muted-foreground">
+            {patientName ? `Sugerencias para ${patientName}` : "Sugerencias para este paciente"}
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-3 w-3", loading && "animate-spin")} />
+            Actualizar sugerencias
+          </button>
+        </div>
+        {loading && dynamic.length === 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-14 rounded-xl border border-border bg-muted/30 animate-pulse" />
+            ))}
+          </div>
+        ) : dynamic.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {dynamic.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPick(s)}
+                className="text-left text-sm border border-border rounded-full px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">No se pudieron generar sugerencias.</p>
+        )}
+      </div>
+    );
+  }
+
+  const groups = patientKind === "child" ? CHILD_GENERAL_SUGGESTIONS : GENERAL_SUGGESTIONS;
+  const byLabel = new Map<string, string[]>();
+  for (const g of groups) {
+    if (!byLabel.has(g.label)) byLabel.set(g.label, []);
+    byLabel.get(g.label)!.push(g.question);
+  }
+
+  return (
+    <div className="mt-5 space-y-3">
+      {Array.from(byLabel.entries()).map(([label, qs]) => (
+        <div key={label}>
+          <div className="text-xs font-medium text-muted-foreground mb-1.5">{label}</div>
+          <div className="flex flex-wrap gap-2">
+            {qs.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onPick(s)}
+                className="text-left text-sm border border-border rounded-full px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
