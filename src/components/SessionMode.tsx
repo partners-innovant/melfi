@@ -313,9 +313,10 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   }
 
   async function checkSuggestionsUsed(transcription: string) {
-    const all = suggestionsRef.current.questions
-      .map((t) => ({ kind: "question" as const, text: t }))
-      .concat(suggestionsRef.current.interventions.map((t) => ({ kind: "intervention" as const, text: t })));
+    const all: { kind: "question" | "intervention"; text: string }[] = [
+      ...suggestionsRef.current.questions.map((t) => ({ kind: "question" as const, text: t })),
+      ...suggestionsRef.current.interventions.map((t) => ({ kind: "intervention" as const, text: t })),
+    ];
     for (const sug of all) {
       const key = sug.text.toLowerCase().trim();
       if (checkedSuggestionsRef.current.has(key)) continue;
