@@ -562,11 +562,21 @@ interface QueueItem {
   cachedText?: string;
   duplicate?: DuplicateDoc | null;
   dupAction?: DupAction;
+  chunksCount?: number;
+}
+
+interface UploadResults {
+  success: number;
+  failed: number;
+  totalChunks: number;
+  errors: { name: string; error: string }[];
 }
 
 function UploadDialog({ onClose, isAdmin }: { onClose: () => void; isAdmin: boolean }) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<UploadResults | null>(null);
+  const [showErrorsList, setShowErrorsList] = useState(false);
 
   function update(id: string, patch: Partial<QueueItem>) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
