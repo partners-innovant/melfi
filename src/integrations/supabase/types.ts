@@ -1173,37 +1173,88 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
+          bio: string | null
+          city: string | null
           created_at: string
+          default_session_duration: number | null
+          default_session_frequency: string | null
           first_name: string
           google_calendar_id: string | null
           google_calendar_token: Json | null
+          graduation_year: number | null
           id: string
+          institution: string | null
           is_admin: boolean
           last_name: string
+          license_number: string | null
+          linkedin: string | null
           phone: string | null
+          postgraduate: string | null
+          region: string | null
           rut: string | null
+          secondary_specialty: string | null
+          specialty: string | null
+          theoretical_approach: string[] | null
+          university: string | null
+          website: string | null
+          years_experience: number | null
         }
         Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
           created_at?: string
+          default_session_duration?: number | null
+          default_session_frequency?: string | null
           first_name: string
           google_calendar_id?: string | null
           google_calendar_token?: Json | null
+          graduation_year?: number | null
           id: string
+          institution?: string | null
           is_admin?: boolean
           last_name: string
+          license_number?: string | null
+          linkedin?: string | null
           phone?: string | null
+          postgraduate?: string | null
+          region?: string | null
           rut?: string | null
+          secondary_specialty?: string | null
+          specialty?: string | null
+          theoretical_approach?: string[] | null
+          university?: string | null
+          website?: string | null
+          years_experience?: number | null
         }
         Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          city?: string | null
           created_at?: string
+          default_session_duration?: number | null
+          default_session_frequency?: string | null
           first_name?: string
           google_calendar_id?: string | null
           google_calendar_token?: Json | null
+          graduation_year?: number | null
           id?: string
+          institution?: string | null
           is_admin?: boolean
           last_name?: string
+          license_number?: string | null
+          linkedin?: string | null
           phone?: string | null
+          postgraduate?: string | null
+          region?: string | null
           rut?: string | null
+          secondary_specialty?: string | null
+          specialty?: string | null
+          theoretical_approach?: string[] | null
+          university?: string | null
+          website?: string | null
+          years_experience?: number | null
         }
         Relationships: []
       }
