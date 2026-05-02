@@ -736,6 +736,12 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
     }
   }
 
+  // Use prefill once: applied to the first file picked after the dialog opens.
+  const prefillRef = useRef<PubMedUploadPrefill | null>(prefill ?? null);
+  useEffect(() => {
+    prefillRef.current = prefill ?? null;
+  }, [prefill]);
+
   function onPickFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const next: QueueItem[] = Array.from(files).map((file) => ({
@@ -758,6 +764,11 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
       statusText: "En cola",
     }));
     setItems((prev) => [...prev, ...next]);
+
+    // Consume prefill on first file in this batch (PubMed flow).
+    const consumedPrefill = prefillRef.current;
+    const prefillTargetId = consumedPrefill ? next[0].id : null;
+    if (consumedPrefill) prefillRef.current = null;
 
     // Parallel classification with concurrency limit of 3 to avoid rate limits.
     (async () => {
