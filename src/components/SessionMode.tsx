@@ -385,6 +385,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       liveStartRef.current = Date.now();
       livePausedAccumRef.current = 0;
       setRecElapsed(0);
+      setChunkCount(0);
       setRecState("recording");
       startLiveTimer();
       setActiveTab("transcript");
