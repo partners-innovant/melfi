@@ -21,6 +21,9 @@ import html2canvas from "html2canvas";
 import ResponseFeedbackBar from "@/components/ResponseFeedbackBar";
 import { chunkText } from "@/lib/pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import AssistantDiagram from "@/components/AssistantDiagram";
+import { AssistantDiagramData } from "@/lib/assistantDiagram";
+import { diagramToHtml } from "@/lib/assistantDiagramHtml";
 
 interface Citation {
   chunk_id: string;
