@@ -20,18 +20,27 @@ Responde SOLO con JSON:
   ]
 }`;
 
+// Bullets-only prompt (Haiku) — pure summarization, no clinical reasoning required
+const BULLETS_SYSTEM = `Eres un asistente clínico que resume una sesión terapéutica en curso.
+
+Genera un RESUMEN EN BULLETS (summary_bullets): máximo 8 puntos de no más de 15 palabras cada uno resumiendo lo conversado. Tercera persona, lenguaje clínico conciso.
+
+Responde SOLO con JSON válido (sin markdown, sin \`\`\`):
+{
+  "summary_bullets": ["..."]
+}`;
+
+// Suggestions + insights prompt (Sonnet) — requires deeper clinical reasoning
 const ANALYZE_SYSTEM = `Eres un supervisor clínico analizando una sesión terapéutica en curso.
 
 Analiza el material y genera:
 
-1. RESUMEN EN BULLETS (summary_bullets): máximo 8 puntos de no más de 15 palabras cada uno resumiendo lo conversado. Tercera persona, lenguaje clínico conciso.
-2. SUGERENCIAS ACTUALIZADAS (suggestions): basadas en lo que REALMENTE se ha dicho. Cada una con tipo y rationale breve.
-3. SUGERENCIAS DETECTADAS (suggestions_addressed): IDs de las sugerencias activas que parecen abordadas.
-4. INSIGHT DE SESIÓN (session_insights): observación clínica de 1-2 oraciones.
+1. SUGERENCIAS ACTUALIZADAS (suggestions): basadas en lo que REALMENTE se ha dicho. Cada una con tipo y rationale breve.
+2. SUGERENCIAS DETECTADAS (suggestions_addressed): IDs de las sugerencias activas que parecen abordadas.
+3. INSIGHT DE SESIÓN (session_insights): observación clínica de 1-2 oraciones.
 
 Responde SOLO con JSON válido (sin markdown, sin \`\`\`):
 {
-  "summary_bullets": ["..."],
   "suggestions": [{"type":"question|intervention|pattern|alert","text":"...","rationale":"..."}],
   "suggestions_addressed": ["id1"],
   "session_insights": "..."
@@ -82,6 +91,7 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      // Using Haiku — audio transcription, no clinical reasoning needed
       const data = await callAnthropic(HAIKU_MODEL, {
         max_tokens: 2000,
         messages: [{
