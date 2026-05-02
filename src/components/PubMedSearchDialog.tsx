@@ -23,19 +23,24 @@ import type { DocType } from "@/lib/clinical";
 export type PubMedPdfStatus = "pdf_available" | "abstract_only" | "no_access";
 
 export interface PubMedArticle {
-  pubmed_id: string;
+  pubmed_id: string | null;
   pmc_id: string | null;
+  europepmc_id: string;
+  source: string;
   doi: string | null;
   title: string;
   authors: string;
   journal: string | null;
   year: string | null;
+  has_pdf?: boolean;
+  is_open_access?: boolean;
   has_free_pdf: boolean;
   pdf_status?: PubMedPdfStatus;
   pdf_url?: string | null;
   abstract: string | null;
   url: string;
   pmc_url: string | null;
+  europepmc_url?: string;
 }
 
 interface SearchPayload {
