@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { patient_id, session_id, previous_used_suggestions } = body ?? {};
+    const { patient_id, session_id, previous_used_suggestions, transcript_summary } = body ?? {};
     if (!patient_id || !session_id) {
       return new Response(JSON.stringify({ error: "patient_id y session_id requeridos" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
