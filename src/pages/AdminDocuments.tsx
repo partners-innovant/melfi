@@ -3,9 +3,9 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw,
+  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye,
 } from "lucide-react";
-import { extractPdfText, extractTxtText, chunkText } from "@/lib/pdf";
+import { extractPdfText, extractTxtText, chunkText, renderPdfPagesToBase64 } from "@/lib/pdf";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
