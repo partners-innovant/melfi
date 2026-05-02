@@ -1414,6 +1414,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_list_therapist_patients: {
+        Args: { _therapist_id: string }
+        Returns: {
+          birth_date: string
+          diagnosis: string
+          first_name: string
+          id: string
+          last_name: string
+          start_date: string
+        }[]
+      }
       admin_list_therapists: {
         Args: never
         Returns: {
@@ -1427,6 +1438,14 @@ export type Database = {
           phone: string
           rut: string
         }[]
+      }
+      admin_transfer_patient: {
+        Args: {
+          _patient_id: string
+          _to_therapist_id: string
+          _transfer_notes?: string
+        }
+        Returns: string
       }
       get_user_id_by_email: { Args: { _email: string }; Returns: string }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
