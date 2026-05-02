@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      adult_documents: {
+        Row: {
+          created_at: string
+          document_date: string | null
+          document_type: string | null
+          file_path: string | null
+          id: string
+          notes: string | null
+          patient_id: string
+          professional_name: string | null
+          professional_role: string | null
+          psychologist_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          document_date?: string | null
+          document_type?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          patient_id: string
+          professional_name?: string | null
+          professional_role?: string | null
+          psychologist_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          document_date?: string | null
+          document_type?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          professional_name?: string | null
+          professional_role?: string | null
+          psychologist_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adult_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       behavioral_tracking: {
         Row: {
           behavior_name: string
@@ -881,51 +931,113 @@ export type Database = {
           },
         ]
       }
+      patient_profile_chat: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          patient_id: string
+          psychologist_id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          patient_id: string
+          psychologist_id: string
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          patient_id?: string
+          psychologist_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_profile_chat_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           birth_date: string | null
+          clinical_history: string | null
           created_at: string
           diagnosis: string | null
           extended_notes: string | null
+          family_context: string | null
           first_name: string
           id: string
           last_name: string
           marital_status: string | null
           notes: string | null
           occupation: string | null
+          personal_resources: string | null
+          presenting_problem: string | null
+          previous_treatments: string | null
+          profile_builder_completed: boolean
           psychologist_id: string
+          relevant_history: string | null
           sex: string | null
           start_date: string | null
+          therapeutic_goals: string | null
+          work_context: string | null
         }
         Insert: {
           birth_date?: string | null
+          clinical_history?: string | null
           created_at?: string
           diagnosis?: string | null
           extended_notes?: string | null
+          family_context?: string | null
           first_name: string
           id?: string
           last_name: string
           marital_status?: string | null
           notes?: string | null
           occupation?: string | null
+          personal_resources?: string | null
+          presenting_problem?: string | null
+          previous_treatments?: string | null
+          profile_builder_completed?: boolean
           psychologist_id: string
+          relevant_history?: string | null
           sex?: string | null
           start_date?: string | null
+          therapeutic_goals?: string | null
+          work_context?: string | null
         }
         Update: {
           birth_date?: string | null
+          clinical_history?: string | null
           created_at?: string
           diagnosis?: string | null
           extended_notes?: string | null
+          family_context?: string | null
           first_name?: string
           id?: string
           last_name?: string
           marital_status?: string | null
           notes?: string | null
           occupation?: string | null
+          personal_resources?: string | null
+          presenting_problem?: string | null
+          previous_treatments?: string | null
+          profile_builder_completed?: boolean
           psychologist_id?: string
+          relevant_history?: string | null
           sex?: string | null
           start_date?: string | null
+          therapeutic_goals?: string | null
+          work_context?: string | null
         }
         Relationships: []
       }
