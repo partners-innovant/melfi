@@ -282,7 +282,7 @@ ${(adultDocs ?? []).map((d: any) => `- ${d.document_date ?? "s/f"} · ${d.title}
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 2048,
-        system: SYSTEM_PROMPT + childSystemAddition,
+        system: SYSTEM_PROMPT + childSystemAddition + (mode === "diagnosis_debate" ? DIAGNOSIS_DEBATE_ADDITION : ""),
         stream: true,
         messages: [{ role: "user", content: userMessage }],
       }),
