@@ -40,6 +40,7 @@ const App = () => (
             <Route path="/children" element={<Shell><Children /></Shell>} />
             <Route path="/children/:id" element={<Shell><ChildDetail /></Shell>} />
             <Route path="/documents" element={<Shell><Documents /></Shell>} />
+            <Route path="/admin/documents" element={<Shell><AdminDocuments /></Shell>} />
             <Route path="/assistant" element={<Shell><Assistant /></Shell>} />
             <Route path="/calendar" element={<Shell><Calendar /></Shell>} />
             <Route path="/feedback" element={<Shell><FeedbackPage /></Shell>} />
