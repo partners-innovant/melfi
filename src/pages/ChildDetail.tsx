@@ -49,6 +49,7 @@ export default function ChildDetail() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
