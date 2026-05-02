@@ -182,39 +182,93 @@ async function handleSearch(body: Record<string, unknown>): Promise<Response> {
   return jsonResponse({ articles });
 }
 
+function isPdfBytes(bytes: Uint8Array): boolean {
+  return bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+}
+
+async function tryUnpaywallFallback(pmcId: string): Promise<{ bytes: Uint8Array; url: string } | null> {
+  try {
+    const upRes = await fetch(
+      `https://api.unpaywall.org/v2/PMC${pmcId}?email=admin@psicoasist.com`,
+      { headers: { "User-Agent": UA } },
+    );
+    if (!upRes.ok) return null;
+    const upData = await upRes.json();
+    const oaUrl: string | undefined = upData?.best_oa_location?.url_for_pdf;
+    if (!oaUrl) return null;
+    const fbRes = await fetch(oaUrl, {
+      redirect: "follow",
+      headers: { "User-Agent": UA, "Accept": "application/pdf,*/*;q=0.8" },
+    });
+    if (!fbRes.ok) return null;
+    const bytes = new Uint8Array(await fbRes.arrayBuffer());
+    if (!isPdfBytes(bytes)) return null;
+    return { bytes, url: oaUrl };
+  } catch (e) {
+    console.warn("[search-pubmed] Unpaywall fallback failed", e);
+    return null;
+  }
+}
+
 async function handleDownloadPdf(body: Record<string, unknown>): Promise<Response> {
   const pmcRaw = typeof body.pmc_id === "string" ? body.pmc_id : (typeof body.pmcId === "string" ? body.pmcId : null);
-  let downloadUrl = typeof body.pdf_url === "string" ? body.pdf_url : (typeof body.pdfUrl === "string" ? body.pdfUrl : null);
-
-  // Always re-verify via the OA service to make sure the URL is fresh and the
-  // article is still in the OA subset.
-  if (pmcRaw) {
-    const verified = await resolveOaPdfUrl(pmcRaw);
-    if (verified) downloadUrl = verified;
-    else downloadUrl = null;
+  if (!pmcRaw) {
+    return jsonResponse({ success: false, error: "pmc_id is required" }, 400);
   }
+  const cleanId = pmcRaw.replace(/^PMC/i, "");
 
-  if (!downloadUrl) {
+  // Step 1: Verify article is in the OA subset via NCBI OA Web Service.
+  const verified = await resolveOaPdfUrl(cleanId);
+  if (!verified) {
     return jsonResponse({ success: false, error: "PDF no disponible en PMC Open Access" }, 404);
   }
 
-  const pdfRes = await fetch(downloadUrl, {
-    redirect: "follow",
-    headers: { "User-Agent": UA, "Accept": "application/pdf,*/*;q=0.8" },
-  });
-  if (!pdfRes.ok) {
-    return jsonResponse({ success: false, error: `Error descargando PDF: ${pdfRes.status}` }, 502);
+  // Step 2: Download from EuropePMC mirror (more permissive than NCBI direct).
+  const europePmcUrl = `https://europepmc.org/backend/ptpmcrender.fcgi?accid=PMC${cleanId}&blobtype=pdf`;
+  let bytes: Uint8Array | null = null;
+  let sourceUrl = europePmcUrl;
+
+  try {
+    const pdfRes = await fetch(europePmcUrl, {
+      redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; Psicoasist/1.0; research tool)",
+        "Accept": "application/pdf,*/*",
+        "Referer": "https://europepmc.org/",
+      },
+    });
+    if (pdfRes.ok) {
+      const contentType = pdfRes.headers.get("content-type") || "";
+      const buf = new Uint8Array(await pdfRes.arrayBuffer());
+      if ((contentType.includes("pdf") || isPdfBytes(buf)) && isPdfBytes(buf)) {
+        bytes = buf;
+      }
+    } else {
+      console.warn("[search-pubmed] EuropePMC download failed", pdfRes.status);
+    }
+  } catch (e) {
+    console.warn("[search-pubmed] EuropePMC fetch error", e);
   }
-  const bytes = new Uint8Array(await pdfRes.arrayBuffer());
-  // Validate PDF magic bytes (%PDF)
-  if (bytes.length < 5 || bytes[0] !== 0x25 || bytes[1] !== 0x50 || bytes[2] !== 0x44 || bytes[3] !== 0x46) {
-    return jsonResponse({ success: false, error: "El servidor devolvió contenido no-PDF" }, 502);
+
+  // Step 3: Fallback to Unpaywall if EuropePMC didn't yield a PDF.
+  if (!bytes) {
+    const fb = await tryUnpaywallFallback(cleanId);
+    if (fb) {
+      bytes = fb.bytes;
+      sourceUrl = fb.url;
+    }
   }
+
+  if (!bytes) {
+    return jsonResponse({ success: false, error: "Error descargando PDF desde EuropePMC y Unpaywall" }, 502);
+  }
+
   return jsonResponse({
     success: true,
     pdf_base64: toBase64(bytes),
     size: bytes.length,
-    url: downloadUrl,
+    url: sourceUrl,
+    source_url: sourceUrl,
   });
 }
 
