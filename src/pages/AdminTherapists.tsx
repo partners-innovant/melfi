@@ -35,7 +35,7 @@ import {
 import { toast } from "sonner";
 import { Pencil, Plus, Power, Search, Trash2, Upload, X, Save, UserPlus, History, Mail } from "lucide-react";
 import { Navigate } from "react-router-dom";
-import TransferPatientDialog from "@/components/TransferPatientDialog";
+import AdminTransferWizard from "@/components/AdminTransferWizard";
 import TransferHistoryPanel from "@/components/TransferHistoryPanel";
 
 type RegisteredTherapist = {
@@ -860,21 +860,31 @@ export default function AdminTherapists() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Transfer dialog */}
-      <TransferPatientDialog
+      {/* Transfer wizard (admin) */}
+      <AdminTransferWizard
         open={!!transferTarget}
         onOpenChange={(o) => !o && setTransferTarget(null)}
-        therapist={
-          transferTarget && transferTarget.email
+        fromTherapist={
+          transferTarget
             ? {
                 id: transferTarget.id,
                 email: transferTarget.email,
                 first_name: transferTarget.first_name,
                 last_name: transferTarget.last_name,
               }
-            : undefined
+            : null
         }
-        onTransferred={() => setTransferTarget(null)}
+        allTherapists={registered.map((r) => ({
+          id: r.id,
+          email: r.email,
+          first_name: r.first_name,
+          last_name: r.last_name,
+          patient_count: r.patient_count,
+        }))}
+        onTransferred={() => {
+          setTransferTarget(null);
+          fetchAll();
+        }}
       />
 
       {/* Transfer history */}
