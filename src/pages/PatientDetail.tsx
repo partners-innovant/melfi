@@ -130,16 +130,11 @@ export default function PatientDetail() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex flex-wrap h-auto w-full justify-start">
-          <TabsTrigger value="builder">Constructor de Perfil</TabsTrigger>
           <TabsTrigger value="profile">Perfil</TabsTrigger>
           <TabsTrigger value="sessions">Sesiones</TabsTrigger>
           <TabsTrigger value="documents">Documentos e Informes</TabsTrigger>
           <TabsTrigger value="history">Consultas</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="builder" className="mt-4">
-          <PatientProfileBuilderTab patientId={patient.id} onProfileUpdated={() => { load(); setRefreshKey((k) => k + 1); }} />
-        </TabsContent>
 
         <TabsContent value="documents" className="mt-4">
           <PatientDocumentsTab patientId={patient.id} />
