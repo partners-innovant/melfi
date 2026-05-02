@@ -228,7 +228,7 @@ export function ClassifyPreviewDialog({
         source_institution_type: c.sourceInstitution ? (c.sourceInstitutionType ?? "otro") : null,
         language: c.language || null,
       };
-      await supabase.from("document_chunks").update(chunkPatch).eq("document_id", c.id);
+      await supabase.from("document_chunks").update(chunkPatch as any).eq("document_id", c.id);
       ok++;
     }
     setSaving(false);
