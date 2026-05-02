@@ -86,6 +86,33 @@ export default function AdminDocuments() {
   const [noChunksSearchAt, setNoChunksSearchAt] = useState<Date | null>(null);
   const [, setNowTick] = useState(0);
 
+  // Per-column filters (debounced text inputs)
+  const [colTitle, setColTitle] = useState("");
+  const [colTitleDebounced, setColTitleDebounced] = useState("");
+  const [colAuthor, setColAuthor] = useState("");
+  const [colAuthorDebounced, setColAuthorDebounced] = useState("");
+  const [colYearFrom, setColYearFrom] = useState("");
+  const [colYearTo, setColYearTo] = useState("");
+  const [colType, setColType] = useState<string>(ANY);
+  const [colAreas, setColAreas] = useState<string[]>([]);
+  const [colSourceCol, setColSourceCol] = useState<string>(ANY);
+  const [colLang, setColLang] = useState<string>(ANY);
+  const [colChunks, setColChunks] = useState<string>(ANY); // ANY | "0" | "1+"
+  const [colOrigin, setColOrigin] = useState<string>(ANY);
+  const [colDateFrom, setColDateFrom] = useState<Date | undefined>(undefined);
+  const [colDateTo, setColDateTo] = useState<Date | undefined>(undefined);
+
+  // Debounce title/author 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setColTitleDebounced(colTitle), 300);
+    return () => clearTimeout(t);
+  }, [colTitle]);
+  useEffect(() => {
+    const t = setTimeout(() => setColAuthorDebounced(colAuthor), 300);
+    return () => clearTimeout(t);
+  }, [colAuthor]);
+
+
   // Reprocessing
   const [reprocessing, setReprocessing] = useState<Set<string>>(new Set());
   const [reprocessErrors, setReprocessErrors] = useState<Record<string, string>>({});
