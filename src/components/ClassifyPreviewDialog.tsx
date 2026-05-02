@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { toast } from "sonner";
 import { Sparkles, Loader2, AlertCircle, Check, ChevronsUpDown, X, ExternalLink } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -603,7 +603,7 @@ function ViewDocumentLink({
 
   const hasAny = Boolean(storagePath || sourceUrl);
 
-  async function handleClick(e: React.MouseEvent) {
+  async function handleClick(e: ReactMouseEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (loading) return;
