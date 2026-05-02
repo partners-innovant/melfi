@@ -1259,6 +1259,7 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
     <div style="margin-bottom:28px">
       <p style="color:${TEAL}; font-weight:700; font-size:15px; margin-bottom:8px">Respuesta:</p>
       <div>${answerHtml}</div>
+      ${assistant.diagram ? diagramToHtml(assistant.diagram) : ""}
     </div>
     ${citationsBlock}
     <div style="margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between">
