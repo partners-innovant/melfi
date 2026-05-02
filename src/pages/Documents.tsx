@@ -1128,6 +1128,27 @@ function QueueRow({
         </div>
       )}
 
+      {item.status === "analyzing" && (
+        <div className="space-y-2 pt-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="h-4 w-4 animate-pulse text-primary" />
+            <span>✨ Analizando documento...</span>
+          </div>
+          <div className="space-y-2">
+            <div className="h-7 rounded bg-muted animate-pulse" />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="h-7 rounded bg-muted animate-pulse col-span-2" />
+              <div className="h-7 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="h-7 rounded bg-muted animate-pulse" />
+              <div className="h-7 rounded bg-muted animate-pulse col-span-2" />
+            </div>
+            <div className="h-7 rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+      )}
+
       {(item.status === "ready" || item.status === "done") && (
         <div className="space-y-2 pt-1">
           {/* Row 1: Título (full width) */}
