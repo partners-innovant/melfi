@@ -622,6 +622,8 @@ export type Database = {
           clinical_areas: string[]
           created_at: string
           document_type: string
+          europepmc_id: string | null
+          europepmc_source: string | null
           id: string
           import_source: string | null
           is_global: boolean
@@ -643,6 +645,8 @@ export type Database = {
           clinical_areas?: string[]
           created_at?: string
           document_type: string
+          europepmc_id?: string | null
+          europepmc_source?: string | null
           id?: string
           import_source?: string | null
           is_global?: boolean
@@ -664,6 +668,8 @@ export type Database = {
           clinical_areas?: string[]
           created_at?: string
           document_type?: string
+          europepmc_id?: string | null
+          europepmc_source?: string | null
           id?: string
           import_source?: string | null
           is_global?: boolean
