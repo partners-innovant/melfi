@@ -826,6 +826,15 @@ export default function AdminDocuments() {
                     <span className="inline-flex items-center gap-1 text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" /> …
                     </span>
+                  ) : recentlyProcessed[d.id] && d.chunk_count > 0 ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                        ✅ {d.chunk_count} fragmentos
+                      </span>
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5">
+                        <Check className="h-3 w-3" /> Procesado
+                      </span>
+                    </div>
                   ) : d.chunk_count === 0 ? (
                     <TooltipProvider delayDuration={150}>
                       <div className="flex items-center justify-center gap-1.5">
