@@ -57,6 +57,11 @@ serve(async (req) => {
       const hasPdf = a.hasPDF === 'Y' && !!a.pmcid
       const pdfUrl = hasPdf ? `https://pmc.ncbi.nlm.nih.gov/articles/${a.pmcid}/pdf/` : null
       const pubDate = toIsoDate(a.firstPublicationDate || a.pubDate, a.pubYear)
+      // Best-effort affiliation -> institution
+      let institution: string | null = null
+      const aff = a.authorAffiliations?.affiliation || a.affiliation || null
+      if (typeof aff === 'string' && aff.trim()) institution = aff.trim().split(/[;.]/)[0].slice(0, 200)
+      const repoId = a.pmid || a.pmcid || a.doi || a.id || null
       return {
         europepmc_id: a.id,
         source: a.source,
@@ -66,6 +71,9 @@ serve(async (req) => {
         title: a.title || 'Sin título',
         authors: formatAuthor(a.authorString || ''),
         journal: a.journalTitle || '',
+        institution,
+        repository: 'PubMed / EuropePMC',
+        repository_id: repoId,
         year: a.pubYear || '',
         publication_date: pubDate,
         abstract: a.abstractText || '',
