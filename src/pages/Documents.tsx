@@ -904,6 +904,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
       let title = item.file.name.replace(/\.(pdf|txt)$/i, "");
       let author = "";
       let year = "";
+      let publicationDate = "";
       let docType: DocType = "articulo_cientifico";
       let clinicalAreas: string[] = [];
       let sourceInstitution = "";
