@@ -471,14 +471,13 @@ function DocList({
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col className="w-10" />
-            <col style={{ width: "26%" }} />
+            <col style={{ width: "28%" }} />
             <col style={{ width: "12%" }} />
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "14%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "7%" }} />
+            <col style={{ width: "18%" }} />
+            <col style={{ width: "15%" }} />
             <col style={{ width: "9%" }} />
-            <col style={{ width: "8%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "9%" }} />
           </colgroup>
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
