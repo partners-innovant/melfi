@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 
