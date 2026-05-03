@@ -7,14 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  Loader2, Search, ExternalLink, ChevronDown, ChevronUp, AlertCircle, FlaskConical, FileText, Upload,
+  Loader2,
+  Search,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  FlaskConical,
+  FileText,
+  Upload,
 } from "lucide-react";
 
 export interface PubMedArticle {
@@ -110,11 +114,11 @@ export function PubMedPanel({
   const [query, setQuery] = useState(initialQuery);
   const [onlyPdf, setOnlyPdf] = useState(true);
 
-const [showAdvanced, setShowAdvanced] = useState(false);
-const [minCitations, setMinCitations] = useState("");
-const [yearFrom, setYearFrom] = useState("");
-const [yearTo, setYearTo] = useState("");
-  
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [minCitations, setMinCitations] = useState("");
+  const [yearFrom, setYearFrom] = useState("");
+  const [yearTo, setYearTo] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PubMedArticle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,13 +141,17 @@ const [yearTo, setYearTo] = useState("");
     if (pmcIds.length) ors.push(`pmc_id.in.(${pmcIds.join(",")})`);
     if (pubmedIds.length) ors.push(`pubmed_id.in.(${pubmedIds.join(",")})`);
     if (europeIds.length) ors.push(`europepmc_id.in.(${europeIds.join(",")})`);
-    if (ors.length === 0) { setExisting(new Set()); return; }
-    const { data } = await supabase
-      .from("documents")
-      .select("pubmed_id, pmc_id, europepmc_id")
-      .or(ors.join(","));
+    if (ors.length === 0) {
+      setExisting(new Set());
+      return;
+    }
+    const { data } = await supabase.from("documents").select("pubmed_id, pmc_id, europepmc_id").or(ors.join(","));
     const ids = new Set<string>();
-    for (const r of (data ?? []) as Array<{ pubmed_id: string | null; pmc_id: string | null; europepmc_id: string | null }>) {
+    for (const r of (data ?? []) as Array<{
+      pubmed_id: string | null;
+      pmc_id: string | null;
+      europepmc_id: string | null;
+    }>) {
       if (r.pubmed_id) ids.add(`pmid:${r.pubmed_id}`);
       if (r.pmc_id) ids.add(`pmc:${r.pmc_id}`);
       if (r.europepmc_id) ids.add(`epmc:${r.europepmc_id}`);
@@ -161,13 +169,13 @@ const [yearTo, setYearTo] = useState("");
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("search-pubmed", {
         body: {
-  action: "search",
-  query,
-  onlyPdf,
-  ...(minCitations ? { minCitations: Number(minCitations) } : {}),
-  ...(yearFrom ? { yearFrom: Number(yearFrom) } : {}),
-  ...(yearTo ? { yearTo: Number(yearTo) } : {}),
-},
+          action: "search",
+          query,
+          onlyPdf,
+          ...(minCitations ? { minCitations: Number(minCitations) } : {}),
+          ...(yearFrom ? { yearFrom: Number(yearFrom) } : {}),
+          ...(yearTo ? { yearTo: Number(yearTo) } : {}),
+        },
       });
       if (fnErr) throw new Error(fnErr.message);
       if (data?.error) throw new Error(data.error);
@@ -234,12 +242,14 @@ const [yearTo, setYearTo] = useState("");
         const { data, error } = await supabase.functions.invoke("extract-metadata", { body: { text } });
         if (error || !data || data.error) return null;
         return {
-          clinical_areas: Array.isArray(data.clinical_areas) ? data.clinical_areas as string[] : [],
+          clinical_areas: Array.isArray(data.clinical_areas) ? (data.clinical_areas as string[]) : [],
           language: (data.language as string) ?? null,
           evidence_level: (data.evidence_level as string) ?? null,
           geographic_relevance: (data.geographic_relevance as string) ?? null,
         };
-      } catch { return null; }
+      } catch {
+        return null;
+      }
     })();
     const toastId = toast.loading("Clasificando artículo con IA...");
     const ai = await classifyPromise;
@@ -258,71 +268,72 @@ const [yearTo, setYearTo] = useState("");
   return (
     <TooltipProvider>
       <div className={`flex flex-col flex-1 min-h-0 gap-3 ${className ?? ""}`}>
-<div className="space-y-2 shrink-0">
-  <div className="flex gap-2">
-    <Input
-      value={query}
-      onChange={(e) => setQuery(e.target.value)}
-      placeholder="Busca artículos clínicos por tema, diagnóstico o técnica..."
-      onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
-      className="flex-1"
-    />
-    <Button onClick={runSearch} disabled={loading} className="gap-1.5">
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-      Buscar
-    </Button>
-  </div>
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-2">
-      <Switch id="pubmed-pdf" checked={onlyPdf} onCheckedChange={setOnlyPdf} />
-      <Label htmlFor="pubmed-pdf" className="text-xs cursor-pointer">
-        Solo con PDF disponible
-      </Label>
-    </div>
-    <button
-      type="button"
-      className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-      onClick={() => setShowAdvanced((v) => !v)}
-    >
-      {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      Búsqueda avanzada
-    </button>
-  </div>
-  {showAdvanced && (
-    <div className="flex gap-3 items-end p-3 bg-muted/40 rounded-md">
-      <div className="flex flex-col gap-1">
-        <Label className="text-xs">Mínimo de citas</Label>
-        <Input
-          type="number"
-          placeholder="Ej: 50"
-          value={minCitations}
-          onChange={(e) => setMinCitations(e.target.value)}
-          className="h-7 text-xs w-28"
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label className="text-xs">Año desde</Label>
-        <Input
-          type="number"
-          placeholder="Ej: 2020"
-          value={yearFrom}
-          onChange={(e) => setYearFrom(e.target.value)}
-          className="h-7 text-xs w-28"
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label className="text-xs">Año hasta</Label>
-        <Input
-          type="number"
-          placeholder="Ej: 2024"
-          value={yearTo}
-          onChange={(e) => setYearTo(e.target.value)}
-          className="h-7 text-xs w-28"
-        />
-      </div>
-    </div>
-  )}
-</div>
+        <div className="space-y-2 shrink-0">
+          <div className="flex gap-2">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Busca artículos clínicos por tema, diagnóstico o técnica..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void runSearch();
+              }}
+              className="flex-1"
+            />
+            <Button onClick={runSearch} disabled={loading} className="gap-1.5">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Buscar
+            </Button>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Switch id="pubmed-pdf" checked={onlyPdf} onCheckedChange={setOnlyPdf} />
+              <Label htmlFor="pubmed-pdf" className="text-xs cursor-pointer">
+                Solo con PDF disponible
+              </Label>
+            </div>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+              onClick={() => setShowAdvanced((v) => !v)}
+            >
+              {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              Búsqueda avanzada
+            </button>
+          </div>
+          {showAdvanced && (
+            <div className="flex gap-3 items-end p-3 bg-muted/40 rounded-md">
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Mínimo de citas</Label>
+                <Input
+                  type="number"
+                  placeholder="Ej: 50"
+                  value={minCitations}
+                  onChange={(e) => setMinCitations(e.target.value)}
+                  className="h-7 text-xs w-28"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Año desde</Label>
+                <Input
+                  type="number"
+                  placeholder="Ej: 2020"
+                  value={yearFrom}
+                  onChange={(e) => setYearFrom(e.target.value)}
+                  className="h-7 text-xs w-28"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Año hasta</Label>
+                <Input
+                  type="number"
+                  placeholder="Ej: 2024"
+                  value={yearTo}
+                  onChange={(e) => setYearTo(e.target.value)}
+                  className="h-7 text-xs w-28"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
