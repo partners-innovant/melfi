@@ -494,13 +494,6 @@ export default function Dashboard() {
             </Link>
           </div>
         </Card>
-
-        <PubMedFeed
-          onImport={handleImportPubMed}
-          onSeeMore={() => { setPubmedQuery("psychology psychiatry"); setPubmedDialogOpen(true); }}
-        />
-
-        <NewsFeed />
       </div>
 
       <PatientSelectorDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={startSession} />
