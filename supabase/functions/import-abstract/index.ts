@@ -82,10 +82,27 @@ Deno.serve(async (req) => {
     const {
       title, authors, journal, year, publication_date, abstract_text,
       doi, pubmed_id, pmc_id, europepmc_id, source_url, repository,
+      repository_id, source_institution, impact_factor, document_type,
       citations_count, is_global,
       clinical_areas: ca_in, evidence_level: el_in,
       geographic_relevance: gr_in, language: lang_in,
     } = body ?? {};
+
+    function calcRelevance(ev: string | null, cites: number, yr: number | null, geo: string | null): number {
+      const ev_s: Record<string, number> = {
+        meta_analisis: 100, revision_sistematica: 90, ensayo_clinico_rct: 80,
+        guia_practica_clinica: 75, estudio_cohorte: 60, consenso_expertos: 50,
+        opinion_experto: 30, reporte_caso: 20, otro: 10,
+      };
+      const evScore = ev_s[ev ?? "otro"] ?? 10;
+      const citScore = Math.min((cites || 0) / 10, 100);
+      const yearDiff = new Date().getFullYear() - (yr || 2000);
+      const recScore = Math.max(0, 100 - yearDiff * 10);
+      const geo_s: Record<string, number> = { chile: 100, latinoamerica: 75, internacional: 50 };
+      const geoScore = geo_s[geo ?? "internacional"] ?? 50;
+      const total = evScore * 0.4 + citScore * 0.25 + recScore * 0.2 + geoScore * 0.15;
+      return Math.round(total * 10) / 10;
+    }
 
     if (!title || !abstract_text) {
       return new Response(JSON.stringify({ error: "title y abstract_text requeridos" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
