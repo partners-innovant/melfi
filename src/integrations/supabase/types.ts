@@ -627,12 +627,15 @@ export type Database = {
           id: string
           import_source: string | null
           is_global: boolean
+          journal: string | null
           language: string | null
           pmc_id: string | null
           processing_mode: string | null
           psychologist_id: string
           publication_date: string | null
           pubmed_id: string | null
+          repository: string | null
+          repository_id: string | null
           source_institution: string | null
           source_institution_type: string | null
           source_url: string | null
@@ -651,12 +654,15 @@ export type Database = {
           id?: string
           import_source?: string | null
           is_global?: boolean
+          journal?: string | null
           language?: string | null
           pmc_id?: string | null
           processing_mode?: string | null
           psychologist_id: string
           publication_date?: string | null
           pubmed_id?: string | null
+          repository?: string | null
+          repository_id?: string | null
           source_institution?: string | null
           source_institution_type?: string | null
           source_url?: string | null
@@ -675,12 +681,15 @@ export type Database = {
           id?: string
           import_source?: string | null
           is_global?: boolean
+          journal?: string | null
           language?: string | null
           pmc_id?: string | null
           processing_mode?: string | null
           psychologist_id?: string
           publication_date?: string | null
           pubmed_id?: string | null
+          repository?: string | null
+          repository_id?: string | null
           source_institution?: string | null
           source_institution_type?: string | null
           source_url?: string | null
