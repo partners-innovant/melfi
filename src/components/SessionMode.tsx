@@ -319,7 +319,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   });
 
   function pickMimeType(): string {
-    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+    const candidates = ["audio/webm", "audio/mp4", "audio/ogg"];
     if (typeof MediaRecorder === "undefined") return "audio/webm";
     for (const c of candidates) {
       try { if ((MediaRecorder as any).isTypeSupported?.(c)) return c; } catch { /* ignore */ }
