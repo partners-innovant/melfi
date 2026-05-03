@@ -51,6 +51,7 @@ const App = () => (
             <Route path="/feedback" element={<Shell><FeedbackPage /></Shell>} />
             <Route path="/profile" element={<Shell><Profile /></Shell>} />
             <Route path="/claude" element={<Shell><Claude /></Shell>} />
+            <Route path="/cafe" element={<Shell><Cafe /></Shell>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
