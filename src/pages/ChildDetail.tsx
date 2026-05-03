@@ -22,7 +22,7 @@ import {
 import TransferChildPatientDialog from "@/components/TransferChildPatientDialog";
 import {
   calcAge, ageRangeColor, GOAL_STATUSES, GOAL_STATUS_LABELS,
-  TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH,
+  TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH, capitalize,
 } from "@/lib/clinical";
 import { ChildForm } from "./Children";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
