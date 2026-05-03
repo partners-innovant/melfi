@@ -1952,7 +1952,7 @@ function FullscreenDocViewer({
                 <Input
                   type="number"
                   value={doc.citations_count ?? ""}
-                  readOnly={!!doc.europepmc_id}
+                  readOnly={!!doc.pubmed_id || !!doc.pmc_id}
                   onChange={(e) => {
                     const n = e.target.value === "" ? null : Number(e.target.value);
                     onPatch({ citations_count: n } as any).then((ok) => { if (ok) flash("citations_count"); });
