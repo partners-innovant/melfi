@@ -130,6 +130,7 @@ ${snippet}`;
       title: "",
       author: "",
       year: "",
+      publication_date: null,
       document_type: "",
       clinical_areas: [],
       source_institution: null,
