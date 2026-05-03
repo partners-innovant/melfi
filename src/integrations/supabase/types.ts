@@ -288,6 +288,7 @@ export type Database = {
           last_name: string
           medical_diagnosis: string | null
           modality: string | null
+          next_session_suggestions: string | null
           notes: string | null
           psychologist_id: string
           referral_reason: string | null
@@ -308,6 +309,7 @@ export type Database = {
           last_name: string
           medical_diagnosis?: string | null
           modality?: string | null
+          next_session_suggestions?: string | null
           notes?: string | null
           psychologist_id: string
           referral_reason?: string | null
@@ -328,6 +330,7 @@ export type Database = {
           last_name?: string
           medical_diagnosis?: string | null
           modality?: string | null
+          next_session_suggestions?: string | null
           notes?: string | null
           psychologist_id?: string
           referral_reason?: string | null
@@ -1243,6 +1246,7 @@ export type Database = {
           id: string
           last_name: string
           marital_status: string | null
+          next_session_suggestions: string | null
           notes: string | null
           occupation: string | null
           personal_resources: string | null
@@ -1271,6 +1275,7 @@ export type Database = {
           id?: string
           last_name: string
           marital_status?: string | null
+          next_session_suggestions?: string | null
           notes?: string | null
           occupation?: string | null
           personal_resources?: string | null
@@ -1299,6 +1304,7 @@ export type Database = {
           id?: string
           last_name?: string
           marital_status?: string | null
+          next_session_suggestions?: string | null
           notes?: string | null
           occupation?: string | null
           personal_resources?: string | null
