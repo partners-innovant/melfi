@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
     const docIds = [...new Set((chunks ?? []).map((c: any) => c.document_id))];
     const { data: docs } = await supabase
       .from("documents")
-      .select("id, title, author, year, document_type, source_institution, source_institution_type, clinical_areas")
+      .select("id, title, author, year, document_type, source_institution, source_institution_type, journal, clinical_areas")
       .in("id", docIds);
     const docMap = new Map((docs ?? []).map((d: any) => [d.id, d]));
 
