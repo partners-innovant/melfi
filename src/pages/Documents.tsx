@@ -1001,12 +1001,20 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
       </DialogHeader>
 
       <div className="space-y-4">
+        {prefill && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              📄 Arrastra el PDF que acabas de descargar de PMC. Los metadatos han sido pre-llenados automáticamente.
+            </div>
+          </div>
+        )}
         <div>
-          <Label>Archivos (PDF o TXT) — selección múltiple</Label>
+          <Label>{prefill ? "Arrastra aquí el PDF que descargaste" : "Archivos (PDF o TXT) — selección múltiple"}</Label>
           <Input
             type="file"
             accept=".pdf,.txt"
-            multiple
+            multiple={!prefill}
             onChange={(e) => { onPickFiles(e.target.files); e.target.value = ""; }}
             disabled={busy}
           />
