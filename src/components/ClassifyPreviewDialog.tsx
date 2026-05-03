@@ -41,6 +41,9 @@ export interface ClassifyTarget {
   language: string | null;
   storage_path?: string | null;
   source_url?: string | null;
+  journal?: string | null;
+  evidence_level?: string | null;
+  geographic_relevance?: string | null;
 }
 
 type LangCode = "es" | "en" | "otro";
