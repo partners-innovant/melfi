@@ -122,7 +122,7 @@ export default function Assistant() {
   const [patientId, setPatientId] = useState<string>(params.get("patient") ?? NONE);
   const [docType, setDocType] = useState<string>(ALL);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(params.get("q") ?? "");
   const [busy, setBusy] = useState(false);
   const [activeCitation, setActiveCitation] = useState<Citation | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);

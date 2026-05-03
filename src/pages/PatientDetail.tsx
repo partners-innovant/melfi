@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { useAppSidebar } from "@/components/sidebar-state";
 export default function PatientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [patient, setPatient] = useState<any>(null);
   const [consults, setConsults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +52,17 @@ export default function PatientDetail() {
   }
 
   useEffect(() => { load(); }, [id]);
+
+  // Auto-open session mode when navigated with ?session=1
+  useEffect(() => {
+    if (!loading && patient && searchParams.get("session") === "1") {
+      setSessionModeOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("session");
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, patient]);
 
 
   if (loading) return <div className="p-10 text-center text-muted-foreground">Cargando...</div>;
