@@ -1154,16 +1154,72 @@ export default function AdminDocuments() {
 
       {/* Viewer */}
       <Dialog open={!!viewDoc} onOpenChange={(o) => { if (!o) { setViewDoc(null); setViewUrl(null); } }}>
-        <DialogContent className="w-[95vw] max-w-[1200px] h-[85vh] p-0 overflow-hidden">
-          <DialogHeader className="px-6 pt-4 pb-2 border-b">
-            <DialogTitle className="flex items-center gap-2 text-base">
+        <DialogContent className="w-[95vw] max-w-[1200px] h-[85vh] p-0 overflow-hidden flex flex-col gap-0">
+          <DialogHeader className="px-4 pt-3 pb-2 border-b shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-sm">
               <FileText className="h-4 w-4" />
               {viewDoc?.title}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 h-full bg-muted">
+          {viewDoc && (
+            <div className="px-4 py-2 border-b bg-background shrink-0 grid grid-cols-[2fr_1.5fr_1fr] gap-3 text-[13px]">
+              <div className="group relative flex items-center gap-1">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground shrink-0">Título</span>
+                <div className="flex-1 min-w-0">
+                  <InlineText
+                    value={viewDoc.title}
+                    onSave={async (v) => {
+                      const ok = await updateField(viewDoc.id, { title: v });
+                      if (ok) setViewDoc({ ...viewDoc, title: v });
+                    }}
+                  />
+                </div>
+                <span className="opacity-0 group-hover:opacity-60 text-xs">✏️</span>
+              </div>
+              <div className="group relative flex items-center gap-1">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground shrink-0">Fuente</span>
+                <div className="flex-1 min-w-0">
+                  <InlineSource
+                    value={viewDoc.source_institution ?? ""}
+                    onSave={async (name) => {
+                      const m = SOURCE_INSTITUTIONS.find((s) => s.name === name);
+                      const ok = await updateField(viewDoc.id, {
+                        source_institution: name || null,
+                        source_institution_type: (m?.type ?? null) as SourceInstitutionType | null,
+                      });
+                      if (ok) setViewDoc({
+                        ...viewDoc,
+                        source_institution: name || null,
+                        source_institution_type: (m?.type ?? null) as SourceInstitutionType | null,
+                      });
+                    }}
+                  />
+                </div>
+                <span className="opacity-0 group-hover:opacity-60 text-xs">✏️</span>
+              </div>
+              <div className="group relative flex items-center gap-1">
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground shrink-0">Autor</span>
+                <div className="flex-1 min-w-0">
+                  <InlineText
+                    value={viewDoc.author ?? ""}
+                    placeholder="—"
+                    onSave={async (v) => {
+                      const ok = await updateField(viewDoc.id, { author: v || null });
+                      if (ok) setViewDoc({ ...viewDoc, author: v || null });
+                    }}
+                  />
+                </div>
+                <span className="opacity-0 group-hover:opacity-60 text-xs">✏️</span>
+              </div>
+            </div>
+          )}
+          <div className="flex-1 min-h-0 bg-muted">
             {viewUrl ? (
-              <iframe src={viewUrl} className="w-full h-full" title={viewDoc?.title} />
+              <iframe
+                src={`${viewUrl}#toolbar=0&navpanes=0&view=FitH&page=1`}
+                style={{ width: "100%", height: "100%", border: "none", margin: 0, padding: 0, display: "block" }}
+                title={viewDoc?.title}
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                 No hay archivo disponible para este documento.
