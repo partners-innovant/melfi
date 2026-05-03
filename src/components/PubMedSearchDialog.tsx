@@ -48,6 +48,9 @@ export interface PubMedUploadPrefill {
   source_url: string | null;
   source_institution: string;
   source_institution_type: string;
+  journal?: string | null;
+  repository?: string | null;
+  repository_id?: string | null;
   clinical_areas?: string[];
   language?: string | null;
   ai_classified?: boolean;
