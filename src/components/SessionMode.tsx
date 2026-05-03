@@ -678,7 +678,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     initialSuggestionsRef.current = false;
     setRecState("idle"); setRecElapsed(0);
     setSuppressRecDisclaimer(false);
-    setActiveTab("support"); setTranscriptEditable(false);
+    setActiveTab("topics"); setTranscriptEditable(false);
     setSummaryBullets([]); setPatientBullets([]); setTherapistBullets([]);
     setTopicSuggestions([]);
     setAnalyzedSuggestions([]); setSessionInsight("");
