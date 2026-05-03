@@ -1858,11 +1858,17 @@ function FullscreenDocViewer({
               <p className="text-[10px] text-muted-foreground mt-1">Solo primer autor + et al. Ej: Barlow, D.H. et al.</p>
             </Field>
 
-            <Field label="Año" saved={savedFlash === "year"}>
-              <AutoSaveInput
-                type="number"
-                value={doc.year ?? ""}
-                onSave={(v) => save("year", (v || null) as any)}
+            <Field label="Fecha de publicación" saved={savedFlash === "publication_date"}>
+              <Input
+                type="date"
+                value={doc.publication_date ?? ""}
+                onChange={async (e) => {
+                  const v = e.target.value || null;
+                  const yr = v ? v.slice(0, 4) : doc.year;
+                  const ok = await onPatch({ publication_date: v, year: yr } as any);
+                  if (ok) flash("publication_date");
+                }}
+                className="h-9 text-sm"
               />
             </Field>
 
