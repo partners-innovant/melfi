@@ -23,6 +23,11 @@ import {
   MAX_CLINICAL_AREAS, clinicalAreaColor, clinicalAreaLabel,
   SOURCE_INSTITUTIONS, sourceIconFor, type SourceInstitutionType,
 } from "@/lib/clinical-areas";
+import {
+  EVIDENCE_LEVELS, EVIDENCE_LEVEL_LABELS, type EvidenceLevel,
+  GEOGRAPHIC_RELEVANCES, GEOGRAPHIC_RELEVANCE_LABELS, geographicIcon, type GeographicRelevance,
+  impactFactorForJournal,
+} from "@/lib/document-relevance";
 
 export interface ClassifyTarget {
   id: string;
@@ -36,6 +41,9 @@ export interface ClassifyTarget {
   language: string | null;
   storage_path?: string | null;
   source_url?: string | null;
+  journal?: string | null;
+  evidence_level?: string | null;
+  geographic_relevance?: string | null;
 }
 
 type LangCode = "es" | "en" | "otro";
@@ -55,6 +63,8 @@ interface CardState {
   clinicalAreas: string[];
   sourceInstitution: string;
   sourceInstitutionType: SourceInstitutionType | null;
+  evidenceLevel: EvidenceLevel | "";
+  geographicRelevance: GeographicRelevance | "";
   // AI flags
   ai: {
     docType: boolean;
@@ -62,6 +72,8 @@ interface CardState {
     language: boolean;
     clinicalAreas: boolean;
     sourceInstitution: boolean;
+    evidenceLevel: boolean;
+    geographicRelevance: boolean;
   };
 }
 
@@ -115,7 +127,9 @@ export function ClassifyPreviewDialog({
         clinicalAreas: t.clinical_areas ?? [],
         sourceInstitution: t.source_institution ?? "",
         sourceInstitutionType: (t.source_institution_type as SourceInstitutionType | null) ?? null,
-        ai: { docType: false, year: false, language: false, clinicalAreas: false, sourceInstitution: false },
+        evidenceLevel: ((t as any).evidence_level ?? "") as CardState["evidenceLevel"],
+        geographicRelevance: ((t as any).geographic_relevance ?? "") as CardState["geographicRelevance"],
+        ai: { docType: false, year: false, language: false, clinicalAreas: false, sourceInstitution: false, evidenceLevel: false, geographicRelevance: false },
       })),
     );
 
@@ -178,11 +192,22 @@ export function ClassifyPreviewDialog({
             if (typeof ai.source_institution_type === "string" && ai.source_institution_type) {
               next.sourceInstitutionType = ai.source_institution_type as SourceInstitutionType;
             } else {
-              // try to match a known source
               const m = SOURCE_INSTITUTIONS.find((s) => s.name.toLowerCase() === next.sourceInstitution.toLowerCase());
               next.sourceInstitutionType = (m?.type as SourceInstitutionType) ?? "otro";
             }
             next.ai.sourceInstitution = true;
+          }
+          // evidence_level
+          if (!(t as any).evidence_level && typeof ai.evidence_level === "string" &&
+              (EVIDENCE_LEVELS as readonly string[]).includes(ai.evidence_level)) {
+            next.evidenceLevel = ai.evidence_level as EvidenceLevel;
+            next.ai.evidenceLevel = true;
+          }
+          // geographic_relevance
+          if (!(t as any).geographic_relevance && typeof ai.geographic_relevance === "string" &&
+              (GEOGRAPHIC_RELEVANCES as readonly string[]).includes(ai.geographic_relevance)) {
+            next.geographicRelevance = ai.geographic_relevance as GeographicRelevance;
+            next.ai.geographicRelevance = true;
           }
           return next;
         }),
@@ -215,6 +240,7 @@ export function ClassifyPreviewDialog({
     let ok = 0;
     let fail = 0;
     for (const c of ready) {
+      const impact = impactFactorForJournal(null);
       const patch: Record<string, unknown> = {
         document_type: c.docType,
         year: c.year || null,
@@ -222,7 +248,10 @@ export function ClassifyPreviewDialog({
         clinical_areas: c.clinicalAreas,
         source_institution: c.sourceInstitution || null,
         source_institution_type: c.sourceInstitution ? (c.sourceInstitutionType ?? "otro") : null,
+        evidence_level: c.evidenceLevel || null,
+        geographic_relevance: c.geographicRelevance || null,
       };
+      void impact;
       const { error: upErr } = await supabase.from("documents").update(patch as any).eq("id", c.id);
       if (upErr) {
         fail++;
@@ -234,6 +263,8 @@ export function ClassifyPreviewDialog({
         source_institution: c.sourceInstitution || null,
         source_institution_type: c.sourceInstitution ? (c.sourceInstitutionType ?? "otro") : null,
         language: c.language || null,
+        evidence_level: c.evidenceLevel || null,
+        geographic_relevance: c.geographicRelevance || null,
       };
       await supabase.from("document_chunks").update(chunkPatch as any).eq("document_id", c.id);
       ok++;
@@ -387,6 +418,36 @@ function ClassifyCard({
               value={card.clinicalAreas}
               onChange={(areas) => onChange({ clinicalAreas: areas, ai: { ...card.ai, clinicalAreas: false } })}
             />
+          </div>
+
+          {/* Row 2b: Evidencia + Geografía */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <FieldLabel text="Nivel de evidencia" ai={card.ai.evidenceLevel} />
+              <Select
+                value={card.evidenceLevel || undefined}
+                onValueChange={(v) => onChange({ evidenceLevel: v as EvidenceLevel, ai: { ...card.ai, evidenceLevel: false } })}
+              >
+                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {EVIDENCE_LEVELS.map((l) => <SelectItem key={l} value={l}>{EVIDENCE_LEVEL_LABELS[l]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FieldLabel text="Relevancia geográfica" ai={card.ai.geographicRelevance} />
+              <Select
+                value={card.geographicRelevance || undefined}
+                onValueChange={(v) => onChange({ geographicRelevance: v as GeographicRelevance, ai: { ...card.ai, geographicRelevance: false } })}
+              >
+                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {GEOGRAPHIC_RELEVANCES.map((g) => (
+                    <SelectItem key={g} value={g}>{geographicIcon(g)} {GEOGRAPHIC_RELEVANCE_LABELS[g]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Row 3: Idioma + Año */}

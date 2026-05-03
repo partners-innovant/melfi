@@ -44,6 +44,11 @@ import {
   SOURCE_INSTITUTION_TYPE_LABELS, shortInstitutionName,
 } from "@/lib/clinical-areas";
 import { ClassifyPreviewDialog, type ClassifyTarget } from "@/components/ClassifyPreviewDialog";
+import {
+  EVIDENCE_LEVELS, EVIDENCE_LEVEL_LABELS, evidenceLevelBadge, evidenceLevelDot, type EvidenceLevel,
+  GEOGRAPHIC_RELEVANCES, GEOGRAPHIC_RELEVANCE_LABELS, geographicIcon, type GeographicRelevance,
+  impactFactorForJournal,
+} from "@/lib/document-relevance";
 
 type LangCode = "es" | "en" | "otro";
 const LANG_LABELS: Record<LangCode, string> = { es: "Español", en: "Inglés", otro: "Otro" };
@@ -74,6 +79,10 @@ interface DocRow {
   journal: string | null;
   repository: string | null;
   repository_id: string | null;
+  evidence_level: string | null;
+  geographic_relevance: string | null;
+  citations_count: number | null;
+  impact_factor: number | null;
 }
 
 export default function AdminDocuments() {
@@ -210,7 +219,7 @@ export default function AdminDocuments() {
     // Pull all global documents
     const { data: docs, error } = await supabase
       .from("documents")
-      .select("id,title,author,year,publication_date,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at,processing_mode,abstract,pubmed_id,pmc_id")
+      .select("id,title,author,year,publication_date,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at,processing_mode,abstract,pubmed_id,pmc_id,journal,repository,repository_id,evidence_level,geographic_relevance,citations_count,impact_factor")
       .eq("is_global", true)
       .order("created_at", { ascending: false });
     if (error) {
@@ -486,6 +495,9 @@ export default function AdminDocuments() {
       language: d.language,
       storage_path: d.storage_path,
       source_url: d.source_url,
+      journal: d.journal,
+      evidence_level: d.evidence_level,
+      geographic_relevance: d.geographic_relevance,
     };
   }
 
@@ -1911,6 +1923,56 @@ function FullscreenDocViewer({
               />
             </Field>
 
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Nivel de evidencia" saved={savedFlash === "evidence_level"}>
+                <Select
+                  value={doc.evidence_level ?? ""}
+                  onValueChange={(v) => save("evidence_level", (v || null) as any)}
+                >
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    {EVIDENCE_LEVELS.map((l) => <SelectItem key={l} value={l}>{EVIDENCE_LEVEL_LABELS[l]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Relevancia geográfica" saved={savedFlash === "geographic_relevance"}>
+                <Select
+                  value={doc.geographic_relevance ?? ""}
+                  onValueChange={(v) => save("geographic_relevance", (v || null) as any)}
+                >
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                  <SelectContent>
+                    {GEOGRAPHIC_RELEVANCES.map((g) => (
+                      <SelectItem key={g} value={g}>{geographicIcon(g)} {GEOGRAPHIC_RELEVANCE_LABELS[g]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="N° de citas" saved={savedFlash === "citations_count"}>
+                <Input
+                  type="number"
+                  value={doc.citations_count ?? ""}
+                  readOnly={!!doc.pubmed_id || !!doc.pmc_id}
+                  onChange={(e) => {
+                    const n = e.target.value === "" ? null : Number(e.target.value);
+                    onPatch({ citations_count: n } as any).then((ok) => { if (ok) flash("citations_count"); });
+                  }}
+                  className="h-9 text-sm"
+                />
+              </Field>
+              <Field label="Factor de impacto" saved={savedFlash === "impact_factor"}>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={doc.impact_factor ?? ""}
+                  onChange={(e) => {
+                    const n = e.target.value === "" ? null : Number(e.target.value);
+                    onPatch({ impact_factor: n } as any).then((ok) => { if (ok) flash("impact_factor"); });
+                  }}
+                  className="h-9 text-sm"
+                />
+              </Field>
+            </div>
             <Field label="Idioma" saved={savedFlash === "language"}>
               <Select
                 value={doc.language ?? ""}
