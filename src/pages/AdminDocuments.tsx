@@ -1556,6 +1556,58 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 // ---------- Column filter components ----------
+function HeaderFilter({
+  label, active, activeText, onClear, children, align = "start",
+}: {
+  label: string;
+  active: boolean;
+  activeText?: string;
+  onClear?: () => void;
+  children: React.ReactNode;
+  align?: "start" | "end";
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted text-xs font-medium",
+              active && "text-teal-700 dark:text-teal-300 bg-teal-500/10",
+            )}
+          >
+            <span>{label}</span>
+            <ChevronsUpDown className="h-3 w-3 opacity-60" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3" align={align}>
+          {children}
+        </PopoverContent>
+      </Popover>
+      {active && (
+        <>
+          {activeText && (
+            <span className="text-[10px] text-teal-700 dark:text-teal-300 truncate max-w-[80px]" title={activeText}>
+              {activeText}
+            </span>
+          )}
+          {onClear && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-muted-foreground hover:text-destructive"
+              aria-label="Limpiar filtro"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function ColTextFilter({ value, onChange, placeholder, type, compact }: {
   value: string;
   onChange: (v: string) => void;
