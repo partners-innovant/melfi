@@ -33,6 +33,12 @@ serve(async (req) => {
     }
 
     const data = await res.json()
+    const formatAuthor = (s: string): string => {
+      if (!s) return ''
+      const parts = s.split(/\s*,\s*/).filter(Boolean)
+      if (parts.length <= 1) return s
+      return `${parts[0]} et al.`
+    }
     const articles = (data.resultList?.result || []).map((a: any) => {
       const hasPdf = a.hasPDF === 'Y' && !!a.pmcid
       const pdfUrl = hasPdf ? `https://pmc.ncbi.nlm.nih.gov/articles/${a.pmcid}/pdf/` : null
