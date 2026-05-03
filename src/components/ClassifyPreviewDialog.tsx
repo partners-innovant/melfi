@@ -420,6 +420,36 @@ function ClassifyCard({
             />
           </div>
 
+          {/* Row 2b: Evidencia + Geografía */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <FieldLabel text="Nivel de evidencia" ai={card.ai.evidenceLevel} />
+              <Select
+                value={card.evidenceLevel || undefined}
+                onValueChange={(v) => onChange({ evidenceLevel: v as EvidenceLevel, ai: { ...card.ai, evidenceLevel: false } })}
+              >
+                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {EVIDENCE_LEVELS.map((l) => <SelectItem key={l} value={l}>{EVIDENCE_LEVEL_LABELS[l]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FieldLabel text="Relevancia geográfica" ai={card.ai.geographicRelevance} />
+              <Select
+                value={card.geographicRelevance || undefined}
+                onValueChange={(v) => onChange({ geographicRelevance: v as GeographicRelevance, ai: { ...card.ai, geographicRelevance: false } })}
+              >
+                <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {GEOGRAPHIC_RELEVANCES.map((g) => (
+                    <SelectItem key={g} value={g}>{geographicIcon(g)} {GEOGRAPHIC_RELEVANCE_LABELS[g]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Row 3: Idioma + Año */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
