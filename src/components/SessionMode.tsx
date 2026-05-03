@@ -378,30 +378,25 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     }
   }
 
-  // Auto-transcribe every 10s while recording
-  useEffect(() => {
-    if (recState !== "recording") return;
-    const id = window.setInterval(async () => {
-      if (autoTranscribeRunningRef.current) return;
-      if (!unprocessedChunksRef.current.length) return;
-      // Force MediaRecorder to flush a chunk
-      try { liveRecorderRef.current?.requestData?.(); } catch { /* ignore */ }
-      autoTranscribeRunningRef.current = true;
-      try { await transcribeOnly(); } finally { autoTranscribeRunningRef.current = false; }
-    }, 10000);
-    return () => window.clearInterval(id);
-  }, [recState]);
-
-  // Manual: run Claude analysis on the full accumulated transcript (no Whisper call)
+  // Manual: transcribe accumulated audio chunks (Whisper + Claude diarization), then run Claude analysis
   async function transcribeAndAnalyze() {
     if (analyzing) return;
-    const hasAnyTranscript = transcriptRef.current.some((s) => !s.error);
-    if (!hasAnyTranscript) {
-      toast.info("Aún no hay transcripción. Espera unos segundos a que se transcriba el audio.");
-      return;
-    }
     setAnalyzing(true);
-    setAnalyzeStage("analyzing");
+    setAnalyzeStage("transcribing");
+    try {
+      // Force MediaRecorder to flush any pending audio
+      try { liveRecorderRef.current?.requestData?.(); } catch { /* ignore */ }
+      // Give the dataavailable event a tick to land
+      await new Promise((r) => setTimeout(r, 250));
+      if (unprocessedChunksRef.current.length) {
+        await transcribeOnly();
+      }
+      const hasAnyTranscript = transcriptRef.current.some((s) => !s.error);
+      if (!hasAnyTranscript) {
+        toast.info("No hay audio suficiente para transcribir todavía.");
+        return;
+      }
+      setAnalyzeStage("analyzing");
     try {
       // Use the recent tail of the transcript as context for analysis
       const transcriptText = transcriptRef.current
