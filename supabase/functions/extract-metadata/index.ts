@@ -53,7 +53,9 @@ Deno.serve(async (req) => {
   "author": "Solo el primer autor en formato 'Apellido, Iniciales.' seguido de 'et al.' si hay más de un autor. Ejemplo: 'Barlow, D.H. et al.' o 'Beck, A.T.' si es autor único",
   "publication_date": "fecha completa en formato YYYY-MM-DD si se puede identificar, o solo el año como YYYY-01-01 si solo hay año disponible",
   "year": "año de publicación como número entero (4 dígitos) o null",
-  "language": "español|ingles|otro"
+  "language": "español|ingles|otro",
+  "evidence_level": "meta_analisis|revision_sistematica|ensayo_clinico_rct|estudio_cohorte|guia_practica_clinica|consenso_expertos|reporte_caso|opinion_experto|otro",
+  "geographic_relevance": "chile|latinoamerica|internacional — chile si el estudio es con población chilena o emitido por institución chilena, latinoamerica si es con población o institución latinoamericana, internacional para el resto"
 }
 
 FRAGMENTO:
