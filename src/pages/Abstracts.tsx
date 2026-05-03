@@ -676,11 +676,11 @@ function PubMedFullscreenSearch({
   }
 
   async function runSearch() {
-    if (!term.trim()) { toast.error("Escribe un término de búsqueda"); return; }
     setLoading(true);
     try {
       const currentYear = new Date().getFullYear();
-      let q = term.trim();
+      const t = term.trim();
+      let q = t ? t : "*";
       q += " AND NOT SRC:PPR";
       if (yearFrom && yearTo) {
         q += ` AND PUB_YEAR:[${yearFrom} TO ${yearTo}]`;
