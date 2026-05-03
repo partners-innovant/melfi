@@ -110,6 +110,11 @@ export function PubMedPanel({
   const [query, setQuery] = useState(initialQuery);
   const [onlyPdf, setOnlyPdf] = useState(true);
 
+const [showAdvanced, setShowAdvanced] = useState(false);
+const [minCitations, setMinCitations] = useState("");
+const [yearFrom, setYearFrom] = useState("");
+const [yearTo, setYearTo] = useState("");
+  
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PubMedArticle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +160,14 @@ export function PubMedPanel({
     setError(null);
     try {
       const { data, error: fnErr } = await supabase.functions.invoke("search-pubmed", {
-        body: { action: "search", query, onlyPdf },
+        body: {
+  action: "search",
+  query,
+  onlyPdf,
+  ...(minCitations ? { minCitations: Number(minCitations) } : {}),
+  ...(yearFrom ? { yearFrom: Number(yearFrom) } : {}),
+  ...(yearTo ? { yearTo: Number(yearTo) } : {}),
+},
       });
       if (fnErr) throw new Error(fnErr.message);
       if (data?.error) throw new Error(data.error);
@@ -246,26 +258,71 @@ export function PubMedPanel({
   return (
     <TooltipProvider>
       <div className={`flex flex-col flex-1 min-h-0 gap-3 ${className ?? ""}`}>
-        <div className="space-y-2 shrink-0">
-          <div className="flex gap-2">
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Busca artículos clínicos por tema, diagnóstico o técnica..."
-              onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
-              className="flex-1"
-            />
-            <Button onClick={runSearch} disabled={loading} className="gap-1.5">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Buscar
-            </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch id="pubmed-pdf" checked={onlyPdf} onCheckedChange={setOnlyPdf} />
-            <Label htmlFor="pubmed-pdf" className="text-xs cursor-pointer">
-              Solo con PDF disponible
-            </Label>
-          </div>
+<div className="space-y-2 shrink-0">
+  <div className="flex gap-2">
+    <Input
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Busca artículos clínicos por tema, diagnóstico o técnica..."
+      onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
+      className="flex-1"
+    />
+    <Button onClick={runSearch} disabled={loading} className="gap-1.5">
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+      Buscar
+    </Button>
+  </div>
+  <div className="flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <Switch id="pubmed-pdf" checked={onlyPdf} onCheckedChange={setOnlyPdf} />
+      <Label htmlFor="pubmed-pdf" className="text-xs cursor-pointer">
+        Solo con PDF disponible
+      </Label>
+    </div>
+    <button
+      type="button"
+      className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+      onClick={() => setShowAdvanced((v) => !v)}
+    >
+      {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+      Búsqueda avanzada
+    </button>
+  </div>
+  {showAdvanced && (
+    <div className="flex gap-3 items-end p-3 bg-muted/40 rounded-md">
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">Mínimo de citas</Label>
+        <Input
+          type="number"
+          placeholder="Ej: 50"
+          value={minCitations}
+          onChange={(e) => setMinCitations(e.target.value)}
+          className="h-7 text-xs w-28"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">Año desde</Label>
+        <Input
+          type="number"
+          placeholder="Ej: 2020"
+          value={yearFrom}
+          onChange={(e) => setYearFrom(e.target.value)}
+          className="h-7 text-xs w-28"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">Año hasta</Label>
+        <Input
+          type="number"
+          placeholder="Ej: 2024"
+          value={yearTo}
+          onChange={(e) => setYearTo(e.target.value)}
+          className="h-7 text-xs w-28"
+        />
+      </div>
+    </div>
+  )}
+</div>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
