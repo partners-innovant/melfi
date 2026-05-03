@@ -25,12 +25,8 @@ export default function PatientDetail() {
   const [patient, setPatient] = useState<any>(null);
   const [consults, setConsults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState<any>({});
-  const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [transferOpen, setTransferOpen] = useState(false);
   const [sessionModeOpen, setSessionModeOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(true);
   const { collapsed: sidebarCollapsed } = useAppSidebar();
