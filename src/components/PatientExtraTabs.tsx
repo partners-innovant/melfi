@@ -67,15 +67,13 @@ export function PatientProfileBuilderTab({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: chat }, { data: p }] = await Promise.all([
-      supabase
-        .from("patient_profile_chat")
-        .select("role, content")
-        .eq("patient_id", patientId)
-        .order("created_at", { ascending: true }),
-      supabase.from("patients").select("first_name, last_name").eq("id", patientId).maybeSingle(),
-    ]);
-    setMessages((chat ?? []) as Msg[]);
+    // Always start the Constructor de Perfil chat from a clean state — do not reload prior messages.
+    const { data: p } = await supabase
+      .from("patients")
+      .select("first_name, last_name")
+      .eq("id", patientId)
+      .maybeSingle();
+    setMessages([]);
     if (p) setPatientName(`${p.first_name} ${p.last_name}`.trim());
     setLoading(false);
   }, [patientId]);
