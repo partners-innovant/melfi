@@ -40,7 +40,7 @@ import UrlImportDialog from "@/components/UrlImportDialog";
 import { findDuplicateByTitle, deleteDocumentAndChunks, nextAvailableTitle, formatDate, type DuplicateDoc } from "@/lib/duplicates";
 import { PubMedSearchDialog, type PubMedUploadPrefill } from "@/components/PubMedSearchDialog";
 
-type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search';
+type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search' | 'pubmed';
 
 interface Doc {
   id: string;
@@ -57,6 +57,8 @@ interface Doc {
   clinical_areas?: string[] | null;
   source_institution?: string | null;
   source_institution_type?: string | null;
+  language?: string | null;
+  chunk_count?: number;
 }
 
 const IMPORT_SOURCE_META: Record<ImportSource, { icon: string; label: string }> = {
@@ -64,7 +66,14 @@ const IMPORT_SOURCE_META: Record<ImportSource, { icon: string; label: string }> 
   google_drive: { icon: '🔗', label: 'Google Drive' },
   url: { icon: '🌐', label: 'URL' },
   web_search: { icon: '🔍', label: 'Búsqueda web' },
+  pubmed: { icon: '🔬', label: 'PubMed' },
 };
+
+const LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'español', label: 'Español' },
+  { value: 'ingles', label: 'Inglés' },
+  { value: 'otro', label: 'Otro' },
+];
 
 export default function Documents() {
   const { user, profile } = useAuth();
