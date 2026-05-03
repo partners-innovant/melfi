@@ -947,6 +947,12 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
             if (!pdfYearFound) { year = data.year; }
             autoFilled.year = true;
           }
+          if (data.publication_date && /^\d{4}-\d{2}-\d{2}$/.test(data.publication_date)) {
+            publicationDate = data.publication_date;
+            if (!year) year = data.publication_date.slice(0, 4);
+          } else if (year && /^\d{4}$/.test(year)) {
+            publicationDate = `${year}-01-01`;
+          }
           if (data.document_type && (DOC_TYPES as readonly string[]).includes(data.document_type)) {
             docType = data.document_type as DocType;
             autoFilled.docType = true;
