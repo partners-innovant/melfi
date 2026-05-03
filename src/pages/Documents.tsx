@@ -292,55 +292,21 @@ export default function Documents() {
         }}
       />
 
-      {/* Filter bar */}
-      <Card className="p-3 mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
-          <Filter className="h-3.5 w-3.5" /> Filtros:
-        </div>
-        <Select value={filterType} onValueChange={setFilterType}>
-          <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Todos los tipos</SelectItem>
-            {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filterArea} onValueChange={setFilterArea}>
-          <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Área clínica" /></SelectTrigger>
-          <SelectContent className="max-h-80">
-            <SelectItem value={ANY}>Todas las áreas</SelectItem>
-            {CLINICAL_AREAS.map((a) => (
-              <SelectItem key={a} value={a}>{CLINICAL_AREA_LABELS[a]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterSource} onValueChange={setFilterSource}>
-          <SelectTrigger className="h-8 text-xs w-[200px]"><SelectValue placeholder="Fuente" /></SelectTrigger>
-          <SelectContent className="max-h-80">
-            <SelectItem value={ANY}>Todas las fuentes</SelectItem>
-            {allSourcesInUse.map((s) => (
-              <SelectItem key={s} value={s}>{sourceIconFor(s)} {s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterScope} onValueChange={(v: any) => setFilterScope(v)}>
-          <SelectTrigger className="h-8 text-xs w-[170px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="global">Solo globales</SelectItem>
-            <SelectItem value="mine">Mis documentos</SelectItem>
-          </SelectContent>
-        </Select>
-        {(filterType !== ANY || filterArea !== ANY || filterSource !== ANY || filterScope !== "all") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => { setFilterType(ANY); setFilterArea(ANY); setFilterSource(ANY); setFilterScope("all"); }}
+      {activeFiltersCount > 0 && (
+        <div className="mb-3 flex items-center gap-3 text-xs">
+          <span className="text-muted-foreground">
+            <Filter className="inline h-3 w-3 mr-1" />
+            Filtros activos: <span className="font-medium text-foreground">{activeFiltersCount}</span>
+          </span>
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="text-primary hover:underline"
           >
-            Limpiar
-          </Button>
-        )}
-      </Card>
+            Limpiar todos
+          </button>
+        </div>
+      )}
 
       {selectedCount > 0 && (
         <div className="sticky top-2 z-10 mb-4 flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-2 shadow-sm">
