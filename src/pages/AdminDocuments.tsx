@@ -1998,17 +1998,121 @@ function ColDateRangeFilter({ from, to, onFromChange, onToChange }: {
 
 // ---------- Fullscreen Document Viewer ----------
 function FullscreenDocViewer({
-  doc, viewUrl, onClose, onPatch, onAreasChange, onClassify,
+  doc, viewUrl, onClose, onPatch, onAreasChange, onClassified,
 }: {
   doc: DocRow;
   viewUrl: string | null;
   onClose: () => void;
   onPatch: (patch: Partial<DocRow>) => Promise<boolean>;
   onAreasChange: (areas: string[]) => Promise<void>;
-  onClassify: () => void;
+  onClassified: (patch: Partial<DocRow>) => void;
 }) {
   const [mounted, setMounted] = useState(false);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
+  const [autoClassifying, setAutoClassifying] = useState(false);
+
+  async function runAutoClassify() {
+    if (autoClassifying) return;
+    setAutoClassifying(true);
+    try {
+      // Get first few chunks for context
+      const { data: chunks } = await supabase
+        .from("document_chunks")
+        .select("content")
+        .eq("document_id", doc.id)
+        .order("chunk_index", { ascending: true })
+        .limit(3);
+      let content = (chunks ?? []).map((c: any) => c.content).join(" ").slice(0, 1000);
+      if (!content.trim()) {
+        // Fallback: title + abstract
+        content = [doc.title, doc.abstract ?? ""].filter(Boolean).join("\n\n").slice(0, 1000);
+      }
+      const text = `Title: ${doc.title}\nContent fragment: ${content}`;
+
+      const { data: ai, error } = await supabase.functions.invoke("extract-metadata", { body: { text } });
+      if (error) throw new Error(error.message ?? "Error de IA");
+      if (ai?.error) throw new Error(ai.error);
+
+      const patch: Partial<DocRow> = {};
+      if ((!doc.document_type || doc.document_type === ("otro" as DocType)) &&
+          typeof ai.document_type === "string" &&
+          (DOC_TYPES as readonly string[]).includes(ai.document_type)) {
+        patch.document_type = ai.document_type as DocType;
+      }
+      if (!doc.year && ai.year != null && String(ai.year).trim()) {
+        patch.year = String(ai.year).trim();
+      }
+      if (!doc.publication_date && typeof ai.publication_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ai.publication_date)) {
+        patch.publication_date = ai.publication_date;
+        if (!patch.year) patch.year = ai.publication_date.slice(0, 4);
+      }
+      if (!doc.author && typeof ai.author === "string" && ai.author.trim()) {
+        patch.author = ai.author.trim();
+      }
+      if (!doc.language && typeof ai.language === "string") {
+        const l = ai.language.trim().toLowerCase();
+        if (l.startsWith("espa")) patch.language = "es";
+        else if (l.startsWith("ing") || l.startsWith("eng")) patch.language = "en";
+        else if (l) patch.language = "otro";
+      }
+      if ((!doc.clinical_areas || doc.clinical_areas.length === 0) && Array.isArray(ai.clinical_areas) && ai.clinical_areas.length > 0) {
+        patch.clinical_areas = (ai.clinical_areas as string[]).slice(0, 3);
+      }
+      if (!doc.source_institution && typeof ai.source_institution === "string" && ai.source_institution.trim()) {
+        patch.source_institution = ai.source_institution.trim();
+        if (typeof ai.source_institution_type === "string") {
+          patch.source_institution_type = ai.source_institution_type;
+        }
+      }
+      if (!doc.journal && typeof ai.journal === "string" && ai.journal.trim()) {
+        patch.journal = ai.journal.trim();
+      }
+      if (!doc.repository && typeof ai.repository === "string" && ai.repository.trim()) {
+        patch.repository = ai.repository.trim();
+      }
+      if (!doc.repository_id && typeof ai.repository_id === "string" && ai.repository_id.trim()) {
+        patch.repository_id = ai.repository_id.trim();
+      }
+      if (!doc.evidence_level && typeof ai.evidence_level === "string" &&
+          (EVIDENCE_LEVELS as readonly string[]).includes(ai.evidence_level)) {
+        patch.evidence_level = ai.evidence_level;
+      }
+      if (!doc.geographic_relevance && typeof ai.geographic_relevance === "string" &&
+          (GEOGRAPHIC_RELEVANCES as readonly string[]).includes(ai.geographic_relevance)) {
+        patch.geographic_relevance = ai.geographic_relevance;
+      }
+
+      if (Object.keys(patch).length === 0) {
+        toast.info("No se detectaron campos nuevos para clasificar");
+        return;
+      }
+
+      // Persist the diff
+      const { error: upErr } = await supabase.from("documents").update(patch as any).eq("id", doc.id);
+      if (upErr) throw upErr;
+
+      // Propagate relevant fields to chunks
+      const chunkPatch: Record<string, unknown> = {};
+      if (patch.document_type) chunkPatch.document_type = patch.document_type;
+      if (patch.clinical_areas) chunkPatch.clinical_areas = patch.clinical_areas;
+      if (patch.source_institution !== undefined) chunkPatch.source_institution = patch.source_institution;
+      if (patch.source_institution_type !== undefined) chunkPatch.source_institution_type = patch.source_institution_type;
+      if (patch.language) chunkPatch.language = patch.language;
+      if (patch.evidence_level) chunkPatch.evidence_level = patch.evidence_level;
+      if (patch.geographic_relevance) chunkPatch.geographic_relevance = patch.geographic_relevance;
+      if (Object.keys(chunkPatch).length > 0) {
+        await supabase.from("document_chunks").update(chunkPatch as any).eq("document_id", doc.id);
+      }
+
+      onClassified(patch);
+      toast.success(`✨ ${Object.keys(patch).length} campo(s) clasificado(s)`);
+    } catch (err: any) {
+      console.error("Auto-classify error:", err);
+      toast.error(`Error al clasificar: ${err?.message ?? String(err)}`);
+    } finally {
+      setAutoClassifying(false);
+    }
+  }
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setMounted(true));
