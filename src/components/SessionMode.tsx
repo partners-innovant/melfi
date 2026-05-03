@@ -342,16 +342,21 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   async function transcribeOnly(): Promise<TranscriptSegment[]> {
     const pending = unprocessedChunksRef.current;
     if (!pending.length) return [];
-    const rawMime = liveMimeRef.current || "audio/webm";
-    const baseMime = rawMime.split(";")[0] || "audio/webm";
-    const blob = new Blob(pending, { type: baseMime });
+    // Always force plain 'audio/webm' — strip any codec specification.
+    // Prepend the first chunk (which contains the webm header) so subsequent
+    // transcriptions remain valid standalone webm files.
+    const headerChunk = liveChunksRef.current[0];
+    const chunksToSend = headerChunk && !pending.includes(headerChunk)
+      ? [headerChunk, ...pending]
+      : pending;
+    const blob = new Blob(chunksToSend, { type: "audio/webm" });
     unprocessedChunksRef.current = [];
     if (blob.size < 1000) return [];
     setTranscribing(true);
     try {
       const audio = await blobToBase64(blob);
       const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-        body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: baseMime },
+        body: { action: "transcribe", audio, mime_type: "audio/webm", audioMediaType: "audio/webm" },
       });
       if (error) throw error;
       if ((data as any)?.success === false || (data as any)?.error) {
@@ -491,9 +496,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       liveStreamRef.current = stream;
-      const mime = pickMimeType();
-      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      liveMimeRef.current = (mr.mimeType || mime || "audio/webm").split(";")[0];
+      // Use plain mimeType without codec specification
+      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      liveMimeRef.current = "audio/webm";
       liveChunksRef.current = [];
       unprocessedChunksRef.current = [];
       mr.ondataavailable = (e) => {
