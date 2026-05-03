@@ -240,7 +240,7 @@ export function ChildForm({
             <Label>Sexo</Label>
             <Select value={form.sex} onValueChange={(v) => u("sex", v)}>
               <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>{CHILD_SEX.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent>{CHILD_SEX.map((s) => <SelectItem key={s} value={s}>{capitalize(s)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
