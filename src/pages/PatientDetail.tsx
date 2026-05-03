@@ -223,29 +223,6 @@ export default function PatientDetail() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
-          <PatientForm form={form} setForm={setForm} />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancelar</Button>
-            <Button onClick={saveEdit} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <TransferPatientDialog
-        open={transferOpen}
-        onOpenChange={setTransferOpen}
-        patient={{
-          id: patient.id,
-          first_name: patient.first_name,
-          last_name: patient.last_name,
-          birth_date: patient.birth_date,
-          diagnosis: patient.diagnosis,
-          start_date: patient.start_date,
-        }}
-      />
 
       <SessionMode
         open={sessionModeOpen}
