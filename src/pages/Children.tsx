@@ -256,7 +256,7 @@ export function ChildForm({
           <Label>Modalidad</Label>
           <Select value={form.modality} onValueChange={(v) => u("modality", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{MODALITIES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+            <SelectContent>{MODALITIES.map((m) => <SelectItem key={m} value={m}>{m === "PIE" ? m : capitalize(m)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </TabsContent>
