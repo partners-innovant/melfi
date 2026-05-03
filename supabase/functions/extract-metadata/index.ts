@@ -158,6 +158,8 @@ ${snippet}`;
       repository: null,
       repository_id: null,
       language: null,
+      evidence_level: null,
+      geographic_relevance: null,
     };
     if (toolCall?.function?.arguments) {
       try {
