@@ -207,7 +207,7 @@ export default function AdminDocuments() {
     // Pull all global documents
     const { data: docs, error } = await supabase
       .from("documents")
-      .select("id,title,author,year,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at,processing_mode,abstract,pubmed_id,pmc_id")
+      .select("id,title,author,year,publication_date,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at,processing_mode,abstract,pubmed_id,pmc_id")
       .eq("is_global", true)
       .order("created_at", { ascending: false });
     if (error) {
