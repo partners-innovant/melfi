@@ -21,6 +21,7 @@ import FeedbackPage from "./pages/Feedback";
 import Profile from "./pages/Profile";
 import Claude from "./pages/Claude";
 import Cafe from "./pages/Cafe";
+import Abstracts from "./pages/Abstracts";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/profile" element={<Shell><Profile /></Shell>} />
             <Route path="/claude" element={<Shell><Claude /></Shell>} />
             <Route path="/cafe" element={<Shell><Cafe /></Shell>} />
+            <Route path="/abstracts" element={<Shell><Abstracts /></Shell>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
