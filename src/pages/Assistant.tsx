@@ -1254,7 +1254,7 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
       ${citations.map((c, i) => `
         <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:10px; page-break-inside:avoid">
           <p style="font-weight:600; margin:0 0 4px">${i + 1}. ${escapeHtml(c.document_title || "Sin título")}</p>
-          <p style="color:#666; font-size:11px; margin:0 0 8px">${escapeHtml(c.author || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}</p>
+          <p style="color:#666; font-size:11px; margin:0 0 8px">${escapeHtml(formatAuthor(c.author) || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}</p>
           ${c.excerpt ? `<p style="background:#fef9c3; padding:8px; border-radius:4px; font-style:italic; font-size:12px; margin:0">"${escapeHtml(c.excerpt)}"</p>` : ""}
         </div>
       `).join("")}
