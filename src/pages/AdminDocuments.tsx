@@ -298,9 +298,24 @@ export default function AdminDocuments() {
       if (colChunks === "0" && d.chunk_count !== 0) return false;
       if (colChunks === "1+" && d.chunk_count < 1) return false;
       if (colOrigin !== ANY && (d.import_source ?? "upload") !== colOrigin) return false;
+      if (colRepository !== ANY && (d.repository ?? "") !== colRepository) return false;
+      if (colRegion !== ANY && (d.geographic_relevance ?? "") !== colRegion) return false;
+      if (colCitations !== ANY) {
+        const c = d.citations_count ?? 0;
+        if (colCitations === "none" && c !== 0) return false;
+        if (colCitations === "1-50" && !(c >= 1 && c <= 50)) return false;
+        if (colCitations === "51-200" && !(c >= 51 && c <= 200)) return false;
+        if (colCitations === "200+" && !(c > 200)) return false;
+      }
       return true;
     });
-    if (sortDate !== "none") {
+    if (sortCitations !== "none") {
+      result.sort((a, b) => {
+        const ca = a.citations_count ?? -1;
+        const cb = b.citations_count ?? -1;
+        return sortCitations === "asc" ? ca - cb : cb - ca;
+      });
+    } else if (sortDate !== "none") {
       result.sort((a, b) => {
         const ta = new Date(a.created_at).getTime();
         const tb = new Date(b.created_at).getTime();
@@ -309,7 +324,7 @@ export default function AdminDocuments() {
     }
     return result;
   }, [rows, unclassifiedOnly, noChunksSnapshot,
-      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, sortDate]);
+      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, colRepository, colCitations, colRegion, sortDate, sortCitations]);
 
   // Reset to page 1 when column filters change
   useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin]);
