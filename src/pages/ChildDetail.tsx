@@ -562,7 +562,7 @@ function RoadmapTab({ childId }: { childId: string }) {
               <Label>Responsable</Label>
               <Select value={taskForm.responsible} onValueChange={(v) => setTaskForm({ ...taskForm, responsible: v })}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>{TASK_RESPONSIBLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                <SelectContent>{TASK_RESPONSIBLES.map((r) => <SelectItem key={r} value={r}>{capitalize(r)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>
