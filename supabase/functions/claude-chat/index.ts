@@ -308,8 +308,9 @@ ${(team ?? []).map((t: any) => `- ${t.professional_name} (${t.professional_role}
     } else {
       chunks.forEach((c: any, i: number) => {
         const d = docMap.get(c.document_id) as any;
-        const inst = d?.source_institution ? ` — Fuente: ${d.source_institution}` : "";
-        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
+        const inst = d?.source_institution ? ` — Institución: ${d.source_institution}` : "";
+        const jrn = d?.journal ? ` — Revista: ${d.journal}` : "";
+        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${jrn}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
       });
     }
 
