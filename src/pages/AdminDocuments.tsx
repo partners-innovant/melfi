@@ -114,6 +114,11 @@ export default function AdminDocuments() {
   const [colDateFrom, setColDateFrom] = useState<Date | undefined>(undefined);
   const [colDateTo, setColDateTo] = useState<Date | undefined>(undefined);
   const [sortDate, setSortDate] = useState<"none" | "asc" | "desc">("none");
+  // New column filters / sort
+  const [colRepository, setColRepository] = useState<string>(ANY);
+  const [colCitations, setColCitations] = useState<string>(ANY); // ANY | "none" | "1-50" | "51-200" | "200+"
+  const [colRegion, setColRegion] = useState<string>(ANY);
+  const [sortCitations, setSortCitations] = useState<"none" | "asc" | "desc">("none");
 
   // Debounce title/author 300ms
   useEffect(() => {
