@@ -1073,7 +1073,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                       ? "border-l-teal-400 bg-teal-500/5"
                       : "border-l-amber-400 bg-amber-500/5";
                     const emoji = isError ? "⚠️" : isPatient ? "👤" : isTher ? "🧑‍⚕️" : "🗣️";
-                    const label = isError ? "Error" : isPatient ? "Paciente" : isTher ? "Terapeuta" : "Sin identificar";
+                    const label = isError ? "Error" : isPatient ? "PACIENTE" : isTher ? "TERAPEUTA" : "SIN IDENTIFICAR";
                     return (
                       <div key={i} className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${tone}`}>
                         <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5 flex items-center justify-between">
