@@ -747,6 +747,115 @@ export default function AdminDocuments() {
   }
 
 
+  async function enrichOneFromEuropePMC(d: DocRow): Promise<{ ok: boolean; updatedFields?: string[]; error?: string; skipped?: boolean }> {
+    const rawId = d.pubmed_id || (d.pmc_id ? d.pmc_id.replace(/^PMC/i, "") : null);
+    if (!rawId) return { ok: false, skipped: true };
+    const source = d.pmc_id ? "PMC" : "MED";
+    const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:${encodeURIComponent(rawId)}%20AND%20SRC:${source}&format=json&resultType=core`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+      const json = await res.json();
+      const article = json?.resultList?.result?.[0];
+      if (!article) return { ok: false, error: "No encontrado en EuropePMC" };
+
+      const updates: Record<string, any> = {};
+      const updatedFields: string[] = [];
+      if (!d.journal && article.journalTitle) {
+        updates.journal = article.journalTitle;
+        updatedFields.push(`Revista: ${article.journalTitle}`);
+      }
+      if ((d.citations_count == null) && typeof article.citedByCount === "number") {
+        updates.citations_count = article.citedByCount;
+        updatedFields.push(`Citas: ${article.citedByCount}`);
+      }
+      if (!d.author && article.authorString) {
+        updates.author = formatAuthor(article.authorString);
+        updatedFields.push(`Autor`);
+      }
+      if (!d.publication_date && article.firstPublicationDate) {
+        updates.publication_date = article.firstPublicationDate;
+        updatedFields.push(`Fecha pub.`);
+      }
+      if (!d.abstract && article.abstractText) {
+        updates.abstract = article.abstractText;
+        updatedFields.push(`Abstract`);
+      }
+      if (!d.repository) {
+        updates.repository = "PubMed / EuropePMC";
+        updatedFields.push(`Repositorio`);
+      }
+      if (!d.repository_id) {
+        const rid = article.pmid || article.pmcid || rawId;
+        if (rid) {
+          updates.repository_id = String(rid);
+          updatedFields.push(`ID repo.`);
+        }
+      }
+      const journalForIF = updates.journal ?? d.journal;
+      if (d.impact_factor == null && journalForIF) {
+        const ifv = impactFactorForJournal(journalForIF);
+        if (ifv != null) {
+          updates.impact_factor = ifv;
+          updatedFields.push(`IF: ${ifv}`);
+        }
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return { ok: true, updatedFields: [] };
+      }
+
+      const { error } = await supabase.from("documents").update(updates).eq("id", d.id);
+      if (error) return { ok: false, error: error.message };
+
+      setRows((rs) => rs.map((r) => (r.id === d.id ? { ...r, ...updates } : r)));
+      return { ok: true, updatedFields };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || "Error de red" };
+    }
+  }
+
+  async function runEnrichment(targets: DocRow[], skippedNoId = 0) {
+    if (targets.length === 0 && skippedNoId === 0) {
+      toast.info("No hay documentos con PubMed/PMC ID para enriquecer");
+      return;
+    }
+    setEnrichSkippedNoId(skippedNoId);
+    setEnrichItems(targets.map((d) => ({ id: d.id, title: d.title, status: "pending" as EnrichStatus })));
+    setEnrichProgress({ current: 0, total: targets.length });
+    setEnrichOpen(true);
+
+    for (let i = 0; i < targets.length; i++) {
+      const d = targets[i];
+      setEnrichProgress({ current: i + 1, total: targets.length });
+      setEnrichItems((items) => items.map((it) => it.id === d.id ? { ...it, status: "querying" } : it));
+      const res = await enrichOneFromEuropePMC(d);
+      setEnrichItems((items) => items.map((it) => {
+        if (it.id !== d.id) return it;
+        if (res.skipped) return { ...it, status: "skipped" };
+        if (!res.ok) return { ...it, status: "error", error: res.error };
+        return { ...it, status: "done", fields: res.updatedFields };
+      }));
+      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 1000));
+    }
+    setEnrichProgress(null);
+  }
+
+  function enrichSelected() {
+    const sel = rows.filter((r) => selected.has(r.id));
+    const withId = sel.filter((r) => r.pubmed_id || r.pmc_id);
+    const skipped = sel.length - withId.length;
+    runEnrichment(withId, skipped);
+  }
+
+  function enrichAllMissing() {
+    const targets = rows.filter((r) =>
+      (r.pubmed_id || r.pmc_id) &&
+      (r.citations_count == null || !r.journal || r.impact_factor == null || !r.author || !r.publication_date)
+    );
+    runEnrichment(targets, 0);
+  }
+
   async function openViewer(d: DocRow) {
     setViewDoc(d);
     if (d.storage_path) {
