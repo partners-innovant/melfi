@@ -664,8 +664,10 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     checkedSuggestionsRef.current = new Set();
     setRecState("idle"); setRecElapsed(0);
     setSuppressRecDisclaimer(false);
-    setActiveTab("suggestions"); setTranscriptEditable(false);
-    setSummaryBlocks([]); setAnalyzedSuggestions([]); setSessionInsight("");
+    setActiveTab("support"); setTranscriptEditable(false);
+    setSummaryBullets([]); setPatientBullets([]); setTherapistBullets([]);
+    setTopicSuggestions([]);
+    setAnalyzedSuggestions([]); setSessionInsight("");
     setTranscriptionCount(0); setLastAnalyzedAt(null); setChunkCount(0);
     unprocessedChunksRef.current = [];
   }
