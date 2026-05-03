@@ -681,6 +681,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     setEndStep(1); setEditing(false);
     setTranscript([]); transcriptRef.current = [];
     checkedSuggestionsRef.current = new Set();
+    initialSuggestionsRef.current = false;
     setRecState("idle"); setRecElapsed(0);
     setSuppressRecDisclaimer(false);
     setActiveTab("support"); setTranscriptEditable(false);
