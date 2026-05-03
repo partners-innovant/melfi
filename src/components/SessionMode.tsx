@@ -1007,7 +1007,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <div className="h-full overflow-y-auto p-4 space-y-2">
                 {loadingSuggestions && (
                   <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Generando sugerencias…
+                    <Loader2 className="h-4 w-4 animate-spin" /> {topicSuggestions.length === 0 ? "Cargando sugerencias iniciales…" : "Generando sugerencias…"}
                   </div>
                 )}
                 {topicSuggestions.length === 0 && !loadingSuggestions ? (
