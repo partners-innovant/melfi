@@ -1012,13 +1012,12 @@ export default function AdminDocuments() {
                 <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                   <InlineText value={d.author ?? ""} placeholder="—" onSave={(v) => updateField(d.id, { author: v || null })} />
                 </td>
-                <td className="px-2 py-2 align-middle">
-                  <InlineText
-                    value={d.year ?? ""}
-                    placeholder="—"
-                    type="number"
-                    onSave={(v) => updateField(d.id, { year: v || null })}
-                  />
+                <td className="px-2 py-2 align-middle text-xs">
+                  {d.publication_date
+                    ? (/-01-01$/.test(d.publication_date)
+                        ? d.publication_date.slice(0, 4)
+                        : new Date(d.publication_date).toLocaleDateString("es-CL"))
+                    : (d.year ?? "—")}
                 </td>
                 <td className="px-2 py-2 align-middle">
                   <InlineSelect
