@@ -20,7 +20,7 @@ export const DOC_TYPE_LABELS: Record<DocType, string> = {
   otro: "Otro",
 };
 
-export const SEX_OPTIONS = ["hombre", "mujer"] as const;
+export const SEX_OPTIONS = ["hombre", "mujer", "otro"] as const;
 
 export const MARITAL_OPTIONS = [
   "soltero/a",
@@ -28,6 +28,7 @@ export const MARITAL_OPTIONS = [
   "divorciado/a",
   "viudo/a",
   "conviviente",
+  "otro",
 ] as const;
 
 export function capitalize(s: string): string {
