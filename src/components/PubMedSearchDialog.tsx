@@ -39,6 +39,7 @@ export interface PubMedUploadPrefill {
   title: string;
   author: string;
   year: string;
+  publication_date?: string | null;
   abstract: string;
   pmc_id: string | null;
   pubmed_id: string | null;
