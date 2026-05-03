@@ -789,7 +789,7 @@ function ViewerSheet({ doc, onClose }: { doc: Doc | null; onClose: () => void })
                 <div className="min-w-0 flex-1">
                   <SheetTitle className="truncate">{doc.title}</SheetTitle>
                   <SheetDescription className="mt-1">
-                    {doc.author ?? "Autor desconocido"}{doc.year ? ` · ${doc.year}` : ""}
+                    {doc.author ?? "Autor desconocido"}{formatDocDate(doc) ? ` · ${formatDocDate(doc)}` : ""}
                   </SheetDescription>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[doc.document_type]}</Badge>
