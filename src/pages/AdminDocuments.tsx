@@ -75,12 +75,6 @@ export default function AdminDocuments() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<string>(ANY);
-  const [filterArea, setFilterArea] = useState<string>(ANY);
-  const [filterSource, setFilterSource] = useState<string>(ANY);
-  const [filterLang, setFilterLang] = useState<string>(ANY);
   const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
   // Snapshot-based "Sin chunks" filter — only updates when user clicks the button
   const [noChunksSnapshot, setNoChunksSnapshot] = useState<Set<string> | null>(null);
@@ -102,6 +96,7 @@ export default function AdminDocuments() {
   const [colOrigin, setColOrigin] = useState<string>(ANY);
   const [colDateFrom, setColDateFrom] = useState<Date | undefined>(undefined);
   const [colDateTo, setColDateTo] = useState<Date | undefined>(undefined);
+  const [sortDate, setSortDate] = useState<"none" | "asc" | "desc">("none");
 
   // Debounce title/author 300ms
   useEffect(() => {
@@ -243,22 +238,11 @@ export default function AdminDocuments() {
 
   // Filtering
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const tq = colTitleDebounced.trim().toLowerCase();
     const aq = colAuthorDebounced.trim().toLowerCase();
     const yFrom = colYearFrom ? parseInt(colYearFrom, 10) : null;
     const yTo = colYearTo ? parseInt(colYearTo, 10) : null;
-    const dFrom = colDateFrom ? new Date(colDateFrom.getFullYear(), colDateFrom.getMonth(), colDateFrom.getDate()).getTime() : null;
-    const dTo = colDateTo ? new Date(colDateTo.getFullYear(), colDateTo.getMonth(), colDateTo.getDate(), 23, 59, 59, 999).getTime() : null;
-    return rows.filter((d) => {
-      if (q) {
-        const hay = `${d.title} ${d.author ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      if (filterType !== ANY && d.document_type !== filterType) return false;
-      if (filterArea !== ANY && !d.clinical_areas.includes(filterArea)) return false;
-      if (filterSource !== ANY && d.source_institution !== filterSource) return false;
-      if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
+    const result = rows.filter((d) => {
       if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
       if (noChunksSnapshot && !noChunksSnapshot.has(d.id)) return false;
       // Column filters
@@ -275,19 +259,24 @@ export default function AdminDocuments() {
       if (colType !== ANY && d.document_type !== colType) return false;
       if (colAreas.length > 0 && !colAreas.some((a) => d.clinical_areas.includes(a))) return false;
       if (colSourceCol !== ANY && (d.source_institution ?? "") !== colSourceCol) return false;
-      if (colLang !== ANY && (d.language ?? "") !== colLang) return false;
       if (colChunks === "0" && d.chunk_count !== 0) return false;
       if (colChunks === "1+" && d.chunk_count < 1) return false;
       if (colOrigin !== ANY && (d.import_source ?? "upload") !== colOrigin) return false;
-      if (dFrom !== null && new Date(d.created_at).getTime() < dFrom) return false;
-      if (dTo !== null && new Date(d.created_at).getTime() > dTo) return false;
       return true;
     });
-  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksSnapshot,
-      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+    if (sortDate !== "none") {
+      result.sort((a, b) => {
+        const ta = new Date(a.created_at).getTime();
+        const tb = new Date(b.created_at).getTime();
+        return sortDate === "asc" ? ta - tb : tb - ta;
+      });
+    }
+    return result;
+  }, [rows, unclassifiedOnly, noChunksSnapshot,
+      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, sortDate]);
 
   // Reset to page 1 when column filters change
-  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin]);
 
   // Active column filter count + clear-all
   const activeColFilterCount = useMemo(() => {
@@ -299,21 +288,17 @@ export default function AdminDocuments() {
     if (colType !== ANY) n++;
     if (colAreas.length > 0) n++;
     if (colSourceCol !== ANY) n++;
-    if (colLang !== ANY) n++;
     if (colChunks !== ANY) n++;
     if (colOrigin !== ANY) n++;
-    if (colDateFrom) n++;
-    if (colDateTo) n++;
     return n;
-  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin]);
 
   function clearAllColFilters() {
     setColTitle(""); setColAuthor("");
     setColYearFrom(""); setColYearTo("");
     setColType(ANY); setColAreas([]);
-    setColSourceCol(ANY); setColLang(ANY);
+    setColSourceCol(ANY);
     setColChunks(ANY); setColOrigin(ANY);
-    setColDateFrom(undefined); setColDateTo(undefined);
   }
 
   // Distinct institutions present in rows (for Fuente column dropdown)
@@ -785,49 +770,6 @@ export default function AdminDocuments() {
             <X className="h-3 w-3 mr-1" /> Limpiar todos los filtros
           </Button>
         )}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por título o autor..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="pl-8 w-[260px]"
-          />
-        </div>
-        <Select value={filterType} onValueChange={(v) => { setFilterType(v); setPage(1); }}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Todos los tipos</SelectItem>
-            {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filterArea} onValueChange={(v) => { setFilterArea(v); setPage(1); }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Área clínica" /></SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value={ANY}>Todas las áreas</SelectItem>
-            {[...CLINICAL_AREAS_NICE, ...CLINICAL_AREAS_TRANSVERSAL].map((a) => (
-              <SelectItem key={a} value={a}>{clinicalAreaLabel(a)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterSource} onValueChange={(v) => { setFilterSource(v); setPage(1); }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Fuente" /></SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value={ANY}>Todas las fuentes</SelectItem>
-            {SOURCE_INSTITUTIONS.map((s) => (
-              <SelectItem key={s.name} value={s.name}>{s.icon} {s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterLang} onValueChange={(v) => { setFilterLang(v); setPage(1); }}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Idioma" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Todos los idiomas</SelectItem>
-            <SelectItem value="es">Español</SelectItem>
-            <SelectItem value="en">Inglés</SelectItem>
-            <SelectItem value="otro">Otro</SelectItem>
-          </SelectContent>
-        </Select>
         <label className="flex items-center gap-2 text-sm ml-2">
           <Checkbox
             checked={unclassifiedOnly}
@@ -917,12 +859,30 @@ export default function AdminDocuments() {
               <TableHead style={{ width: "5%" }}>Año</TableHead>
               <TableHead style={{ width: "8%" }}>Tipo</TableHead>
               <TableHead style={{ width: "30%" }}>Área(s) clínica(s)</TableHead>
-              <TableHead style={{ width: "10%" }}>Fuente</TableHead>
-              <TableHead style={{ width: "5%" }}>Idioma</TableHead>
+              <TableHead style={{ width: "8%" }}>Fuente</TableHead>
               <TableHead style={{ width: "5%" }} className="text-center">Chunks</TableHead>
               <TableHead style={{ width: "5%" }}>Modo</TableHead>
               <TableHead style={{ width: "5%" }}>Origen</TableHead>
-              <TableHead style={{ width: "7%" }}>Subido</TableHead>
+              <TableHead style={{ width: "7%" }}>
+                <button
+                  type="button"
+                  onClick={() => setSortDate((s) => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
+                  className={cn(
+                    "inline-flex items-center gap-1 hover:text-foreground transition-colors",
+                    sortDate !== "none" && "text-primary font-semibold"
+                  )}
+                  title={
+                    sortDate === "none" ? "Sin ordenar"
+                    : sortDate === "asc" ? "Más antiguos primero"
+                    : "Más recientes primero"
+                  }
+                >
+                  Subido
+                  <span className="text-xs">
+                    {sortDate === "none" ? "↕" : sortDate === "asc" ? "↑" : "↓"}
+                  </span>
+                </button>
+              </TableHead>
               <TableHead style={{ width: "5%" }}>Acciones</TableHead>
             </TableRow>
             {/* Column filter row */}
@@ -959,18 +919,6 @@ export default function AdminDocuments() {
               </TableHead>
               <TableHead className="p-1">
                 <ColSelectFilter
-                  value={colLang}
-                  onChange={setColLang}
-                  options={[
-                    { value: ANY, label: "Todos" },
-                    { value: "es", label: "Español" },
-                    { value: "en", label: "Inglés" },
-                    { value: "otro", label: "Otro" },
-                  ]}
-                />
-              </TableHead>
-              <TableHead className="p-1">
-                <ColSelectFilter
                   value={colChunks}
                   onChange={setColChunks}
                   options={[
@@ -988,17 +936,15 @@ export default function AdminDocuments() {
                   options={[{ value: ANY, label: "Todos" }, ...distinctOrigins.map((o) => ({ value: o, label: o }))]}
                 />
               </TableHead>
-              <TableHead className="p-1">
-                <ColDateRangeFilter from={colDateFrom} to={colDateTo} onFromChange={setColDateFrom} onToChange={setColDateTo} />
-              </TableHead>
+              <TableHead className="p-1" />
               <TableHead className="p-1" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
             ) : paged.length === 0 ? (
-              <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
             ) : paged.map((d) => (
               <TableRow key={d.id} className={cn(
                 selected.has(d.id) && "bg-primary/5",
@@ -1051,19 +997,6 @@ export default function AdminDocuments() {
                         source_institution_type: m?.type ?? null,
                       });
                     }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <InlineSelect
-                    value={d.language ?? ""}
-                    options={[
-                      { value: "es", label: "Español" },
-                      { value: "en", label: "Inglés" },
-                      { value: "otro", label: "Otro" },
-                    ]}
-                    placeholder="—"
-                    onSave={(v) => updateField(d.id, { language: v || null })}
-                    renderValue={(v) => LANG_LABELS[v as LangCode] ?? "—"}
                   />
                 </TableCell>
                 <TableCell className="text-center text-sm tabular-nums">
