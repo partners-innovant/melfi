@@ -14,7 +14,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 
@@ -90,24 +90,45 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [newOpen, setNewOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteDate, setDeleteDate] = useState<string>("");
   const [deleting, setDeleting] = useState(false);
+  const [nextSuggestions, setNextSuggestions] = useState<string>("");
+  const [loadingSuggest, setLoadingSuggest] = useState(false);
 
   const load = useCallback(async () => {
     const col = kind === "child" ? "child_patient_id" : "patient_id";
-    const { data, error } = await supabase
-      .from("sessions")
-      .select("*")
-      .eq(col, patientId)
-      .order("session_date", { ascending: false });
+    const table = kind === "child" ? "child_patients" : "patients";
+    const [{ data, error }, { data: pat }] = await Promise.all([
+      supabase.from("sessions").select("*").eq(col, patientId).order("session_date", { ascending: false }),
+      supabase.from(table).select("next_session_suggestions").eq("id", patientId).maybeSingle(),
+    ]);
     if (error) toast.error(error.message);
     setSessions((data as Session[]) ?? []);
+    setNextSuggestions(((pat as any)?.next_session_suggestions as string) ?? "");
     setLoading(false);
   }, [kind, patientId]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function generateNextSuggestions() {
+    setLoadingSuggest(true);
+    try {
+      const body = kind === "child" ? { child_patient_id: patientId } : { patient_id: patientId };
+      const { data, error } = await supabase.functions.invoke("session-pre-suggestions", { body });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const text = ((data as any)?.suggestions ?? "") as string;
+      setNextSuggestions(text);
+      const table = kind === "child" ? "child_patients" : "patients";
+      await supabase.from(table).update({ next_session_suggestions: text }).eq("id", patientId);
+      toast.success("✨ Sugerencias actualizadas");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al generar sugerencias");
+    } finally {
+      setLoadingSuggest(false);
+    }
+  }
 
   if (activeId) {
     return (
@@ -124,7 +145,6 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
     <div className="space-y-3">
       <div className="flex justify-between items-center">
         <h2 className="font-semibold">Sesiones ({sessions.length})</h2>
-        <Button onClick={() => setNewOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Nueva sesión</Button>
       </div>
 
       {loading ? (
@@ -172,13 +192,37 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
         </div>
       )}
 
-      <SessionModal
-        open={newOpen}
-        onOpenChange={setNewOpen}
-        kind={kind}
-        patientId={patientId}
-        onSaved={(sid) => { setNewOpen(false); load(); setActiveId(sid); }}
-      />
+      <Card className="p-4 bg-primary-soft/40 border-primary/30 mt-4">
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+          <h3 className="font-semibold text-sm flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            💡 Sugerencias de Claude para la próxima sesión
+          </h3>
+          <Button
+            size="sm"
+            onClick={generateNextSuggestions}
+            disabled={loadingSuggest}
+            className="gap-1.5"
+          >
+            {loadingSuggest ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" />Generando...</>
+            ) : nextSuggestions ? (
+              <><RefreshCw className="h-3.5 w-3.5" />🔄 Actualizar sugerencias</>
+            ) : (
+              <><Sparkles className="h-3.5 w-3.5" />✨ Generar sugerencias</>
+            )}
+          </Button>
+        </div>
+        {nextSuggestions ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
+            <ReactMarkdown>{nextSuggestions}</ReactMarkdown>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Aún no hay sugerencias generadas. Presiona el botón para que Claude prepare la próxima sesión.
+          </p>
+        )}
+      </Card>
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
