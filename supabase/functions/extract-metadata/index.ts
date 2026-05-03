@@ -93,6 +93,7 @@ ${snippet}`;
                   title: { type: ["string", "null"] },
                   author: { type: ["string", "null"] },
                   year: { type: ["string", "null"] },
+                  publication_date: { type: ["string", "null"] },
                   language: { type: "string", enum: ["español", "ingles", "otro"] },
                 },
                 required: ["document_type", "clinical_areas"],
