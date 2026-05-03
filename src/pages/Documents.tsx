@@ -46,6 +46,22 @@ import { PubMedSearchDialog, type PubMedUploadPrefill } from "@/components/PubMe
 
 type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search' | 'pubmed';
 
+/** Format publication_date as DD/MM/YYYY, or fallback to year. Returns "" if neither. */
+function formatDocDate(d: { year?: string | null; publication_date?: string | null }): string {
+  if (d.publication_date) {
+    try {
+      // If it's just YYYY-01-01 (only year known), show year only
+      if (/-01-01$/.test(d.publication_date)) {
+        return d.publication_date.slice(0, 4);
+      }
+      return formatDateFn(parseISO(d.publication_date), "dd/MM/yyyy");
+    } catch {
+      // fall through
+    }
+  }
+  return d.year ?? "";
+}
+
 interface Doc {
   id: string;
   title: string;
