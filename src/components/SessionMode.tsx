@@ -378,31 +378,25 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     }
   }
 
-  // Auto-transcribe every 10s while recording
-  useEffect(() => {
-    if (recState !== "recording") return;
-    const id = window.setInterval(async () => {
-      if (autoTranscribeRunningRef.current) return;
-      if (!unprocessedChunksRef.current.length) return;
-      // Force MediaRecorder to flush a chunk
-      try { liveRecorderRef.current?.requestData?.(); } catch { /* ignore */ }
-      autoTranscribeRunningRef.current = true;
-      try { await transcribeOnly(); } finally { autoTranscribeRunningRef.current = false; }
-    }, 10000);
-    return () => window.clearInterval(id);
-  }, [recState]);
-
-  // Manual: run Claude analysis on the full accumulated transcript (no Whisper call)
+  // Manual: transcribe accumulated audio chunks (Whisper + Claude diarization), then run Claude analysis
   async function transcribeAndAnalyze() {
     if (analyzing) return;
-    const hasAnyTranscript = transcriptRef.current.some((s) => !s.error);
-    if (!hasAnyTranscript) {
-      toast.info("Aún no hay transcripción. Espera unos segundos a que se transcriba el audio.");
-      return;
-    }
     setAnalyzing(true);
-    setAnalyzeStage("analyzing");
+    setAnalyzeStage("transcribing");
     try {
+      // Force MediaRecorder to flush any pending audio
+      try { liveRecorderRef.current?.requestData?.(); } catch { /* ignore */ }
+      // Give the dataavailable event a tick to land
+      await new Promise((r) => setTimeout(r, 250));
+      if (unprocessedChunksRef.current.length) {
+        await transcribeOnly();
+      }
+      const hasAnyTranscript = transcriptRef.current.some((s) => !s.error);
+      if (!hasAnyTranscript) {
+        toast.info("No hay audio suficiente para transcribir todavía.");
+        return;
+      }
+      setAnalyzeStage("analyzing");
       // Use the recent tail of the transcript as context for analysis
       const transcriptText = transcriptRef.current
         .filter((s) => !s.error)
@@ -767,7 +761,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
               >
                 {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                {analyzeStage === "transcribing" ? "Transcribiendo…" : analyzeStage === "analyzing" ? "Analizando…" : "✨ Analizar"}
+                {analyzeStage === "transcribing" ? "Transcribiendo…" : analyzeStage === "analyzing" ? "Analizando…" : "✨ Transcribir y analizar"}
               </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
@@ -789,7 +783,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 className="gap-1.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white hover:opacity-90"
               >
                 {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
-                {analyzeStage === "transcribing" ? "Transcribiendo…" : analyzeStage === "analyzing" ? "Analizando…" : "✨ Analizar"}
+                {analyzeStage === "transcribing" ? "Transcribiendo…" : analyzeStage === "analyzing" ? "Analizando…" : "✨ Transcribir y analizar"}
               </Button>
               <Button size="sm" variant="destructive" onClick={stopLiveRecording} className="gap-1.5">
                 <Square className="h-3.5 w-3.5" /> Detener
@@ -877,7 +871,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             </div>
             {summaryBullets.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
-                Los puntos clave de la sesión se irán acumulando aquí cada vez que pulses ✨ Analizar.
+                Los puntos clave de la sesión se irán acumulando aquí cada vez que pulses ✨ Transcribir y analizar.
               </div>
             ) : (
               <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1 border rounded-md bg-card py-3">
@@ -947,7 +941,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
 
                 {analyzedSuggestions.length === 0 ? (
                   <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
-                    Las sugerencias aparecerán aquí tras pulsar "✨ Analizar".
+                    Las sugerencias aparecerán aquí tras pulsar "✨ Transcribir y analizar".
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1046,7 +1040,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
                     {recState === "idle"
                       ? 'La transcripción aparecerá aquí. Pulsa "🔴 Grabar sesión" para empezar.'
-                      : 'Pulsa "✨ Analizar" cuando quieras transcribir el audio acumulado.'}
+                      : 'Pulsa "✨ Transcribir y analizar" cuando quieras transcribir el audio acumulado.'}
                   </div>
                 ) : (
                   transcript.map((seg, i) => {
