@@ -415,6 +415,7 @@ export default function Profile() {
                       <SelectItem value="semanal">Semanal</SelectItem>
                       <SelectItem value="quincenal">Quincenal</SelectItem>
                       <SelectItem value="mensual">Mensual</SelectItem>
+                      <SelectItem value="a_demanda">A demanda</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
