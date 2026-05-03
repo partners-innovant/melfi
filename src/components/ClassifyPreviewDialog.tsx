@@ -124,7 +124,9 @@ export function ClassifyPreviewDialog({
         clinicalAreas: t.clinical_areas ?? [],
         sourceInstitution: t.source_institution ?? "",
         sourceInstitutionType: (t.source_institution_type as SourceInstitutionType | null) ?? null,
-        ai: { docType: false, year: false, language: false, clinicalAreas: false, sourceInstitution: false },
+        evidenceLevel: "",
+        geographicRelevance: "",
+        ai: { docType: false, year: false, language: false, clinicalAreas: false, sourceInstitution: false, evidenceLevel: false, geographicRelevance: false },
       })),
     );
 
