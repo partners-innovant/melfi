@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Users as UsersIcon, Inbox, X } from "lucide-react";
+import { Plus, Users as UsersIcon, Inbox, X, MoreVertical, Pencil, Send } from "lucide-react";
+import TransferPatientDialog from "@/components/TransferPatientDialog";
 import { calcAge, SEX_OPTIONS, MARITAL_OPTIONS, capitalize } from "@/lib/clinical";
 
 interface Patient {
