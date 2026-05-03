@@ -1003,7 +1003,7 @@ export default function AdminDocuments() {
                   />
                 </td>
                 <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
-                  <InlineText value={d.title} onSave={(v) => updateField(d.id, { title: v })} multiline />
+                  <InlineText value={d.title} onSave={(v) => updateField(d.id, { title: v })} />
                 </td>
                 <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                   <InlineText value={d.author ?? ""} placeholder="—" onSave={(v) => updateField(d.id, { author: v || null })} />
