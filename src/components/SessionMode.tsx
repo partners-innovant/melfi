@@ -183,6 +183,16 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     return () => clearInterval(t);
   }, [open, startedAt]);
 
+  // Auto-load initial suggestions once sessionId is ready
+  const initialSuggestionsRef = useRef(false);
+  useEffect(() => {
+    if (!open || !sessionId) return;
+    if (initialSuggestionsRef.current) return;
+    initialSuggestionsRef.current = true;
+    requestSuggestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sessionId]);
+
   // Persist entries debounced helper
   const persistEntries = useCallback(async (next: { patient?: Entry[]; therapist?: Entry[] }) => {
     if (!sessionId) return;
@@ -671,6 +681,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     setEndStep(1); setEditing(false);
     setTranscript([]); transcriptRef.current = [];
     checkedSuggestionsRef.current = new Set();
+    initialSuggestionsRef.current = false;
     setRecState("idle"); setRecElapsed(0);
     setSuppressRecDisclaimer(false);
     setActiveTab("support"); setTranscriptEditable(false);
@@ -859,44 +870,21 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             </Card>
           </div>
 
-          {/* Timeline */}
+          {/* Resumen de lo conversado (accumulating) */}
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-              Timeline de sesión ({timeline.length})
+              📝 Resumen de lo conversado ({summaryBullets.length})
             </div>
-            {timeline.length === 0 ? (
+            {summaryBullets.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
-                Aún no hay registros. Empieza a anotar arriba.
+                Los puntos clave de la sesión se irán acumulando aquí cada vez que pulses ✨ Analizar.
               </div>
             ) : (
-              <div className="space-y-2">
-                {timeline.map((e, i) => (
-                  <div
-                    key={i}
-                    className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${
-                      e.who === "patient" ? "border-l-blue-400 bg-blue-500/5" : "border-l-teal-400 bg-teal-500/5"
-                    }`}
-                  >
-                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
-                      {e.who === "patient" ? "Paciente" : "Terapeuta"} [{clockFromTimestamp(e.t)}]
-                    </div>
-                    <div className="whitespace-pre-wrap">{e.text}</div>
-                  </div>
+              <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1 border rounded-md bg-card py-3">
+                {summaryBullets.map((b, i) => (
+                  <li key={i}>{b}</li>
                 ))}
-              </div>
-            )}
-
-            {summaryBullets.length > 0 && (
-              <div className="mt-6">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-                  📝 Resumen de lo conversado · solo cambios e inconsistencias ({summaryBullets.length})
-                </div>
-                <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1 border rounded-md bg-card py-3">
-                  {summaryBullets.map((b, i) => (
-                    <li key={i}>{b}</li>
-                  ))}
-                </ul>
-              </div>
+              </ul>
             )}
           </div>
         </div>
@@ -1019,7 +1007,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <div className="h-full overflow-y-auto p-4 space-y-2">
                 {loadingSuggestions && (
                   <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Generando sugerencias…
+                    <Loader2 className="h-4 w-4 animate-spin" /> {topicSuggestions.length === 0 ? "Cargando sugerencias iniciales…" : "Generando sugerencias…"}
                   </div>
                 )}
                 {topicSuggestions.length === 0 && !loadingSuggestions ? (
