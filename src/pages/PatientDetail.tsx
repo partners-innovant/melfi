@@ -44,14 +44,6 @@ export default function PatientDetail() {
     if (!id) return;
     const { data: p } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
     setPatient(p);
-    if (p) {
-      setForm({
-        first_name: p.first_name, last_name: p.last_name,
-        birth_date: p.birth_date ?? "", sex: p.sex ?? "",
-        marital_status: p.marital_status ?? "", occupation: p.occupation ?? "",
-        start_date: p.start_date ?? "", diagnosis: p.diagnosis ?? "", notes: p.notes ?? "",
-      });
-    }
     const { data: c } = await supabase
       .from("consultations").select("id, question, created_at")
       .eq("patient_id", id).order("created_at", { ascending: false });
