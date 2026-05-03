@@ -244,22 +244,11 @@ export default function AdminDocuments() {
 
   // Filtering
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
     const tq = colTitleDebounced.trim().toLowerCase();
     const aq = colAuthorDebounced.trim().toLowerCase();
     const yFrom = colYearFrom ? parseInt(colYearFrom, 10) : null;
     const yTo = colYearTo ? parseInt(colYearTo, 10) : null;
-    const dFrom = colDateFrom ? new Date(colDateFrom.getFullYear(), colDateFrom.getMonth(), colDateFrom.getDate()).getTime() : null;
-    const dTo = colDateTo ? new Date(colDateTo.getFullYear(), colDateTo.getMonth(), colDateTo.getDate(), 23, 59, 59, 999).getTime() : null;
-    return rows.filter((d) => {
-      if (q) {
-        const hay = `${d.title} ${d.author ?? ""}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      if (filterType !== ANY && d.document_type !== filterType) return false;
-      if (filterArea !== ANY && !d.clinical_areas.includes(filterArea)) return false;
-      if (filterSource !== ANY && d.source_institution !== filterSource) return false;
-      if (filterLang !== ANY && (d.language ?? "") !== filterLang) return false;
+    const result = rows.filter((d) => {
       if (unclassifiedOnly && d.clinical_areas.length > 0 && !!d.document_type) return false;
       if (noChunksSnapshot && !noChunksSnapshot.has(d.id)) return false;
       // Column filters
@@ -276,16 +265,21 @@ export default function AdminDocuments() {
       if (colType !== ANY && d.document_type !== colType) return false;
       if (colAreas.length > 0 && !colAreas.some((a) => d.clinical_areas.includes(a))) return false;
       if (colSourceCol !== ANY && (d.source_institution ?? "") !== colSourceCol) return false;
-      if (colLang !== ANY && (d.language ?? "") !== colLang) return false;
       if (colChunks === "0" && d.chunk_count !== 0) return false;
       if (colChunks === "1+" && d.chunk_count < 1) return false;
       if (colOrigin !== ANY && (d.import_source ?? "upload") !== colOrigin) return false;
-      if (dFrom !== null && new Date(d.created_at).getTime() < dFrom) return false;
-      if (dTo !== null && new Date(d.created_at).getTime() > dTo) return false;
       return true;
     });
-  }, [rows, search, filterType, filterArea, filterSource, filterLang, unclassifiedOnly, noChunksSnapshot,
-      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+    if (sortDate !== "none") {
+      result.sort((a, b) => {
+        const ta = new Date(a.created_at).getTime();
+        const tb = new Date(b.created_at).getTime();
+        return sortDate === "asc" ? ta - tb : tb - ta;
+      });
+    }
+    return result;
+  }, [rows, unclassifiedOnly, noChunksSnapshot,
+      colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, sortDate]);
 
   // Reset to page 1 when column filters change
   useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
