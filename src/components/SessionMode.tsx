@@ -102,7 +102,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptEditable, setTranscriptEditable] = useState(false);
-  const [activeTab, setActiveTab] = useState<"support" | "topics" | "transcript">("support");
+  const [activeTab, setActiveTab] = useState<"support" | "topics" | "transcript">("topics");
   const [chunkCount, setChunkCount] = useState(0);
   // Manual on-demand transcription + analysis
   const [analyzing, setAnalyzing] = useState(false);
