@@ -12,7 +12,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Users as UsersIcon, Inbox, X } from "lucide-react";
-import { calcAge, SEX_OPTIONS, MARITAL_OPTIONS } from "@/lib/clinical";
+import { calcAge, SEX_OPTIONS, MARITAL_OPTIONS, capitalize } from "@/lib/clinical";
 
 interface Patient {
   id: string;
