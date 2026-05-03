@@ -170,21 +170,69 @@ export default function Documents() {
   }
 
   const ANY = "__any__";
+  const [titleInput, setTitleInput] = useState("");
+  const [titleQuery, setTitleQuery] = useState("");
+  // Debounce title input by 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setTitleQuery(titleInput.trim().toLowerCase()), 300);
+    return () => clearTimeout(t);
+  }, [titleInput]);
+
   const [filterType, setFilterType] = useState<string>(ANY);
-  const [filterArea, setFilterArea] = useState<string>(ANY);
+  const [filterAreas, setFilterAreas] = useState<string[]>([]);
   const [filterSource, setFilterSource] = useState<string>(ANY);
-  const [filterScope, setFilterScope] = useState<"all" | "global" | "mine">("all");
+  const [filterLanguage, setFilterLanguage] = useState<string>(ANY);
+  const [filterChunks, setFilterChunks] = useState<"all" | "none" | "some">("all");
+  const [filterOrigin, setFilterOrigin] = useState<string>(ANY);
+  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+  const [filterDateTo, setFilterDateTo] = useState<string>("");
+
+  function clearAllFilters() {
+    setTitleInput(""); setTitleQuery("");
+    setFilterType(ANY); setFilterAreas([]); setFilterSource(ANY);
+    setFilterLanguage(ANY); setFilterChunks("all"); setFilterOrigin(ANY);
+    setFilterDateFrom(""); setFilterDateTo("");
+  }
+
+  const activeFiltersCount =
+    (titleQuery ? 1 : 0) +
+    (filterType !== ANY ? 1 : 0) +
+    (filterAreas.length > 0 ? 1 : 0) +
+    (filterSource !== ANY ? 1 : 0) +
+    (filterLanguage !== ANY ? 1 : 0) +
+    (filterChunks !== "all" ? 1 : 0) +
+    (filterOrigin !== ANY ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0);
 
   const filtered = docs.filter((d) => {
+    if (titleQuery && !d.title.toLowerCase().includes(titleQuery)) return false;
     if (filterType !== ANY && d.document_type !== filterType) return false;
-    if (filterArea !== ANY && !(d.clinical_areas ?? []).includes(filterArea)) return false;
+    if (filterAreas.length > 0 && !filterAreas.some((a) => (d.clinical_areas ?? []).includes(a))) return false;
     if (filterSource !== ANY && d.source_institution !== filterSource) return false;
-    if (filterScope === "global" && !d.is_global) return false;
-    if (filterScope === "mine" && (d.is_global || d.psychologist_id !== user?.id)) return false;
+    if (filterLanguage !== ANY && (d.language ?? "") !== filterLanguage) return false;
+    if (filterChunks === "none" && (d.chunk_count ?? 0) > 0) return false;
+    if (filterChunks === "some" && (d.chunk_count ?? 0) === 0) return false;
+    if (filterOrigin !== ANY && (d.import_source ?? "upload") !== filterOrigin) return false;
+    if (filterDateFrom && d.created_at < filterDateFrom) return false;
+    if (filterDateTo && d.created_at > filterDateTo + "T23:59:59") return false;
     return true;
   });
 
   const allSourcesInUse = Array.from(new Set(docs.map((d) => d.source_institution).filter((v): v is string => !!v))).sort();
+
+  const filterProps: TableFilterProps = {
+    titleInput, setTitleInput,
+    filterType, setFilterType,
+    filterAreas, setFilterAreas,
+    filterSource, setFilterSource,
+    filterLanguage, setFilterLanguage,
+    filterChunks, setFilterChunks,
+    filterOrigin, setFilterOrigin,
+    filterDateFrom, setFilterDateFrom,
+    filterDateTo, setFilterDateTo,
+    allSourcesInUse,
+    ANY,
+  };
 
   const global = filtered.filter((d) => d.is_global);
   const own = filtered.filter((d) => !d.is_global && d.psychologist_id === user?.id);
