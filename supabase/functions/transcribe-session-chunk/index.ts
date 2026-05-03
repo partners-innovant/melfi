@@ -85,30 +85,59 @@ Deno.serve(async (req) => {
 
     // ===== TRANSCRIBE (Haiku, audio only) =====
     if (action === "transcribe") {
-      const { audio, mime_type } = body ?? {};
+      const { audio, mime_type, audioMediaType } = body ?? {};
       if (!audio || typeof audio !== "string") {
-        return new Response(JSON.stringify({ error: "audio (base64) requerido" }), {
+        return new Response(JSON.stringify({ success: false, error: "audio (base64) requerido", segments: [] }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      // Using Haiku — audio transcription, no clinical reasoning needed
-      const data = await callAnthropic(HAIKU_MODEL, {
-        max_tokens: 2000,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: TRANSCRIBE_PROMPT },
-            {
-              type: "document",
-              source: { type: "base64", media_type: mime_type || "audio/webm", data: audio },
-            },
-          ],
-        }],
-      }, ANTHROPIC_API_KEY);
-      const text: string = data?.content?.[0]?.text ?? "";
+      const rawMime = (audioMediaType || mime_type || "audio/webm").split(";")[0];
+      // Anthropic accepts a limited set; map common recorder MIMEs
+      const allowed = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav"];
+      const mediaType = allowed.includes(rawMime) ? rawMime : "audio/webm";
+      console.log("transcribe: audio base64 length =", audio.length, "mediaType =", mediaType, "(raw:", rawMime, ")");
+
+      async function tryWithMedia(mt: string) {
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": ANTHROPIC_API_KEY!,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: HAIKU_MODEL,
+            max_tokens: 2000,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: TRANSCRIBE_PROMPT },
+                { type: "document", source: { type: "base64", media_type: mt, data: audio } },
+              ],
+            }],
+          }),
+        });
+        const json = await resp.json();
+        return { ok: resp.ok, status: resp.status, json };
+      }
+
+      let result = await tryWithMedia(mediaType);
+      console.log("Claude response status:", result.status, "body:", JSON.stringify(result.json).slice(0, 800));
+      if (!result.ok && mediaType !== "audio/mp4") {
+        console.log("Retrying with audio/mp4 fallback");
+        result = await tryWithMedia("audio/mp4");
+        console.log("Claude retry response:", result.status, JSON.stringify(result.json).slice(0, 800));
+      }
+      if (!result.ok || result.json?.error) {
+        const msg = result.json?.error?.message || `anthropic_${result.status}`;
+        return new Response(JSON.stringify({ success: false, error: msg, segments: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const text: string = result.json?.content?.[0]?.text ?? "";
       const parsed = tryParseJson(text);
       const segments = Array.isArray(parsed?.segments) ? parsed.segments : [];
-      return new Response(JSON.stringify({ segments }), {
+      return new Response(JSON.stringify({ success: true, segments }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
