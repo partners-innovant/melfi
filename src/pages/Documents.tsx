@@ -1084,6 +1084,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           title: consumedPrefill.title || undefined,
           author: consumedPrefill.author || undefined,
           year: consumedPrefill.year || undefined,
+          publicationDate: consumedPrefill.publication_date || (consumedPrefill.year && /^\d{4}$/.test(consumedPrefill.year) ? `${consumedPrefill.year}-01-01` : ""),
           sourceInstitution: consumedPrefill.source_institution,
           sourceInstitutionType: consumedPrefill.source_institution_type,
           ...(aiAreas.length > 0 ? { clinicalAreas: aiAreas } : {}),
