@@ -39,9 +39,24 @@ serve(async (req) => {
       if (parts.length <= 1) return s
       return `${parts[0]} et al.`
     }
+    const toIsoDate = (s: string | undefined | null, fallbackYear: string | undefined | null): string | null => {
+      if (s) {
+        // Accept YYYY-MM-DD or YYYY-MM or YYYY
+        const m = String(s).match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/)
+        if (m) {
+          const yy = m[1]
+          const mm = m[2] ?? '01'
+          const dd = m[3] ?? '01'
+          return `${yy}-${mm}-${dd}`
+        }
+      }
+      if (fallbackYear && /^\d{4}$/.test(String(fallbackYear))) return `${fallbackYear}-01-01`
+      return null
+    }
     const articles = (data.resultList?.result || []).map((a: any) => {
       const hasPdf = a.hasPDF === 'Y' && !!a.pmcid
       const pdfUrl = hasPdf ? `https://pmc.ncbi.nlm.nih.gov/articles/${a.pmcid}/pdf/` : null
+      const pubDate = toIsoDate(a.firstPublicationDate || a.pubDate, a.pubYear)
       return {
         europepmc_id: a.id,
         source: a.source,
@@ -52,6 +67,7 @@ serve(async (req) => {
         authors: formatAuthor(a.authorString || ''),
         journal: a.journalTitle || '',
         year: a.pubYear || '',
+        publication_date: pubDate,
         abstract: a.abstractText || '',
         has_pdf: hasPdf,
         is_open_access: a.isOpenAccess === 'Y',
