@@ -37,12 +37,20 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 // Bullets-only prompt (Haiku) — pure summarization, no clinical reasoning required
-const BULLETS_SYSTEM = `Eres un asistente clínico que resume una sesión terapéutica en curso.
+const BULLETS_SYSTEM = `Eres un asistente clínico que resume un fragmento de sesión terapéutica EN CURSO.
 
-Genera un RESUMEN EN BULLETS (summary_bullets): máximo 8 puntos de no más de 15 palabras cada uno resumiendo lo conversado. Tercera persona, lenguaje clínico conciso.
+Genera 3 listas de bullets MUY CORTOS (máximo 8 palabras cada bullet, frases clave, no oraciones completas):
+
+1) "patient_bullets": qué dijo o hizo el paciente en este fragmento (máx 6 bullets).
+2) "therapist_bullets": intervenciones/preguntas del terapeuta en este fragmento (máx 6 bullets).
+3) "summary_bullets": resumen general del fragmento, pero SOLO incluye elementos INCONSISTENTES o que representen un CAMBIO respecto al perfil del paciente y a los resúmenes previos. NO incluyas lo esperado o consistente con la historia. Si todo es consistente, devuelve [].
+
+Tercera persona, lenguaje clínico, sin "•" ni numeración, solo el texto plano del bullet.
 
 Responde SOLO con JSON válido (sin markdown, sin \`\`\`):
 {
+  "patient_bullets": ["..."],
+  "therapist_bullets": ["..."],
   "summary_bullets": ["..."]
 }`;
 
@@ -51,14 +59,16 @@ const ANALYZE_SYSTEM = `Eres un supervisor clínico analizando una sesión terap
 
 Analiza el material y genera:
 
-1. SUGERENCIAS ACTUALIZADAS (suggestions): basadas en lo que REALMENTE se ha dicho. Cada una con tipo y rationale breve.
+1. SUGERENCIAS DE APOYO (suggestions): orientación CORTA para los próximos minutos de la sesión. Cada una con tipo y rationale breve.
 2. SUGERENCIAS DETECTADAS (suggestions_addressed): IDs de las sugerencias activas que parecen abordadas.
-3. INSIGHT DE SESIÓN (session_insights): observación clínica de 1-2 oraciones.
+3. TÓPICOS ABORDADOS (topics_addressed): IDs de los tópicos sugeridos (lista \"topic_suggestions\") que el terapeuta ya cubrió en la conversación.
+4. INSIGHT DE SESIÓN (session_insights): observación clínica de 1-2 oraciones.
 
 Responde SOLO con JSON válido (sin markdown, sin \`\`\`):
 {
   "suggestions": [{"type":"question|intervention|pattern|alert","text":"...","rationale":"..."}],
   "suggestions_addressed": ["id1"],
+  "topics_addressed": ["tid1"],
   "session_insights": "..."
 }`;
 
