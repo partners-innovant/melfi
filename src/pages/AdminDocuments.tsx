@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Database, Search, Eye, Trash2, Pencil, AlertTriangle, ChevronLeft, ChevronRight,
-  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye, Calendar as CalendarIcon, Filter,
+  Check, X, Plus, FileText, Sparkles, Loader2, RotateCw, ScanEye, Calendar as CalendarIcon, Filter, ChevronsUpDown,
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format as formatDateFn } from "date-fns";
