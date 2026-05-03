@@ -401,7 +401,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             ...suggestions.patterns.map((t, i) => ({ id: `p-${i}`, type: "pattern", text: t })),
             ...suggestions.unexplored.map((t, i) => ({ id: `u-${i}`, type: "alert", text: t })),
           ];
-      const recentBullets = (summaryBlocks[0]?.bullets ?? []).slice(0, 3);
+      const recentBullets = summaryBullets.slice(-10);
 
       setAnalyzeStage("analyzing");
       const { data: ad, error: aerr } = await supabase.functions.invoke("transcribe-session-chunk", {
@@ -412,16 +412,20 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           therapist_notes: therapistNotesText,
           patient_notes: patientNotesText,
           active_suggestions: activeWithIds.map(({ id, type, text }) => ({ id, type, text })),
+          topic_suggestions: topicSuggestions.filter((t) => !t.addressed).map(({ id, text }) => ({ id, text })),
           recent_summary_bullets: recentBullets,
         },
       });
       if (aerr) throw aerr;
       const bullets: string[] = Array.isArray((ad as any)?.summary_bullets) ? (ad as any).summary_bullets : [];
+      const pBullets: string[] = Array.isArray((ad as any)?.patient_bullets) ? (ad as any).patient_bullets : [];
+      const tBullets: string[] = Array.isArray((ad as any)?.therapist_bullets) ? (ad as any).therapist_bullets : [];
       const newSugs: any[] = Array.isArray((ad as any)?.suggestions) ? (ad as any).suggestions : [];
       const addressed: string[] = Array.isArray((ad as any)?.suggestions_addressed) ? (ad as any).suggestions_addressed : [];
+      const topicsAddressed: string[] = Array.isArray((ad as any)?.topics_addressed) ? (ad as any).topics_addressed : [];
       const insight: string = typeof (ad as any)?.session_insights === "string" ? (ad as any).session_insights : "";
 
-      // Mark addressed on previous active set so therapist sees what was detected
+      // Apoyo Sesión: replace with newest suggestions (short-term guidance for next minutes)
       const addressedSet = new Set(addressed.map(String));
       const refreshed: AnalyzedSuggestion[] = newSugs.map((s, i) => ({
         id: `n-${Date.now()}-${i}`,
@@ -430,17 +434,23 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         rationale: s.rationale ? String(s.rationale) : undefined,
         addressed: false,
       })).filter((s) => s.text);
-      // Also keep any prior addressed ones flagged at the top
       const flaggedPrior = activeWithIds
         .filter((s) => addressedSet.has(s.id))
         .map((s) => ({ ...s, addressed: true }));
-
       setAnalyzedSuggestions([...flaggedPrior, ...refreshed]);
       setSessionInsight(insight);
 
-      if (bullets.length) {
-        setSummaryBlocks((prev) => [{ t: Date.now(), bullets }, ...prev]);
+      // Auto-check addressed topics
+      if (topicsAddressed.length) {
+        const tset = new Set(topicsAddressed.map(String));
+        setTopicSuggestions((prev) => prev.map((t) => tset.has(t.id) ? { ...t, addressed: true } : t));
       }
+
+      // Append (accumulate, never clear) bullets
+      if (bullets.length) setSummaryBullets((prev) => [...prev, ...bullets]);
+      if (pBullets.length) setPatientBullets((prev) => [...prev, ...pBullets]);
+      if (tBullets.length) setTherapistBullets((prev) => [...prev, ...tBullets]);
+
       setTranscriptionCount((n) => n + 1);
       setLastAnalyzedAt(Date.now());
       toast.success("✨ Transcripción y análisis listos");
