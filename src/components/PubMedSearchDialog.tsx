@@ -27,6 +27,7 @@ export interface PubMedArticle {
   authors: string;
   journal: string;
   year: string;
+  publication_date?: string | null;
   abstract: string;
   has_pdf: boolean;
   is_open_access: boolean;
