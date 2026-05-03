@@ -2374,10 +2374,14 @@ function FullscreenDocViewer({
             <Button
               variant="outline"
               className="w-full"
-              onClick={onClassify}
+              onClick={runAutoClassify}
+              disabled={autoClassifying}
             >
-              <Sparkles className="h-4 w-4 mr-2 text-primary" />
-              ✨ Auto-clasificar
+              {autoClassifying ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> ✨ Clasificando...</>
+              ) : (
+                <><Sparkles className="h-4 w-4 mr-2 text-primary" /> ✨ Auto-clasificar</>
+              )}
             </Button>
           </div>
         </div>
