@@ -11,14 +11,14 @@ const corsHeaders = {
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const SONNET_MODEL = "claude-sonnet-4-5-20250929";
 
-const DIARIZE_PROMPT = `Recibirás la transcripción de un fragmento de una sesión terapéutica, ya segmentada con timestamps por Whisper. Tu tarea es identificar quién habla en cada segmento: "Terapeuta" o "Paciente" basándote en los patrones de conversación (el terapeuta pregunta e interviene, el paciente narra y responde). Si no puedes identificarlo usa "Hablante".
+const DIARIZE_PROMPT = `Dado este fragmento de transcripción de una sesión terapéutica, identifica qué partes corresponden al terapeuta y cuáles al paciente. El terapeuta típicamente pregunta, refleja, interviene; el paciente narra, responde, expresa.
 
-NO modifiques el texto ni los timestamps, solo asigna el speaker. Conserva el mismo orden y la misma cantidad de segmentos.
+Debes devolver EXACTAMENTE la misma cantidad de segmentos que recibes, en el mismo orden, sin modificar el texto. Solo asigna el campo "speaker" a "TERAPEUTA" o "PACIENTE" (en mayúsculas). Si no estás seguro, usa tu mejor inferencia según el contenido — no uses "Hablante".
 
 Responde SOLO con JSON válido (sin markdown, sin \`\`\`):
 {
   "segments": [
-    {"speaker": "Terapeuta|Paciente|Hablante", "timestamp": "[MM:SS]", "text": "..."}
+    {"speaker": "TERAPEUTA" | "PACIENTE", "text": "..."}
   ]
 }`;
 
@@ -204,12 +204,21 @@ Deno.serve(async (req) => {
         const text: string = claudeJson?.content?.[0]?.text ?? "";
         const parsed = tryParseJson(text);
         const arr = Array.isArray(parsed?.segments) ? parsed.segments : [];
-        if (arr.length === timestampedSegments.length) {
-          diarizedSegments = arr.map((s: any, i: number) => ({
-            speaker: typeof s.speaker === "string" ? s.speaker : "Hablante",
-            timestamp: timestampedSegments[i].timestamp,
-            text: timestampedSegments[i].text,
-          }));
+        const normalize = (sp: any): string => {
+          const v = String(sp ?? "").toUpperCase();
+          if (v.includes("TERAP")) return "Terapeuta";
+          if (v.includes("PACI")) return "Paciente";
+          return "";
+        };
+        if (arr.length) {
+          diarizedSegments = timestampedSegments.map((seg, i) => {
+            const sp = normalize(arr[i]?.speaker);
+            return {
+              speaker: sp || (i % 2 === 0 ? "Terapeuta" : "Paciente"),
+              timestamp: seg.timestamp,
+              text: seg.text,
+            };
+          });
         }
       } catch (e) {
         console.error("Diarization failed, returning segments without speaker:", e);
@@ -217,7 +226,7 @@ Deno.serve(async (req) => {
 
       const finalSegments = diarizedSegments.length
         ? diarizedSegments
-        : timestampedSegments.map((s) => ({ speaker: "Hablante", ...s }));
+        : timestampedSegments.map((s, i) => ({ speaker: i % 2 === 0 ? "Terapeuta" : "Paciente", ...s }));
 
       return new Response(JSON.stringify({ success: true, segments: finalSegments, full_text: fullText }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
