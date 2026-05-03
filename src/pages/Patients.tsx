@@ -293,40 +293,92 @@ export default function Patients() {
             const dl = p.session_day ? DAY_LABELS[p.session_day] : null;
             const tl = p.session_time ? String(p.session_time).slice(0, 5) : null;
             return (
-              <Link key={p.id} to={`/patients/${p.id}`}>
-                <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold flex-shrink-0">
-                    {p.first_name[0]}{p.last_name[0]}
-                  </div>
-                  <div className="flex-1 min-w-0 max-w-full overflow-hidden">
-                    <div className="font-medium flex items-center gap-2 flex-wrap">
-                      <span className="break-words">{p.first_name} {p.last_name}</span>
-                      {transferDate && (
-                        <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded whitespace-nowrap">
-                          Transferido · {new Date(transferDate).toLocaleDateString("es-CL")}
-                        </span>
+              <div key={p.id} className="relative group">
+                <Link to={`/patients/${p.id}`}>
+                  <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4 pr-12">
+                    <div className="h-10 w-10 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold flex-shrink-0">
+                      {p.first_name[0]}{p.last_name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                      <div className="font-medium flex items-center gap-2 flex-wrap">
+                        <span className="break-words">{p.first_name} {p.last_name}</span>
+                        {transferDate && (
+                          <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded whitespace-nowrap">
+                            Transferido · {new Date(transferDate).toLocaleDateString("es-CL")}
+                          </span>
+                        )}
+                      </div>
+                      {(() => {
+                        const line = age !== null ? `${age} años` : "";
+                        return (
+                          <div
+                            className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                            title={line}
+                          >
+                            {line}
+                          </div>
+                        );
+                      })()}
+                      {dl && tl && (
+                        <div className="text-xs text-primary mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">📅 {dl} {tl}</div>
                       )}
                     </div>
-                    {(() => {
-                      const line = age !== null ? `${age} años` : "";
-                      return (
-                        <div
-                          className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
-                          title={line}
-                        >
-                          {line}
-                        </div>
-                      );
-                    })()}
-                    {dl && tl && (
-                      <div className="text-xs text-primary mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">📅 {dl} {tl}</div>
-                    )}
-                  </div>
-                </Card>
-              </Link>
+                  </Card>
+                </Link>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        aria-label="Acciones"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onSelect={() => openEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5 mr-2" />Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setTransferPatient(p)}>
+                        <Send className="h-3.5 w-3.5 mr-2" />Transferir a otro terapeuta
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             );
           })}
         </div>
+      )}
+
+      {/* Edit dialog */}
+      <Dialog open={!!editPatient} onOpenChange={(o) => !o && setEditPatient(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
+          <PatientForm form={editForm} setForm={setEditForm} />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditPatient(null)}>Cancelar</Button>
+            <Button onClick={saveEdit} disabled={editSaving}>{editSaving ? "Guardando..." : "Guardar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {transferPatient && (
+        <TransferPatientDialog
+          open={!!transferPatient}
+          onOpenChange={(o) => !o && setTransferPatient(null)}
+          patient={{
+            id: transferPatient.id,
+            first_name: transferPatient.first_name,
+            last_name: transferPatient.last_name,
+            birth_date: transferPatient.birth_date,
+            diagnosis: transferPatient.diagnosis,
+            start_date: transferPatient.start_date,
+          }}
+        />
       )}
     </div>
   );
