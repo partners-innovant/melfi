@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog } from "lucide-react";
+import { LayoutDashboard, Users, Baby, FileText, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog, Coffee } from "lucide-react";
 import claudeLogo from "@/assets/claude-logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
