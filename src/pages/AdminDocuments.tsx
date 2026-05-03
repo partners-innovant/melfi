@@ -1089,132 +1089,176 @@ export default function AdminDocuments() {
       )}
 
       {/* Table */}
-      <div className="border rounded-lg overflow-hidden bg-card">
-        <table className="w-full text-sm table-fixed">
+      <div className="border rounded-lg overflow-x-auto bg-card">
+        <table className="w-full text-sm table-fixed min-w-[1200px]">
           <colgroup>
-            <col style={{ width: "3%" }} />
-            <col style={{ width: "22%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "4%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "20%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "4%" }} />
-            <col style={{ width: "5%" }} />
-            <col style={{ width: "7%" }} />
-            <col style={{ width: "9%" }} />
+            {COLUMN_KEYS.map((k) => (
+              <col key={k} style={{ width: `${colWidths[k]}%` }} />
+            ))}
           </colgroup>
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th className="px-2 py-2 text-left">
-                <Checkbox checked={allOnPageSelected} onCheckedChange={(v) => toggleAllOnPage(!!v)} />
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Título" active={!!colTitle} activeText={colTitle || undefined} onClear={() => setColTitle("")}>
-                  <Label className="text-xs">Buscar por título</Label>
-                  <Input autoFocus value={colTitle} onChange={(e) => setColTitle(e.target.value)} placeholder="Texto contenido..." className="h-8 text-xs mt-1" />
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Autor" active={!!colAuthor} activeText={colAuthor || undefined} onClear={() => setColAuthor("")}>
-                  <Label className="text-xs">Buscar por autor</Label>
-                  <Input autoFocus value={colAuthor} onChange={(e) => setColAuthor(e.target.value)} placeholder="Nombre..." className="h-8 text-xs mt-1" />
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Año" active={!!(colYearFrom || colYearTo)} activeText={colYearFrom || colYearTo ? `${colYearFrom || "…"}–${colYearTo || "…"}` : undefined} onClear={() => { setColYearFrom(""); setColYearTo(""); }}>
-                  <div className="space-y-2">
-                    <div><Label className="text-xs">Desde</Label><Input type="number" value={colYearFrom} onChange={(e) => setColYearFrom(e.target.value)} className="h-8 text-xs mt-1" /></div>
-                    <div><Label className="text-xs">Hasta</Label><Input type="number" value={colYearTo} onChange={(e) => setColYearTo(e.target.value)} className="h-8 text-xs mt-1" /></div>
-                  </div>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Tipo" active={colType !== ANY} activeText={colType !== ANY ? DOC_TYPE_LABELS[colType as DocType] : undefined} onClear={() => setColType(ANY)}>
-                  <Select value={colType} onValueChange={setColType}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ANY}>Todos</SelectItem>
-                      {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Área(s) clínica(s)" active={colAreas.length > 0} activeText={colAreas.length > 0 ? `${colAreas.length} sel.` : undefined} onClear={() => setColAreas([])}>
-                  <div className="space-y-1 max-h-64 overflow-y-auto">
-                    {colAreas.length > 0 && (
-                      <button type="button" onClick={() => setColAreas([])} className="text-xs text-primary hover:underline mb-1">Limpiar selección</button>
-                    )}
-                    {[...CLINICAL_AREAS_NICE, ...CLINICAL_AREAS_TRANSVERSAL].map((a) => {
-                      const checked = colAreas.includes(a);
-                      return (
-                        <label key={a} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
-                          <Checkbox checked={checked} onCheckedChange={(v) => { if (v) setColAreas([...colAreas, a]); else setColAreas(colAreas.filter((x) => x !== a)); }} />
-                          <span className="truncate">{clinicalAreaLabel(a)}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Fuente" active={colSourceCol !== ANY} activeText={colSourceCol !== ANY ? shortInstitutionName(colSourceCol) : undefined} onClear={() => setColSourceCol(ANY)}>
-                  <Select value={colSourceCol} onValueChange={setColSourceCol}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      <SelectItem value={ANY}>Todas</SelectItem>
-                      {distinctInstitutions.map((s) => <SelectItem key={s} value={s}>{sourceIconFor(s)} {shortInstitutionName(s)}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Chunks" active={colChunks !== ANY} activeText={colChunks === "0" ? "Sin (0)" : colChunks === "1+" ? "Con (1+)" : undefined} onClear={() => setColChunks(ANY)}>
-                  <Select value={colChunks} onValueChange={setColChunks}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ANY}>Todos</SelectItem>
-                      <SelectItem value="0">Sin chunks (0)</SelectItem>
-                      <SelectItem value="1+">Con chunks (1+)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter label="Origen" active={colOrigin !== ANY} activeText={colOrigin !== ANY ? colOrigin : undefined} onClear={() => setColOrigin(ANY)}>
-                  <Select value={colOrigin} onValueChange={setColOrigin}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={ANY}>Todos</SelectItem>
-                      {distinctOrigins.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <button
-                  type="button"
-                  onClick={() => setSortDate((s) => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
-                  className={cn(
-                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium hover:bg-muted",
-                    sortDate !== "none" && "text-teal-700 dark:text-teal-300 bg-teal-500/10"
+              {COLUMN_KEYS.map((k) => (
+                <th key={k} className="px-2 py-2 text-left relative">
+                  {k === "checkbox" && (
+                    <Checkbox checked={allOnPageSelected} onCheckedChange={(v) => toggleAllOnPage(!!v)} />
                   )}
-                  title={sortDate === "none" ? "Sin ordenar" : sortDate === "asc" ? "Más antiguos primero" : "Más recientes primero"}
-                >
-                  <span>Subido</span>
-                  <span>{sortDate === "none" ? "↕" : sortDate === "asc" ? "↑" : "↓"}</span>
-                </button>
-              </th>
-              <th className="px-2 py-2 text-left">Acciones</th>
+                  {k === "title" && (
+                    <HeaderFilter label="Título" active={!!colTitle} activeText={colTitle || undefined} onClear={() => setColTitle("")}>
+                      <Label className="text-xs">Buscar por título</Label>
+                      <Input autoFocus value={colTitle} onChange={(e) => setColTitle(e.target.value)} placeholder="Texto contenido..." className="h-8 text-xs mt-1" />
+                    </HeaderFilter>
+                  )}
+                  {k === "author" && (
+                    <HeaderFilter label="Autor" active={!!colAuthor} activeText={colAuthor || undefined} onClear={() => setColAuthor("")}>
+                      <Label className="text-xs">Buscar por autor</Label>
+                      <Input autoFocus value={colAuthor} onChange={(e) => setColAuthor(e.target.value)} placeholder="Nombre..." className="h-8 text-xs mt-1" />
+                    </HeaderFilter>
+                  )}
+                  {k === "journal" && <span className="text-xs font-medium px-1.5">Revista</span>}
+                  {k === "repository" && (
+                    <HeaderFilter label="Repositorio" active={colRepository !== ANY} activeText={colRepository !== ANY ? colRepository : undefined} onClear={() => setColRepository(ANY)}>
+                      <Select value={colRepository} onValueChange={setColRepository}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent className="max-h-72">
+                          <SelectItem value={ANY}>Todos</SelectItem>
+                          {distinctRepositories.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </HeaderFilter>
+                  )}
+                  {k === "pubdate" && (
+                    <HeaderFilter label="Fecha pub." active={!!(colYearFrom || colYearTo)} activeText={colYearFrom || colYearTo ? `${colYearFrom || "…"}–${colYearTo || "…"}` : undefined} onClear={() => { setColYearFrom(""); setColYearTo(""); }}>
+                      <div className="space-y-2">
+                        <div><Label className="text-xs">Año desde</Label><Input type="number" value={colYearFrom} onChange={(e) => setColYearFrom(e.target.value)} className="h-8 text-xs mt-1" /></div>
+                        <div><Label className="text-xs">Año hasta</Label><Input type="number" value={colYearTo} onChange={(e) => setColYearTo(e.target.value)} className="h-8 text-xs mt-1" /></div>
+                      </div>
+                    </HeaderFilter>
+                  )}
+                  {k === "type" && (
+                    <HeaderFilter label="Tipo" active={colType !== ANY} activeText={colType !== ANY ? DOC_TYPE_LABELS[colType as DocType] : undefined} onClear={() => setColType(ANY)}>
+                      <Select value={colType} onValueChange={setColType}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ANY}>Todos</SelectItem>
+                          {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </HeaderFilter>
+                  )}
+                  {k === "areas" && (
+                    <HeaderFilter label="Área(s) clínica(s)" active={colAreas.length > 0} activeText={colAreas.length > 0 ? `${colAreas.length} sel.` : undefined} onClear={() => setColAreas([])}>
+                      <div className="space-y-1 max-h-64 overflow-y-auto">
+                        {colAreas.length > 0 && (
+                          <button type="button" onClick={() => setColAreas([])} className="text-xs text-primary hover:underline mb-1">Limpiar selección</button>
+                        )}
+                        {[...CLINICAL_AREAS_NICE, ...CLINICAL_AREAS_TRANSVERSAL].map((a) => {
+                          const checked = colAreas.includes(a);
+                          return (
+                            <label key={a} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
+                              <Checkbox checked={checked} onCheckedChange={(v) => { if (v) setColAreas([...colAreas, a]); else setColAreas(colAreas.filter((x) => x !== a)); }} />
+                              <span className="truncate">{clinicalAreaLabel(a)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </HeaderFilter>
+                  )}
+                  {k === "citations" && (
+                    <div className="flex items-center gap-1">
+                      <HeaderFilter label="Citas" active={colCitations !== ANY} activeText={colCitations !== ANY ? colCitations : undefined} onClear={() => setColCitations(ANY)}>
+                        <Select value={colCitations} onValueChange={setColCitations}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={ANY}>Todos</SelectItem>
+                            <SelectItem value="none">Sin citas</SelectItem>
+                            <SelectItem value="1-50">1–50</SelectItem>
+                            <SelectItem value="51-200">51–200</SelectItem>
+                            <SelectItem value="200+">200+</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </HeaderFilter>
+                      <button
+                        type="button"
+                        onClick={() => setSortCitations((s) => s === "none" ? "desc" : s === "desc" ? "asc" : "none")}
+                        className={cn("text-[10px] px-1 rounded hover:bg-muted", sortCitations !== "none" && "text-teal-700 dark:text-teal-300 bg-teal-500/10")}
+                        title="Ordenar por citas"
+                      >
+                        {sortCitations === "none" ? "↕" : sortCitations === "asc" ? "↑" : "↓"}
+                      </button>
+                    </div>
+                  )}
+                  {k === "if" && <span className="text-xs font-medium px-1.5">IF</span>}
+                  {k === "region" && (
+                    <HeaderFilter label="Región" active={colRegion !== ANY} activeText={colRegion !== ANY ? GEOGRAPHIC_RELEVANCE_LABELS[colRegion as GeographicRelevance] : undefined} onClear={() => setColRegion(ANY)}>
+                      <Select value={colRegion} onValueChange={setColRegion}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ANY}>Todos</SelectItem>
+                          <SelectItem value="chile">🇨🇱 Chile</SelectItem>
+                          <SelectItem value="latinoamerica">🌎 Latam</SelectItem>
+                          <SelectItem value="internacional">🌐 Internacional</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </HeaderFilter>
+                  )}
+                  {k === "chunks" && (
+                    <HeaderFilter label="Chunks" active={colChunks !== ANY} activeText={colChunks === "0" ? "Sin (0)" : colChunks === "1+" ? "Con (1+)" : undefined} onClear={() => setColChunks(ANY)}>
+                      <Select value={colChunks} onValueChange={setColChunks}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ANY}>Todos</SelectItem>
+                          <SelectItem value="0">Sin chunks (0)</SelectItem>
+                          <SelectItem value="1+">Con chunks (1+)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </HeaderFilter>
+                  )}
+                  {k === "origin" && (
+                    <HeaderFilter label="Origen" active={colOrigin !== ANY} activeText={colOrigin !== ANY ? colOrigin : undefined} onClear={() => setColOrigin(ANY)}>
+                      <Select value={colOrigin} onValueChange={setColOrigin}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={ANY}>Todos</SelectItem>
+                          {distinctOrigins.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </HeaderFilter>
+                  )}
+                  {k === "uploaded" && (
+                    <button
+                      type="button"
+                      onClick={() => setSortDate((s) => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium hover:bg-muted",
+                        sortDate !== "none" && "text-teal-700 dark:text-teal-300 bg-teal-500/10"
+                      )}
+                      title={sortDate === "none" ? "Sin ordenar" : sortDate === "asc" ? "Más antiguos primero" : "Más recientes primero"}
+                    >
+                      <span>Subido</span>
+                      <span>{sortDate === "none" ? "↕" : sortDate === "asc" ? "↑" : "↓"}</span>
+                    </button>
+                  )}
+                  {k === "actions" && <span className="text-xs font-medium">Acciones</span>}
+
+                  {/* Resize handle */}
+                  {k !== "actions" && (
+                    <span
+                      onMouseDown={(e) => startResize(k, e)}
+                      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-primary/30 active:bg-primary/50"
+                      title="Arrastra para redimensionar"
+                    />
+                  )}
+                </th>
+              ))}
             </tr>
           </thead>
 
           <tbody>
             {loading ? (
-              <tr><td colSpan={11} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>
+              <tr><td colSpan={COLUMN_KEYS.length} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>
             ) : paged.length === 0 ? (
-              <tr><td colSpan={11} className="text-center py-8 text-muted-foreground">No hay documentos</td></tr>
+              <tr><td colSpan={COLUMN_KEYS.length} className="text-center py-8 text-muted-foreground">No hay documentos</td></tr>
             ) : paged.map((d) => (
               <tr key={d.id} className={cn(
                 "border-t hover:bg-muted/30 transition-colors",
@@ -1234,11 +1278,31 @@ export default function AdminDocuments() {
                     }}
                   />
                 </td>
-                <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
-                  <InlineText value={d.title} onSave={(v) => updateField(d.id, { title: v })} />
+                <td className="px-2 py-2 align-top">
+                  <div
+                    className="text-sm leading-snug"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      wordBreak: "break-word",
+                    }}
+                    title={d.title}
+                  >
+                    <InlineText value={d.title} onSave={(v) => updateField(d.id, { title: v })} />
+                  </div>
                 </td>
                 <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                   <InlineText value={d.author ?? ""} placeholder="—" onSave={(v) => updateField(d.id, { author: v || null })} />
+                </td>
+                <td className="px-2 py-2 align-middle text-xs" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                  {d.journal ? <span className="truncate">{d.journal}</span> : <span className="text-muted-foreground">—</span>}
+                </td>
+                <td className="px-2 py-2 align-middle">
+                  {d.repository ? (
+                    <Badge variant="secondary" className="text-[10px]">{d.repository}</Badge>
+                  ) : <span className="text-muted-foreground text-xs">—</span>}
                 </td>
                 <td className="px-2 py-2 align-middle text-xs">
                   {d.publication_date
@@ -1258,32 +1322,29 @@ export default function AdminDocuments() {
                 <td className="px-2 py-2 align-middle">
                   <InlineAreas value={d.clinical_areas} onSave={(v) => updateClinicalAreas(d.id, v)} />
                 </td>
-                <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
-                  <InlineSource
-                    value={d.source_institution ?? ""}
-                    onSave={(name) => {
-                      const m = SOURCE_INSTITUTIONS.find((s) => s.name === name);
-                      return updateField(d.id, {
-                        source_institution: name || null,
-                        source_institution_type: m?.type ?? null,
-                      });
-                    }}
-                  />
+                <td className="px-2 py-2 align-middle text-center text-xs tabular-nums">
+                  {d.citations_count != null ? d.citations_count : <span className="text-muted-foreground">—</span>}
+                </td>
+                <td className="px-2 py-2 align-middle text-center text-xs tabular-nums">
+                  {d.impact_factor != null ? d.impact_factor.toFixed(1) : <span className="text-muted-foreground">—</span>}
+                </td>
+                <td className="px-2 py-2 align-middle">
+                  {d.geographic_relevance ? (
+                    <Badge variant="outline" className="text-[10px]">
+                      {geographicIcon(d.geographic_relevance as GeographicRelevance)} {GEOGRAPHIC_RELEVANCE_LABELS[d.geographic_relevance as GeographicRelevance] ?? d.geographic_relevance}
+                    </Badge>
+                  ) : <span className="text-muted-foreground text-xs">—</span>}
                 </td>
                 <td className="px-2 py-2 align-middle text-center text-sm tabular-nums">
                   {reprocessing.has(d.id) ? (
                     <span className="inline-flex items-center gap-1 text-muted-foreground text-[11px]">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       {visionProgress[d.id] && visionProgress[d.id].total > 0
-                        ? <>🔍 {visionProgress[d.id].current} de {visionProgress[d.id].total}</>
+                        ? <>🔍 {visionProgress[d.id].current}/{visionProgress[d.id].total}</>
                         : "…"}
                     </span>
                   ) : recentlyProcessed[d.id] && d.chunk_count > 0 ? (
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                        ✅ {d.chunk_count}
-                      </span>
-                    </div>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">✅ {d.chunk_count}</span>
                   ) : d.chunk_count === 0 ? (
                     <TooltipProvider delayDuration={150}>
                       <div className="flex items-center justify-center gap-1.5">
@@ -1291,59 +1352,39 @@ export default function AdminDocuments() {
                         {reprocessErrors[d.id] ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                onClick={() => reprocessSingle(d)}
-                                disabled={!d.storage_path}
-                                className="text-[11px] text-destructive hover:underline inline-flex items-center gap-0.5"
-                              >
+                              <button type="button" onClick={() => reprocessSingle(d)} disabled={!d.storage_path} className="text-[11px] text-destructive hover:underline">
                                 <X className="h-3 w-3" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent className="max-w-[320px] text-xs">
-                              {reprocessErrors[d.id]}
-                            </TooltipContent>
+                            <TooltipContent className="max-w-[320px] text-xs">{reprocessErrors[d.id]}</TooltipContent>
                           </Tooltip>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => reprocessSingle(d)}
-                            disabled={!d.storage_path}
+                          <button type="button" onClick={() => reprocessSingle(d)} disabled={!d.storage_path}
                             title={d.storage_path ? "Re-procesar documento" : "Sin archivo en storage"}
-                            className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5 disabled:opacity-50 disabled:no-underline"
-                          >
+                            className="text-[11px] text-primary hover:underline disabled:opacity-50">
                             <RotateCw className="h-3 w-3" />
                           </button>
                         )}
                       </div>
                     </TooltipProvider>
-                  ) : (
-                    d.chunk_count
-                  )}
+                  ) : d.chunk_count}
                 </td>
                 <td className="px-2 py-2 align-middle">
                   <Badge variant="secondary" className="text-[10px]">{d.import_source ?? "upload"}</Badge>
                 </td>
                 <td className="px-2 py-2 align-middle text-xs whitespace-nowrap">
                   <div className="flex flex-col leading-tight">
-                    <span>{formatDateFn(new Date(d.created_at), "dd-MM-yyyy")}</span>
+                    <span>{formatDateFn(new Date(d.created_at), "dd-MM-yy")}</span>
                     <span className="text-[10px] text-muted-foreground">{formatDateFn(new Date(d.created_at), "HH:mm")}</span>
                   </div>
                 </td>
                 <td className="px-2 py-2 align-middle">
                   <div className="flex items-center gap-0.5">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="h-7 w-7"
-                      onClick={() => classifySingle(d)}
-                      title="Auto-clasificar"
-                    >
+                    <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => classifySingle(d)} title="Auto-clasificar">
                       <Sparkles className="h-3.5 w-3.5 text-primary" />
                     </Button>
                     <Button
-                      size="icon"
-                      variant="outline"
+                      size="icon" variant="outline"
                       className="h-7 w-7 border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
                       onClick={() => setConfirmVision(d)}
                       disabled={reprocessing.has(d.id) || !d.storage_path}
