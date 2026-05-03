@@ -149,31 +149,6 @@ export default function PatientDetail() {
           <Field label="Tiempo en terapia" value={timeInTherapy(patient.start_date)} />
         </div>
 
-        {patient.notes && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
-              <ConsolidateNotesButton
-                patientId={patient.id}
-                notes={patient.notes}
-                onConsolidated={(newNotes) => setPatient((p: any) => p ? { ...p, notes: newNotes } : p)}
-              />
-            </div>
-            <p className="text-sm whitespace-pre-wrap">{patient.notes}</p>
-          </div>
-        )}
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button
-            onClick={() => setSessionModeOpen(true)}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            <Play className="h-4 w-4" />Iniciar sesión
-          </Button>
-          <Link to={`/assistant?patient=${patient.id}`}>
-            <Button variant="outline" className="gap-2"><Sparkles className="h-4 w-4" />Consultar IA sobre este paciente</Button>
-          </Link>
-        </div>
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
