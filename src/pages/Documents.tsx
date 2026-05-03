@@ -1207,6 +1207,8 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           source_institution_type: item.sourceInstitutionType || null,
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
+          evidence_level: item.pubmedPrefill?.evidence_level ?? null,
+          geographic_relevance: item.pubmedPrefill?.geographic_relevance ?? null,
         }));
         const { error: insErr } = await supabase.from("document_chunks").insert(rows);
         if (insErr) throw insErr;
