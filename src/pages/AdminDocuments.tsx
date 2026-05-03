@@ -1321,7 +1321,10 @@ export default function AdminDocuments() {
             await updateClinicalAreas(viewDoc.id, areas);
             setViewDoc({ ...viewDoc, clinical_areas: areas });
           }}
-          onClassify={() => classifySingle(viewDoc)}
+          onClassified={(patch) => {
+            setViewDoc((d) => (d ? { ...d, ...patch } : d));
+            setRows((rs) => rs.map((r) => (r.id === viewDoc.id ? { ...r, ...patch } : r)));
+          }}
         />
       )}
 
