@@ -25,7 +25,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { toast } from "sonner";
-import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle, Filter } from "lucide-react";
+import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle, Filter, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format as formatDateFn, parseISO } from "date-fns";
+import { es as esLocale } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import {
   CLINICAL_AREAS, CLINICAL_AREAS_NICE, CLINICAL_AREAS_TRANSVERSAL,
