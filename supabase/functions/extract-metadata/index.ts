@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
   "source_institution": "exact institution name or null",
   "source_institution_type": "organizacion_internacional|asociacion_profesional|gobierno_ministerio|universidad|revista_cientifica|autor_independiente|otro",
   "title": "suggested title or null",
-  "author": "main author or null",
+  "author": "Solo el primer autor en formato 'Apellido, Iniciales.' seguido de 'et al.' si hay más de un autor. Ejemplo: 'Barlow, D.H. et al.' o 'Beck, A.T.' si es autor único",
   "year": "publication year or null",
   "language": "español|ingles|otro"
 }

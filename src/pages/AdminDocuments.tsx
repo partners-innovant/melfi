@@ -1854,6 +1854,7 @@ function FullscreenDocViewer({
                 value={doc.author ?? ""}
                 onSave={(v) => save("author", (v || null) as any)}
               />
+              <p className="text-[10px] text-muted-foreground mt-1">Solo primer autor + et al. Ej: Barlow, D.H. et al.</p>
             </Field>
 
             <Field label="Año" saved={savedFlash === "year"}>

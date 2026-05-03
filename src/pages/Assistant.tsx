@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown, RefreshCw, FlaskConical } from "lucide-react";
 import { PubMedSearchDialog } from "@/components/PubMedSearchDialog";
 import { useNavigate } from "react-router-dom";
-import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
+import { DOC_TYPES, DOC_TYPE_LABELS, DocType, formatAuthor } from "@/lib/clinical";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ImprovePromptButton } from "@/components/ImprovePromptButton";
@@ -1142,7 +1142,7 @@ function CitationPanel({ citation }: { citation: Citation }) {
         <div>
           <div className="font-semibold text-base">{citation.document_title}</div>
           <div className="text-sm text-muted-foreground">
-            {citation.author ?? "Autor s/d"}
+            {citation.author ? formatAuthor(citation.author) : "Autor s/d"}
             {citation.year ? ` · ${citation.year}` : ""}
           </div>
           {citation.document_type && (
@@ -1254,7 +1254,7 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
       ${citations.map((c, i) => `
         <div style="border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:10px; page-break-inside:avoid">
           <p style="font-weight:600; margin:0 0 4px">${i + 1}. ${escapeHtml(c.document_title || "Sin título")}</p>
-          <p style="color:#666; font-size:11px; margin:0 0 8px">${escapeHtml(c.author || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}</p>
+          <p style="color:#666; font-size:11px; margin:0 0 8px">${escapeHtml(formatAuthor(c.author) || "Autor desconocido")}${c.year ? ` · ${escapeHtml(c.year)}` : ""}${c.page_number ? ` · p. ${escapeHtml(String(c.page_number))}` : ""}</p>
           ${c.excerpt ? `<p style="background:#fef9c3; padding:8px; border-radius:4px; font-style:italic; font-size:12px; margin:0">"${escapeHtml(c.excerpt)}"</p>` : ""}
         </div>
       `).join("")}
