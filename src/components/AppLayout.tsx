@@ -13,7 +13,7 @@ import { SidebarStateContext } from "@/components/sidebar-state";
 const baseItems = [
   { to: "/", label: "Inicio", icon: LayoutDashboard, end: true },
   { to: "/assistant", label: "Asistente IA", icon: MessageSquare },
-  { to: "/patients", label: "Pacientes", icon: Users },
+  { to: "/patients", label: "Adultos", icon: Users },
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/calendar", label: "Calendario", icon: Calendar },
   { to: "/documents", label: "Documentos", icon: FileText },
