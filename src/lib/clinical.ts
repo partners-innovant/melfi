@@ -30,6 +30,11 @@ export const MARITAL_OPTIONS = [
   "conviviente",
 ] as const;
 
+export function capitalize(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export function calcAge(birthDate: string | null | undefined): number | null {
   if (!birthDate) return null;
   const d = new Date(birthDate);
