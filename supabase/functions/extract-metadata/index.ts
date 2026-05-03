@@ -141,6 +141,9 @@ ${snippet}`;
       clinical_areas: [],
       source_institution: null,
       source_institution_type: null,
+      journal: null,
+      repository: null,
+      repository_id: null,
       language: null,
     };
     if (toolCall?.function?.arguments) {
