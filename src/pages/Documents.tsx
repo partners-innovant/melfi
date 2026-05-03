@@ -870,6 +870,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
             europepmc_id: item.pubmedPrefill.europepmc_id,
             europepmc_source: item.pubmedPrefill.europepmc_source,
             abstract: item.pubmedPrefill.abstract || null,
+            ...(item.pubmedPrefill.language ? { language: item.pubmedPrefill.language } : {}),
           } : {}),
         } as any)
         .select()
