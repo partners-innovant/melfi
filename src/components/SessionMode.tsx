@@ -183,6 +183,16 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     return () => clearInterval(t);
   }, [open, startedAt]);
 
+  // Auto-load initial suggestions once sessionId is ready
+  const initialSuggestionsRef = useRef(false);
+  useEffect(() => {
+    if (!open || !sessionId) return;
+    if (initialSuggestionsRef.current) return;
+    initialSuggestionsRef.current = true;
+    requestSuggestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sessionId]);
+
   // Persist entries debounced helper
   const persistEntries = useCallback(async (next: { patient?: Entry[]; therapist?: Entry[] }) => {
     if (!sessionId) return;
