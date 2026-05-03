@@ -51,6 +51,7 @@ interface Doc {
   title: string;
   author: string | null;
   year: string | null;
+  publication_date?: string | null;
   document_type: DocType;
   is_global: boolean;
   psychologist_id: string;
