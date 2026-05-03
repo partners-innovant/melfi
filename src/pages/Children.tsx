@@ -297,7 +297,7 @@ export function ChildForm({
                 <Label>Relación</Label>
                 <Select value={g.relationship} onValueChange={(v) => ug(i, "relationship", v)}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                  <SelectContent>{RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{capitalize(r)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
