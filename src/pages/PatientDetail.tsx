@@ -153,7 +153,7 @@ export default function PatientDetail() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex h-auto w-full justify-start overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <TabsTrigger value="profile" className="flex-shrink-0 w-fit whitespace-nowrap">Perfil</TabsTrigger>
+          <TabsTrigger value="profile" className="flex-shrink-0 w-fit whitespace-nowrap">Notas</TabsTrigger>
           <TabsTrigger value="team" className="flex-shrink-0 w-fit whitespace-nowrap">Equipo tratante</TabsTrigger>
           <TabsTrigger value="sessions" className="flex-shrink-0 w-fit whitespace-nowrap">Sesiones</TabsTrigger>
           <TabsTrigger value="documents" className="flex-shrink-0 w-fit whitespace-nowrap">Documentos e Informes</TabsTrigger>
