@@ -312,6 +312,11 @@ function ArticleCard({
             {article.title}
             <ExternalLink className="h-3 w-3 mt-0.5 opacity-60 shrink-0" />
           </a>
+          {inLibrary && (
+            <Badge className="ml-2 text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/15 align-middle">
+              ✅ Ya en biblioteca
+            </Badge>
+          )}
           <div className="text-xs text-muted-foreground mt-0.5">
             {article.authors}
             {article.journal ? ` · ${article.journal}` : ""}
