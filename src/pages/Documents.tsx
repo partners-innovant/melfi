@@ -589,23 +589,6 @@ function DocList({
               </th>
               <th className="px-2 py-2 text-left">
                 <HeaderFilter
-                  label="Chunks"
-                  active={f.filterChunks !== "all"}
-                  activeText={f.filterChunks === "none" ? "0" : f.filterChunks === "some" ? "1+" : undefined}
-                  onClear={() => f.setFilterChunks("all")}
-                >
-                  <Select value={f.filterChunks} onValueChange={(v: any) => f.setFilterChunks(v)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="none">Sin chunks (0)</SelectItem>
-                      <SelectItem value="some">Con chunks (1+)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter
                   label="Origen"
                   active={f.filterOrigin !== ANY}
                   activeText={f.filterOrigin !== ANY ? IMPORT_SOURCE_META[f.filterOrigin as ImportSource]?.label : undefined}
@@ -648,12 +631,12 @@ function DocList({
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={9} className="p-4">
+              <tr><td colSpan={8} className="p-4">
                 <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-10 bg-muted/40 rounded animate-pulse" />)}</div>
               </td></tr>
             )}
             {!loading && docs.length === 0 && (
-              <tr><td colSpan={9} className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</td></tr>
+              <tr><td colSpan={8} className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</td></tr>
             )}
             {!loading && docs.map((d) => {
               const canDelete = canDeleteDoc(d);
@@ -727,9 +710,6 @@ function DocList({
                   </td>
                   <td className="px-2 py-2 align-middle text-xs text-muted-foreground">
                     {langLabel ?? "—"}
-                  </td>
-                  <td className="px-2 py-2 align-middle text-xs text-muted-foreground">
-                    {d.chunk_count ?? 0}
                   </td>
                   <td className="px-2 py-2 align-middle text-xs">
                     <span className="inline-flex items-center gap-1" title={originMeta?.label}>
