@@ -327,82 +327,78 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     return "";
   }
 
-  // Manual: transcribe accumulated chunks then run analysis
+  // Silent auto-transcription (Whisper only) — appends to transcript, no Claude
+  const autoTranscribeRunningRef = useRef(false);
+  async function transcribeOnly(): Promise<TranscriptSegment[]> {
+    const pending = unprocessedChunksRef.current;
+    if (!pending.length) return [];
+    const rawMime = liveMimeRef.current || "audio/webm";
+    const baseMime = rawMime.split(";")[0] || "audio/webm";
+    const blob = new Blob(pending, { type: baseMime });
+    unprocessedChunksRef.current = [];
+    if (blob.size < 1000) return [];
+    setTranscribing(true);
+    try {
+      const audio = await blobToBase64(blob);
+      const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
+        body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: baseMime },
+      });
+      if (error) throw error;
+      if ((data as any)?.success === false || (data as any)?.error) {
+        throw new Error((data as any)?.error || "Transcripción falló");
+      }
+      const segs: any[] = (data as any)?.segments ?? [];
+      const now = Date.now();
+      const newSegments: TranscriptSegment[] = segs
+        .filter((s) => s && typeof s.text === "string" && s.text.trim())
+        .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
+      if (newSegments.length) {
+        const next = [...transcriptRef.current, ...newSegments];
+        transcriptRef.current = next;
+        setTranscript(next);
+        const sid = sessionIdRef.current;
+        if (sid) supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
+      }
+      return newSegments;
+    } catch (e: any) {
+      console.error("auto-transcribe failed", e);
+      return [];
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
+  // Auto-transcribe every 10s while recording
+  useEffect(() => {
+    if (recState !== "recording") return;
+    const id = window.setInterval(async () => {
+      if (autoTranscribeRunningRef.current) return;
+      if (!unprocessedChunksRef.current.length) return;
+      // Force MediaRecorder to flush a chunk
+      try { liveRecorderRef.current?.requestData?.(); } catch { /* ignore */ }
+      autoTranscribeRunningRef.current = true;
+      try { await transcribeOnly(); } finally { autoTranscribeRunningRef.current = false; }
+    }, 10000);
+    return () => window.clearInterval(id);
+  }, [recState]);
+
+  // Manual: run Claude analysis on the full accumulated transcript (no Whisper call)
   async function transcribeAndAnalyze() {
     if (analyzing) return;
-    const pending = unprocessedChunksRef.current;
-    if (!pending.length && !transcriptRef.current.length) {
-      toast.info("Aún no hay audio grabado para transcribir.");
+    const hasAnyTranscript = transcriptRef.current.some((s) => !s.error);
+    if (!hasAnyTranscript) {
+      toast.info("Aún no hay transcripción. Espera unos segundos a que se transcriba el audio.");
       return;
     }
     setAnalyzing(true);
-    setAnalyzeStage("transcribing");
-    let newSegments: TranscriptSegment[] = [];
+    setAnalyzeStage("analyzing");
     try {
-      // 1) Transcribe accumulated chunks (if any)
-      let transcribeFailed = false;
-      if (pending.length) {
-        const rawMime = liveMimeRef.current || "audio/webm";
-        const baseMime = rawMime.split(";")[0] || "audio/webm";
-        const blob = new Blob(pending, { type: baseMime });
-        console.log("Blob mimeType:", blob.type, "size:", blob.size);
-        unprocessedChunksRef.current = [];
-        if (blob.size >= 1000) {
-          setTranscribing(true);
-          try {
-            const audio = await blobToBase64(blob);
-            const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-              body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: baseMime },
-            });
-            console.log("Transcription response:", data, error);
-            if (error) throw error;
-            if ((data as any)?.success === false || (data as any)?.error) {
-              throw new Error((data as any)?.error || "Transcripción falló");
-            }
-            const segs: any[] = (data as any)?.segments ?? [];
-            const now = Date.now();
-            newSegments = segs
-              .filter((s) => s && typeof s.text === "string" && s.text.trim())
-              .map((s) => ({ speaker: s.speaker || "Hablante", text: String(s.text).trim(), t: now }));
-            if (newSegments.length) {
-              const next = [...transcriptRef.current, ...newSegments];
-              transcriptRef.current = next;
-              setTranscript(next);
-              const sid = sessionIdRef.current;
-              if (sid) supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
-            } else {
-              transcribeFailed = true;
-              const errSeg: TranscriptSegment = { speaker: "Aviso", text: "⚠️ No se pudo transcribir el audio. Verifica que el micrófono esté funcionando y vuelve a intentarlo.", t: Date.now(), error: true };
-              const next = [...transcriptRef.current, errSeg];
-              transcriptRef.current = next;
-              setTranscript(next);
-            }
-          } catch (e: any) {
-            console.error("transcribe failed", e);
-            transcribeFailed = true;
-            const errSeg: TranscriptSegment = { speaker: "Aviso", text: "⚠️ No se pudo transcribir el audio. Verifica que el micrófono esté funcionando y vuelve a intentarlo.", t: Date.now(), error: true };
-            const next = [...transcriptRef.current, errSeg];
-            transcriptRef.current = next;
-            setTranscript(next);
-            toast.error("Error al transcribir audio");
-          } finally {
-            setTranscribing(false);
-          }
-        }
-      }
-
-      // STOP if no real transcript exists — never generate bullets from the profile alone
-      const hasAnyTranscript = newSegments.length > 0 || transcriptRef.current.some((s) => !s.error);
-      if (!hasAnyTranscript || (transcribeFailed && !newSegments.length)) {
-        setAnalyzing(false);
-        setAnalyzeStage("idle");
-        return;
-      }
-
-      // 2) Build condensed context and call analyze (Sonnet) — only the NEW transcript chunk
-      const transcriptText = newSegments.length
-        ? newSegments.map((s) => `${s.speaker}: ${s.text}`).join("\n")
-        : transcriptRef.current.filter((s) => !s.error).slice(-12).map((s) => `${s.speaker}: ${s.text}`).join("\n");
+      // Use the recent tail of the transcript as context for analysis
+      const transcriptText = transcriptRef.current
+        .filter((s) => !s.error)
+        .slice(-40)
+        .map((s) => `${s.speaker}: ${s.text}`)
+        .join("\n");
       const therapistNotesText = therapistEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
       const patientNotesText = patientEntries.map((e) => `[${clockFromTimestamp(e.t)}] ${e.text}`).join("\n");
       const activeWithIds: AnalyzedSuggestion[] = analyzedSuggestions.length
@@ -415,7 +411,6 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           ];
       const recentBullets = summaryBullets.slice(-10);
 
-      setAnalyzeStage("analyzing");
       const { data: ad, error: aerr } = await supabase.functions.invoke("transcribe-session-chunk", {
         body: {
           action: "analyze",
@@ -437,7 +432,6 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       const topicsAddressed: string[] = Array.isArray((ad as any)?.topics_addressed) ? (ad as any).topics_addressed : [];
       const insight: string = typeof (ad as any)?.session_insights === "string" ? (ad as any).session_insights : "";
 
-      // Apoyo Sesión: replace with newest suggestions (short-term guidance for next minutes)
       const addressedSet = new Set(addressed.map(String));
       const refreshed: AnalyzedSuggestion[] = newSugs.map((s, i) => ({
         id: `n-${Date.now()}-${i}`,
@@ -452,13 +446,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       setAnalyzedSuggestions([...flaggedPrior, ...refreshed]);
       setSessionInsight(insight);
 
-      // Auto-check addressed topics
       if (topicsAddressed.length) {
         const tset = new Set(topicsAddressed.map(String));
         setTopicSuggestions((prev) => prev.map((t) => tset.has(t.id) ? { ...t, addressed: true } : t));
       }
 
-      // Append (accumulate, never clear) bullets
       if (bullets.length) setSummaryBullets((prev) => [...prev, ...bullets]);
       if (pBullets.length) setPatientBullets((prev) => [...prev, ...pBullets]);
       if (tBullets.length) setTherapistBullets((prev) => [...prev, ...tBullets]);
@@ -470,7 +462,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       setTotalAudioSec((s) => s + newAudioSec);
       setTranscriptionCount((n) => n + 1);
       setLastAnalyzedAt(Date.now());
-      toast.success("✨ Transcripción y análisis listos");
+      toast.success("✨ Análisis listo");
     } catch (e: any) {
       console.error(e);
       toast.error("No se pudo analizar: " + (e?.message ?? ""));
