@@ -240,6 +240,7 @@ export function ClassifyPreviewDialog({
     let ok = 0;
     let fail = 0;
     for (const c of ready) {
+      const impact = impactFactorForJournal(null);
       const patch: Record<string, unknown> = {
         document_type: c.docType,
         year: c.year || null,
@@ -247,7 +248,10 @@ export function ClassifyPreviewDialog({
         clinical_areas: c.clinicalAreas,
         source_institution: c.sourceInstitution || null,
         source_institution_type: c.sourceInstitution ? (c.sourceInstitutionType ?? "otro") : null,
+        evidence_level: c.evidenceLevel || null,
+        geographic_relevance: c.geographicRelevance || null,
       };
+      void impact;
       const { error: upErr } = await supabase.from("documents").update(patch as any).eq("id", c.id);
       if (upErr) {
         fail++;
@@ -259,6 +263,8 @@ export function ClassifyPreviewDialog({
         source_institution: c.sourceInstitution || null,
         source_institution_type: c.sourceInstitution ? (c.sourceInstitutionType ?? "otro") : null,
         language: c.language || null,
+        evidence_level: c.evidenceLevel || null,
+        geographic_relevance: c.geographicRelevance || null,
       };
       await supabase.from("document_chunks").update(chunkPatch as any).eq("document_id", c.id);
       ok++;
