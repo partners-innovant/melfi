@@ -711,9 +711,6 @@ function DocList({
                   <td className="px-2 py-2 align-middle text-xs text-muted-foreground">
                     {langLabel ?? "—"}
                   </td>
-                  <td className="px-2 py-2 align-middle text-xs text-muted-foreground">
-                    {d.chunk_count ?? 0}
-                  </td>
                   <td className="px-2 py-2 align-middle text-xs">
                     <span className="inline-flex items-center gap-1" title={originMeta?.label}>
                       <span aria-hidden>{originMeta?.icon ?? "📄"}</span>
