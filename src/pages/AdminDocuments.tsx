@@ -75,12 +75,6 @@ export default function AdminDocuments() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<string>(ANY);
-  const [filterArea, setFilterArea] = useState<string>(ANY);
-  const [filterSource, setFilterSource] = useState<string>(ANY);
-  const [filterLang, setFilterLang] = useState<string>(ANY);
   const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
   // Snapshot-based "Sin chunks" filter — only updates when user clicks the button
   const [noChunksSnapshot, setNoChunksSnapshot] = useState<Set<string> | null>(null);
