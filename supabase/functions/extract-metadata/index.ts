@@ -145,6 +145,12 @@ ${snippet}`;
         meta.title = meta.title ?? "";
         meta.author = meta.author ?? "";
         meta.year = meta.year ?? "";
+        // Validate publication_date is YYYY-MM-DD
+        if (typeof meta.publication_date === "string") {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(meta.publication_date)) meta.publication_date = null;
+        } else {
+          meta.publication_date = null;
+        }
         if (!Array.isArray(meta.clinical_areas)) meta.clinical_areas = [];
       } catch (e) {
         console.error("Could not parse tool args:", toolCall.function.arguments);
