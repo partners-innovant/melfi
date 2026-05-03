@@ -24,6 +24,11 @@ interface Patient {
   last_name: string;
   birth_date: string | null;
   diagnosis: string | null;
+  start_date: string | null;
+  sex: string | null;
+  marital_status: string | null;
+  occupation: string | null;
+  notes: string | null;
   session_day: string | null;
   session_time: string | null;
 }
