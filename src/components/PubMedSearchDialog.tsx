@@ -388,7 +388,7 @@ function ArticleCard({
     <Card className="p-3 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          
+          <a
             href={titleHref}
             target="_blank"
             rel="noopener noreferrer"
