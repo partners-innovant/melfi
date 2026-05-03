@@ -91,6 +91,9 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteDate, setDeleteDate] = useState<string>("");
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const col = kind === "child" ? "child_patient_id" : "patient_id";
