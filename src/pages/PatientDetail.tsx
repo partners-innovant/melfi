@@ -4,11 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { ArrowLeft, Pencil, Sparkles, Send, Play } from "lucide-react";
+import { ArrowLeft, Sparkles, Play } from "lucide-react";
 import SessionMode from "@/components/SessionMode";
 import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { PatientForm } from "./Patients";
