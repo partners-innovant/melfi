@@ -54,14 +54,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     };
   }, [profile?.is_admin]);
 
-  const items = profile?.is_admin
+  const items = baseItems;
+  const adminItems = profile?.is_admin
     ? [
-        ...baseItems,
         { to: "/admin/documents", label: "Gestor de documentos", icon: Database },
         { to: "/admin/therapists", label: "Terapeutas", icon: UserCog },
-        { to: "/feedback", label: "Feedback", icon: Inbox, badge: newCount },
+        { to: "/feedback", label: "Ver Feedback", icon: Inbox, badge: newCount },
       ]
-    : baseItems;
+    : [];
 
   const sidebarWidth = collapsed ? "w-16" : "w-64";
   const mainPad = collapsed ? "md:pl-16" : "md:pl-64";
