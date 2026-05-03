@@ -22,7 +22,7 @@ import {
 import TransferChildPatientDialog from "@/components/TransferChildPatientDialog";
 import {
   calcAge, ageRangeColor, GOAL_STATUSES, GOAL_STATUS_LABELS,
-  TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH,
+  TASK_RESPONSIBLES, WISC_VERSIONS, CONTACT_TYPES, CONTACT_WITH, capitalize,
 } from "@/lib/clinical";
 import { ChildForm } from "./Children";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
@@ -562,7 +562,7 @@ function RoadmapTab({ childId }: { childId: string }) {
               <Label>Responsable</Label>
               <Select value={taskForm.responsible} onValueChange={(v) => setTaskForm({ ...taskForm, responsible: v })}>
                 <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>{TASK_RESPONSIBLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                <SelectContent>{TASK_RESPONSIBLES.map((r) => <SelectItem key={r} value={r}>{capitalize(r)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>
@@ -1008,14 +1008,14 @@ function CommsTab({ childId }: { childId: string }) {
             <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos los tipos</SelectItem>
-              {CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              {CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{capitalize(t)}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterWith} onValueChange={setFilterWith}>
             <SelectTrigger className="h-8 w-44 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos los contactos</SelectItem>
-              {CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{w.replace(/_/g, " ")}</SelectItem>)}
+              {CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{capitalize(w.replace(/_/g, " "))}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -1031,13 +1031,13 @@ function CommsTab({ childId }: { childId: string }) {
                 <div><Label>Tipo</Label>
                   <Select value={form.contact_type} onValueChange={(v) => setForm({ ...form, contact_type: v })}>
                     <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>{CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                    <SelectContent>{CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{capitalize(t)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div><Label>Contacto</Label>
                   <Select value={form.contact_with} onValueChange={(v) => setForm({ ...form, contact_with: v })}>
                     <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>{CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{w.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                    <SelectContent>{CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{capitalize(w.replace(/_/g, " "))}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>

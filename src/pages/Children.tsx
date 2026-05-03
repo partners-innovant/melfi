@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Plus, Baby, Search, Trash2 } from "lucide-react";
 import {
   calcAge, ageRangeColor, CHILD_SEX, MODALITIES, REFERRAL_SOURCES,
-  RELATIONSHIPS, INVOLVEMENT_LEVELS,
+  RELATIONSHIPS, INVOLVEMENT_LEVELS, capitalize,
 } from "@/lib/clinical";
 
 interface ChildRow {
@@ -240,7 +240,7 @@ export function ChildForm({
             <Label>Sexo</Label>
             <Select value={form.sex} onValueChange={(v) => u("sex", v)}>
               <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-              <SelectContent>{CHILD_SEX.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent>{CHILD_SEX.map((s) => <SelectItem key={s} value={s}>{capitalize(s)}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
@@ -256,7 +256,7 @@ export function ChildForm({
           <Label>Modalidad</Label>
           <Select value={form.modality} onValueChange={(v) => u("modality", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{MODALITIES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+            <SelectContent>{MODALITIES.map((m) => <SelectItem key={m} value={m}>{m === "PIE" ? m : capitalize(m)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </TabsContent>
@@ -266,7 +266,7 @@ export function ChildForm({
           <Label>Origen de derivación</Label>
           <Select value={form.referral_source} onValueChange={(v) => u("referral_source", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{REFERRAL_SOURCES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+            <SelectContent>{REFERRAL_SOURCES.map((r) => <SelectItem key={r} value={r}>{capitalize(r)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div><Label>Motivo de derivación</Label><Textarea rows={2} value={form.referral_reason} onChange={(e) => u("referral_reason", e.target.value)} /></div>
@@ -297,14 +297,14 @@ export function ChildForm({
                 <Label>Relación</Label>
                 <Select value={g.relationship} onValueChange={(v) => ug(i, "relationship", v)}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                  <SelectContent>{RELATIONSHIPS.map((r) => <SelectItem key={r} value={r}>{capitalize(r)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Implicación</Label>
                 <Select value={g.involvement_level} onValueChange={(v) => ug(i, "involvement_level", v)}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{INVOLVEMENT_LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                  <SelectContent>{INVOLVEMENT_LEVELS.map((l) => <SelectItem key={l} value={l}>{capitalize(l)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>

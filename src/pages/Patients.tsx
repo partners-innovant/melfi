@@ -12,7 +12,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Users as UsersIcon, Inbox, X } from "lucide-react";
-import { calcAge, SEX_OPTIONS, MARITAL_OPTIONS } from "@/lib/clinical";
+import { calcAge, SEX_OPTIONS, MARITAL_OPTIONS, capitalize } from "@/lib/clinical";
 
 interface Patient {
   id: string;
@@ -296,7 +296,7 @@ export function PatientForm({ form, setForm }: { form: any; setForm: (f: any) =>
           <Label>Sexo</Label>
           <Select value={form.sex} onValueChange={(v) => u("sex", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{SEX_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+            <SelectContent>{SEX_OPTIONS.map((s) => <SelectItem key={s} value={s}>{capitalize(s)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </div>
@@ -305,7 +305,7 @@ export function PatientForm({ form, setForm }: { form: any; setForm: (f: any) =>
           <Label>Estado civil</Label>
           <Select value={form.marital_status} onValueChange={(v) => u("marital_status", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{MARITAL_OPTIONS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+            <SelectContent>{MARITAL_OPTIONS.map((m) => <SelectItem key={m} value={m}>{capitalize(m)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div><Label>Ocupación</Label><Input value={form.occupation} onChange={(e) => u("occupation", e.target.value)} /></div>
