@@ -770,49 +770,6 @@ export default function AdminDocuments() {
             <X className="h-3 w-3 mr-1" /> Limpiar todos los filtros
           </Button>
         )}
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por título o autor..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="pl-8 w-[260px]"
-          />
-        </div>
-        <Select value={filterType} onValueChange={(v) => { setFilterType(v); setPage(1); }}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Todos los tipos</SelectItem>
-            {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filterArea} onValueChange={(v) => { setFilterArea(v); setPage(1); }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Área clínica" /></SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value={ANY}>Todas las áreas</SelectItem>
-            {[...CLINICAL_AREAS_NICE, ...CLINICAL_AREAS_TRANSVERSAL].map((a) => (
-              <SelectItem key={a} value={a}>{clinicalAreaLabel(a)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterSource} onValueChange={(v) => { setFilterSource(v); setPage(1); }}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Fuente" /></SelectTrigger>
-          <SelectContent className="max-h-[400px]">
-            <SelectItem value={ANY}>Todas las fuentes</SelectItem>
-            {SOURCE_INSTITUTIONS.map((s) => (
-              <SelectItem key={s.name} value={s.name}>{s.icon} {s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterLang} onValueChange={(v) => { setFilterLang(v); setPage(1); }}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Idioma" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Todos los idiomas</SelectItem>
-            <SelectItem value="es">Español</SelectItem>
-            <SelectItem value="en">Inglés</SelectItem>
-            <SelectItem value="otro">Otro</SelectItem>
-          </SelectContent>
-        </Select>
         <label className="flex items-center gap-2 text-sm ml-2">
           <Checkbox
             checked={unclassifiedOnly}
