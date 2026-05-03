@@ -139,13 +139,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    const yearNum = year ? Number(year) : null;
+    const citNum = citations_count ?? 0;
+    const relevance_score = calcRelevance(evidence_level, citNum, yearNum, geographic_relevance);
+
     const insertRow: Record<string, unknown> = {
       psychologist_id: user.id,
       is_global: !!is_global,
       title,
       authors: authors ?? null,
       journal: journal ?? null,
-      year: year ? Number(year) : null,
+      year: yearNum,
       publication_date: publication_date ?? null,
       abstract_text,
       doi: doi ?? null,
@@ -154,11 +158,16 @@ Deno.serve(async (req) => {
       europepmc_id: europepmc_id ?? null,
       source_url: source_url ?? null,
       repository: repository ?? "PubMed / EuropePMC",
-      citations_count: citations_count ?? 0,
+      repository_id: repository_id ?? pubmed_id ?? pmc_id ?? doi ?? null,
+      source_institution: source_institution ?? null,
+      impact_factor: impact_factor ?? null,
+      document_type: document_type ?? "articulo_cientifico",
+      citations_count: citNum,
       clinical_areas: clinical_areas ?? [],
       evidence_level,
       geographic_relevance: geographic_relevance ?? "internacional",
       language: language ?? "ingles",
+      relevance_score,
     };
 
     const { data: inserted, error: insErr } = await userClient
