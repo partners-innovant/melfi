@@ -55,6 +55,10 @@ export interface PubMedUploadPrefill {
   clinical_areas?: string[];
   language?: string | null;
   ai_classified?: boolean;
+  citations_count?: number | null;
+  evidence_level?: string | null;
+  geographic_relevance?: string | null;
+  impact_factor?: number | null;
 }
 
 export function PubMedSearchDialog({
