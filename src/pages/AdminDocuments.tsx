@@ -2410,17 +2410,32 @@ function FullscreenDocViewer({
             </Field>
           </div>
 
-          <div className="px-4 py-3 border-t shrink-0 bg-background">
+          <div className="px-4 py-3 border-t shrink-0 bg-background flex gap-2">
             <Button
               variant="outline"
-              className="w-full"
+              className="flex-1"
               onClick={runAutoClassify}
-              disabled={autoClassifying}
+              disabled={autoClassifying || saveState === "saving"}
             >
               {autoClassifying ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> ✨ Clasificando...</>
               ) : (
                 <><Sparkles className="h-4 w-4 mr-2 text-primary" /> ✨ Auto-clasificar</>
+              )}
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleSaveAll}
+              disabled={saveState === "saving" || autoClassifying}
+            >
+              {saveState === "saving" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 💾 Guardando...</>
+              ) : saveState === "saved" ? (
+                <>✅ Guardado</>
+              ) : saveState === "error" ? (
+                <>❌ Error al guardar</>
+              ) : (
+                <>💾 Guardar cambios</>
               )}
             </Button>
           </div>
