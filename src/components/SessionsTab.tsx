@@ -9,8 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 
@@ -87,6 +91,9 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteDate, setDeleteDate] = useState<string>("");
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     const col = kind === "child" ? "child_patient_id" : "patient_id";
@@ -146,6 +153,18 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
                     </div>
                     {s.what_happened && <p className="text-sm text-muted-foreground mt-1 truncate">{firstLine(s.what_happened)}</p>}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteId(s.id);
+                      setDeleteDate(new Date(s.session_date).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />Eliminar
+                  </Button>
                 </div>
               </Card>
             );
@@ -160,6 +179,37 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
         patientId={patientId}
         onSaved={(sid) => { setNewOpen(false); load(); setActiveId(sid); }}
       />
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará permanentemente la sesión del {deleteDate}. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteId) return;
+                setDeleting(true);
+                const { error } = await supabase.from("sessions").delete().eq("id", deleteId);
+                setDeleting(false);
+                if (error) { toast.error(error.message); return; }
+                toast.success("✅ Sesión eliminada");
+                setDeleteId(null);
+                load();
+              }}
+            >
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
