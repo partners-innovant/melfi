@@ -940,6 +940,15 @@ export default function AdminDocuments() {
             </span>
           )}
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={enrichAllMissing}
+          disabled={enrichOpen}
+          className="h-8 rounded-full text-xs border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-500/10"
+        >
+          🔄 Enriquecer desde EuropePMC
+        </Button>
         {noChunksSearchAt && (
           <span className="text-[11px] text-muted-foreground">
             {noChunksSnapshot?.size ?? 0} resultado(s) · {formatRelative(noChunksSearchAt)}
