@@ -341,8 +341,11 @@ export default function AdminDocuments() {
     if (colSourceCol !== ANY) n++;
     if (colChunks !== ANY) n++;
     if (colOrigin !== ANY) n++;
+    if (colRepository !== ANY) n++;
+    if (colCitations !== ANY) n++;
+    if (colRegion !== ANY) n++;
     return n;
-  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin]);
+  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, colRepository, colCitations, colRegion]);
 
   function clearAllColFilters() {
     setColTitle(""); setColAuthor("");
@@ -350,6 +353,7 @@ export default function AdminDocuments() {
     setColType(ANY); setColAreas([]);
     setColSourceCol(ANY);
     setColChunks(ANY); setColOrigin(ANY);
+    setColRepository(ANY); setColCitations(ANY); setColRegion(ANY);
   }
 
   // Distinct institutions present in rows (for Fuente column dropdown)
@@ -363,6 +367,13 @@ export default function AdminDocuments() {
   const distinctOrigins = useMemo(() => {
     const s = new Set<string>();
     for (const r of rows) s.add(r.import_source ?? "upload");
+    return Array.from(s).sort();
+  }, [rows]);
+
+  // Distinct repositories
+  const distinctRepositories = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of rows) if (r.repository) s.add(r.repository);
     return Array.from(s).sort();
   }, [rows]);
 
