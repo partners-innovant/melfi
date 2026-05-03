@@ -27,6 +27,7 @@ export interface PubMedArticle {
   authors: string;
   journal: string;
   year: string;
+  publication_date?: string | null;
   abstract: string;
   has_pdf: boolean;
   is_open_access: boolean;
@@ -38,6 +39,7 @@ export interface PubMedUploadPrefill {
   title: string;
   author: string;
   year: string;
+  publication_date?: string | null;
   abstract: string;
   pmc_id: string | null;
   pubmed_id: string | null;
@@ -189,6 +191,7 @@ export function PubMedPanel({
       title: a.title,
       author: a.authors,
       year: a.year,
+      publication_date: a.publication_date ?? null,
       abstract: a.abstract,
       pmc_id: a.pmc_id,
       pubmed_id: a.pubmed_id,

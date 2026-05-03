@@ -55,6 +55,7 @@ interface DocRow {
   title: string;
   author: string | null;
   year: string | null;
+  publication_date: string | null;
   document_type: DocType;
   clinical_areas: string[];
   source_institution: string | null;
@@ -206,7 +207,7 @@ export default function AdminDocuments() {
     // Pull all global documents
     const { data: docs, error } = await supabase
       .from("documents")
-      .select("id,title,author,year,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at,processing_mode,abstract,pubmed_id,pmc_id")
+      .select("id,title,author,year,publication_date,document_type,clinical_areas,source_institution,source_institution_type,language,is_global,import_source,storage_path,source_url,created_at,processing_mode,abstract,pubmed_id,pmc_id")
       .eq("is_global", true)
       .order("created_at", { ascending: false });
     if (error) {
@@ -1011,13 +1012,12 @@ export default function AdminDocuments() {
                 <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                   <InlineText value={d.author ?? ""} placeholder="—" onSave={(v) => updateField(d.id, { author: v || null })} />
                 </td>
-                <td className="px-2 py-2 align-middle">
-                  <InlineText
-                    value={d.year ?? ""}
-                    placeholder="—"
-                    type="number"
-                    onSave={(v) => updateField(d.id, { year: v || null })}
-                  />
+                <td className="px-2 py-2 align-middle text-xs">
+                  {d.publication_date
+                    ? (/-01-01$/.test(d.publication_date)
+                        ? d.publication_date.slice(0, 4)
+                        : new Date(d.publication_date).toLocaleDateString("es-CL"))
+                    : (d.year ?? "—")}
                 </td>
                 <td className="px-2 py-2 align-middle">
                   <InlineSelect
@@ -1857,11 +1857,17 @@ function FullscreenDocViewer({
               <p className="text-[10px] text-muted-foreground mt-1">Solo primer autor + et al. Ej: Barlow, D.H. et al.</p>
             </Field>
 
-            <Field label="Año" saved={savedFlash === "year"}>
-              <AutoSaveInput
-                type="number"
-                value={doc.year ?? ""}
-                onSave={(v) => save("year", (v || null) as any)}
+            <Field label="Fecha de publicación" saved={savedFlash === "publication_date"}>
+              <Input
+                type="date"
+                value={doc.publication_date ?? ""}
+                onChange={async (e) => {
+                  const v = e.target.value || null;
+                  const yr = v ? v.slice(0, 4) : doc.year;
+                  const ok = await onPatch({ publication_date: v, year: yr } as any);
+                  if (ok) flash("publication_date");
+                }}
+                className="h-9 text-sm"
               />
             </Field>
 

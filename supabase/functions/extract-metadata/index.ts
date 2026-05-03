@@ -48,7 +48,8 @@ Deno.serve(async (req) => {
   "source_institution_type": "organizacion_internacional|asociacion_profesional|gobierno_ministerio|universidad|revista_cientifica|autor_independiente|otro",
   "title": "suggested title or null",
   "author": "Solo el primer autor en formato 'Apellido, Iniciales.' seguido de 'et al.' si hay más de un autor. Ejemplo: 'Barlow, D.H. et al.' o 'Beck, A.T.' si es autor único",
-  "year": "publication year or null",
+  "publication_date": "fecha completa en formato YYYY-MM-DD si se puede identificar, o solo el año como YYYY-01-01 si solo hay año disponible",
+  "year": "año de publicación como número entero (4 dígitos) o null",
   "language": "español|ingles|otro"
 }
 
@@ -92,6 +93,7 @@ ${snippet}`;
                   title: { type: ["string", "null"] },
                   author: { type: ["string", "null"] },
                   year: { type: ["string", "null"] },
+                  publication_date: { type: ["string", "null"] },
                   language: { type: "string", enum: ["español", "ingles", "otro"] },
                 },
                 required: ["document_type", "clinical_areas"],
@@ -128,6 +130,7 @@ ${snippet}`;
       title: "",
       author: "",
       year: "",
+      publication_date: null,
       document_type: "",
       clinical_areas: [],
       source_institution: null,
@@ -142,6 +145,12 @@ ${snippet}`;
         meta.title = meta.title ?? "";
         meta.author = meta.author ?? "";
         meta.year = meta.year ?? "";
+        // Validate publication_date is YYYY-MM-DD
+        if (typeof meta.publication_date === "string") {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(meta.publication_date)) meta.publication_date = null;
+        } else {
+          meta.publication_date = null;
+        }
         if (!Array.isArray(meta.clinical_areas)) meta.clinical_areas = [];
       } catch (e) {
         console.error("Could not parse tool args:", toolCall.function.arguments);

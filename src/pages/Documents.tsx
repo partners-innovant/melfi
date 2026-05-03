@@ -25,7 +25,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ChevronsUpDown, Check } from "lucide-react";
 import { toast } from "sonner";
-import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle, Filter } from "lucide-react";
+import { Upload, Trash2, FileText, Globe2, Loader2, CheckCircle2, AlertCircle, X, Sparkles, Eye, AlertTriangle, Filter, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { format as formatDateFn, parseISO } from "date-fns";
+import { es as esLocale } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
 import {
   CLINICAL_AREAS, CLINICAL_AREAS_NICE, CLINICAL_AREAS_TRANSVERSAL,
@@ -42,11 +46,28 @@ import { PubMedSearchDialog, type PubMedUploadPrefill } from "@/components/PubMe
 
 type ImportSource = 'upload' | 'google_drive' | 'url' | 'web_search' | 'pubmed';
 
+/** Format publication_date as DD/MM/YYYY, or fallback to year. Returns "" if neither. */
+function formatDocDate(d: { year?: string | null; publication_date?: string | null }): string {
+  if (d.publication_date) {
+    try {
+      // If it's just YYYY-01-01 (only year known), show year only
+      if (/-01-01$/.test(d.publication_date)) {
+        return d.publication_date.slice(0, 4);
+      }
+      return formatDateFn(parseISO(d.publication_date), "dd/MM/yyyy");
+    } catch {
+      // fall through
+    }
+  }
+  return d.year ?? "";
+}
+
 interface Doc {
   id: string;
   title: string;
   author: string | null;
   year: string | null;
+  publication_date?: string | null;
   document_type: DocType;
   is_global: boolean;
   psychologist_id: string;
@@ -784,7 +805,7 @@ function ViewerSheet({ doc, onClose }: { doc: Doc | null; onClose: () => void })
                 <div className="min-w-0 flex-1">
                   <SheetTitle className="truncate">{doc.title}</SheetTitle>
                   <SheetDescription className="mt-1">
-                    {doc.author ?? "Autor desconocido"}{doc.year ? ` · ${doc.year}` : ""}
+                    {doc.author ?? "Autor desconocido"}{formatDocDate(doc) ? ` · ${formatDocDate(doc)}` : ""}
                   </SheetDescription>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[doc.document_type]}</Badge>
@@ -840,6 +861,7 @@ interface QueueItem {
   title: string;
   author: string;
   year: string;
+  publicationDate: string; // YYYY-MM-DD or ""
   docType: DocType;
   isGlobal: boolean;
   clinicalAreas: string[];
@@ -882,6 +904,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
       let title = item.file.name.replace(/\.(pdf|txt)$/i, "");
       let author = "";
       let year = "";
+      let publicationDate = "";
       let docType: DocType = "articulo_cientifico";
       let clinicalAreas: string[] = [];
       let sourceInstitution = "";
@@ -923,6 +946,12 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           if (data.year) {
             if (!pdfYearFound) { year = data.year; }
             autoFilled.year = true;
+          }
+          if (data.publication_date && /^\d{4}-\d{2}-\d{2}$/.test(data.publication_date)) {
+            publicationDate = data.publication_date;
+            if (!year) year = data.publication_date.slice(0, 4);
+          } else if (year && /^\d{4}$/.test(year)) {
+            publicationDate = `${year}-01-01`;
           }
           if (data.document_type && (DOC_TYPES as readonly string[]).includes(data.document_type)) {
             docType = data.document_type as DocType;
@@ -970,6 +999,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
         title,
         author,
         year,
+        publicationDate,
         docType,
         clinicalAreas,
         sourceInstitution,
@@ -1007,6 +1037,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
       title: file.name.replace(/\.(pdf|txt)$/i, ""),
       author: "",
       year: "",
+      publicationDate: "",
       docType: "articulo_cientifico",
       isGlobal: false,
       clinicalAreas: [],
@@ -1053,6 +1084,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           title: consumedPrefill.title || undefined,
           author: consumedPrefill.author || undefined,
           year: consumedPrefill.year || undefined,
+          publicationDate: consumedPrefill.publication_date || (consumedPrefill.year && /^\d{4}$/.test(consumedPrefill.year) ? `${consumedPrefill.year}-01-01` : ""),
           sourceInstitution: consumedPrefill.source_institution,
           sourceInstitutionType: consumedPrefill.source_institution_type,
           ...(aiAreas.length > 0 ? { clinicalAreas: aiAreas } : {}),
@@ -1112,6 +1144,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           title: finalTitle,
           author: item.author || null,
           year: item.year || null,
+          publication_date: item.publicationDate || null,
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
@@ -1534,12 +1567,18 @@ function QueueRow({
               />
             </div>
             <div>
-              <FieldLabel text="Año" ai={item.autoFilled.year} />
-              <Input
-                value={item.year}
-                onChange={(e) => onChange({ year: e.target.value, autoFilled: { ...item.autoFilled, year: false } })}
+              <FieldLabel text="Fecha de publicación" ai={item.autoFilled.year} />
+              <PubDatePicker
+                value={item.publicationDate}
+                onChange={(iso) => {
+                  const yr = iso ? iso.slice(0, 4) : "";
+                  onChange({
+                    publicationDate: iso,
+                    year: yr,
+                    autoFilled: { ...item.autoFilled, year: false },
+                  });
+                }}
                 disabled={!editable || disabled}
-                className="h-8 text-sm"
               />
             </div>
           </div>
@@ -1789,6 +1828,94 @@ function SourceInstitutionPicker({
             ))}
           </CommandList>
         </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/** Publication date picker — full date (DD/MM/YYYY) with quick year-only mode. */
+function PubDatePicker({
+  value, onChange, disabled,
+}: { value: string; onChange: (iso: string) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [yearInput, setYearInput] = useState("");
+  const date = value ? parseISO(value) : undefined;
+  const isYearOnly = !!value && /-01-01$/.test(value);
+  const display = !value
+    ? "—"
+    : isYearOnly
+      ? value.slice(0, 4)
+      : formatDateFn(parseISO(value), "dd/MM/yyyy");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled}
+          className={cn(
+            "h-8 w-full justify-start text-left font-normal text-sm",
+            !value && "text-muted-foreground",
+          )}
+        >
+          <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{display}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <div className="p-3 border-b space-y-2">
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Solo año</Label>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder="YYYY"
+              value={yearInput}
+              onChange={(e) => setYearInput(e.target.value)}
+              className="h-8 text-sm"
+              min={1900}
+              max={2100}
+            />
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => {
+                if (/^\d{4}$/.test(yearInput)) {
+                  onChange(`${yearInput}-01-01`);
+                  setYearInput("");
+                  setOpen(false);
+                }
+              }}
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={(d) => {
+            if (d) {
+              onChange(formatDateFn(d, "yyyy-MM-dd"));
+              setOpen(false);
+            }
+          }}
+          locale={esLocale}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+        {value && (
+          <div className="p-2 border-t">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full h-7 text-xs"
+              onClick={() => { onChange(""); setOpen(false); }}
+            >
+              <X className="h-3 w-3 mr-1" /> Limpiar
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );
