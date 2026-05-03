@@ -92,6 +92,52 @@ export default function AdminDocuments() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Resizable column widths (percentages summing to ~100)
+  const COLUMN_KEYS = [
+    "checkbox", "title", "author", "journal", "repository", "pubdate", "type",
+    "areas", "citations", "if", "region", "chunks", "origin", "uploaded", "actions",
+  ] as const;
+  type ColKey = typeof COLUMN_KEYS[number];
+  const DEFAULT_WIDTHS: Record<ColKey, number> = {
+    checkbox: 3, title: 18, author: 8, journal: 8, repository: 7, pubdate: 6,
+    type: 7, areas: 14, citations: 4, if: 4, region: 5, chunks: 4, origin: 4,
+    uploaded: 6, actions: 8,
+  };
+  const COL_WIDTH_KEY = "admin-docs:col-widths-v2";
+  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(COL_WIDTH_KEY) || "null");
+      if (saved && typeof saved === "object") return { ...DEFAULT_WIDTHS, ...saved };
+    } catch { /* ignore */ }
+    return DEFAULT_WIDTHS;
+  });
+  useEffect(() => {
+    localStorage.setItem(COL_WIDTH_KEY, JSON.stringify(colWidths));
+  }, [colWidths]);
+
+  // Drag-resize handler (works on percentage units relative to table width)
+  function startResize(key: ColKey, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const table = (e.currentTarget as HTMLElement).closest("table");
+    if (!table) return;
+    const tableWidth = table.getBoundingClientRect().width;
+    const startX = e.clientX;
+    const startWidth = colWidths[key];
+    function onMove(ev: MouseEvent) {
+      const deltaPx = ev.clientX - startX;
+      const deltaPct = (deltaPx / tableWidth) * 100;
+      const next = Math.max(2, startWidth + deltaPct);
+      setColWidths((w) => ({ ...w, [key]: next }));
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
   const [unclassifiedOnly, setUnclassifiedOnly] = useState(false);
   // Snapshot-based "Sin chunks" filter — only updates when user clicks the button
   const [noChunksSnapshot, setNoChunksSnapshot] = useState<Set<string> | null>(null);
