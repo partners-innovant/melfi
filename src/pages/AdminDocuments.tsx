@@ -999,19 +999,6 @@ export default function AdminDocuments() {
                     }}
                   />
                 </TableCell>
-                <TableCell>
-                  <InlineSelect
-                    value={d.language ?? ""}
-                    options={[
-                      { value: "es", label: "Español" },
-                      { value: "en", label: "Inglés" },
-                      { value: "otro", label: "Otro" },
-                    ]}
-                    placeholder="—"
-                    onSave={(v) => updateField(d.id, { language: v || null })}
-                    renderValue={(v) => LANG_LABELS[v as LangCode] ?? "—"}
-                  />
-                </TableCell>
                 <TableCell className="text-center text-sm tabular-nums">
                   {reprocessing.has(d.id) ? (
                     <span className="inline-flex items-center gap-1 text-muted-foreground text-[11px]">
