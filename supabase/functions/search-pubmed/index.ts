@@ -49,7 +49,7 @@ serve(async (req) => {
         pmc_id: a.pmcid || null,
         doi: a.doi || null,
         title: a.title || 'Sin título',
-        authors: a.authorString || '',
+        authors: formatAuthor(a.authorString || ''),
         journal: a.journalTitle || '',
         year: a.pubYear || '',
         abstract: a.abstractText || '',
