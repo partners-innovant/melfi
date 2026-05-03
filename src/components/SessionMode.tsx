@@ -397,7 +397,6 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         return;
       }
       setAnalyzeStage("analyzing");
-    try {
       // Use the recent tail of the transcript as context for analysis
       const transcriptText = transcriptRef.current
         .filter((s) => !s.error)
