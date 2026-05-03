@@ -44,6 +44,11 @@ import {
   SOURCE_INSTITUTION_TYPE_LABELS, shortInstitutionName,
 } from "@/lib/clinical-areas";
 import { ClassifyPreviewDialog, type ClassifyTarget } from "@/components/ClassifyPreviewDialog";
+import {
+  EVIDENCE_LEVELS, EVIDENCE_LEVEL_LABELS, evidenceLevelBadge, evidenceLevelDot, type EvidenceLevel,
+  GEOGRAPHIC_RELEVANCES, GEOGRAPHIC_RELEVANCE_LABELS, geographicIcon, type GeographicRelevance,
+  impactFactorForJournal,
+} from "@/lib/document-relevance";
 
 type LangCode = "es" | "en" | "otro";
 const LANG_LABELS: Record<LangCode, string> = { es: "Español", en: "Inglés", otro: "Otro" };
