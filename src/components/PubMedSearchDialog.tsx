@@ -191,6 +191,7 @@ export function PubMedPanel({
       title: a.title,
       author: a.authors,
       year: a.year,
+      publication_date: a.publication_date ?? null,
       abstract: a.abstract,
       pmc_id: a.pmc_id,
       pubmed_id: a.pubmed_id,
