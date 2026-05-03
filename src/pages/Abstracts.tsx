@@ -925,8 +925,8 @@ function PubMedFullscreenSearch({
                     const sc = a.relevance_score;
                     const scColor = sc > 70 ? "bg-emerald-500" : sc >= 40 ? "bg-amber-400" : "bg-red-400";
                     return (
-                      <>
-                        <tr key={a.id} className="border-t hover:bg-muted/20 align-top">
+                      <Fragment key={a.id}>
+                        <tr className="border-t hover:bg-muted/20 align-top">
                           <td className="p-2 pt-3">
                             <input
                               type="checkbox"
