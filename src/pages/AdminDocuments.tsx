@@ -102,6 +102,7 @@ export default function AdminDocuments() {
   const [colOrigin, setColOrigin] = useState<string>(ANY);
   const [colDateFrom, setColDateFrom] = useState<Date | undefined>(undefined);
   const [colDateTo, setColDateTo] = useState<Date | undefined>(undefined);
+  const [sortDate, setSortDate] = useState<"none" | "asc" | "desc">("none");
 
   // Debounce title/author 300ms
   useEffect(() => {
