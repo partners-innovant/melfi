@@ -153,6 +153,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
+          <div className={cn("pt-1 pb-2", collapsed ? "px-2" : "px-3")}>
+            {collapsed ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div><FeedbackButton collapsed /></div>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>Feedback</TooltipContent>
+              </Tooltip>
+            ) : (
+              <FeedbackButton />
+            )}
+          </div>
+
           <div className={cn("border-t border-sidebar-border pt-2 pb-1", collapsed ? "px-2" : "px-3")}>
             {(() => {
               const claudeLink = (
@@ -186,30 +199,66 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     loading="lazy"
                     className="h-5 w-5 flex-shrink-0 object-contain"
                   />
-                  {!collapsed && <span className="flex-1 truncate">Claude</span>}
+                  {!collapsed && <span className="flex-1 truncate">Claude uso general</span>}
                 </NavLink>
               );
               return collapsed ? (
                 <Tooltip>
                   <TooltipTrigger asChild>{claudeLink}</TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>Claude</TooltipContent>
+                  <TooltipContent side="right" sideOffset={8}>Claude uso general</TooltipContent>
                 </Tooltip>
               ) : claudeLink;
             })()}
           </div>
 
-          <div className={cn("pt-1 pb-2", collapsed ? "px-2" : "px-3")}>
-            {collapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div><FeedbackButton collapsed /></div>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>Feedback</TooltipContent>
-              </Tooltip>
-            ) : (
-              <FeedbackButton />
-            )}
-          </div>
+          {adminItems.length > 0 && (
+            <div className={cn("mt-2 pt-2 border-t border-sidebar-border space-y-1", collapsed ? "px-2" : "px-3")}>
+              {!collapsed && (
+                <div className="px-3 pb-1 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  Admin
+                </div>
+              )}
+              {adminItems.map((it: any) => {
+                const link = (
+                  <NavLink
+                    key={it.to}
+                    to={it.to}
+                    className={({ isActive }) =>
+                      cn(
+                        "relative flex items-center rounded-lg text-sm font-medium transition-colors",
+                        collapsed ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                      )
+                    }
+                  >
+                    <it.icon className="h-4 w-4 flex-shrink-0" />
+                    {!collapsed && <span className="flex-1 truncate">{it.label}</span>}
+                    {typeof it.badge === "number" && it.badge > 0 && (
+                      <span
+                        className={cn(
+                          "inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold",
+                          collapsed ? "absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 text-[9px]" : "ml-auto",
+                        )}
+                      >
+                        {it.badge}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+                if (collapsed) {
+                  return (
+                    <Tooltip key={it.to}>
+                      <TooltipTrigger asChild>{link}</TooltipTrigger>
+                      <TooltipContent side="right" sideOffset={8}>{it.label}</TooltipContent>
+                    </Tooltip>
+                  );
+                }
+                return link;
+              })}
+            </div>
+          )}
 
           <div className={cn("border-t border-sidebar-border", collapsed ? "p-2" : "p-3")}>
             {collapsed ? (
