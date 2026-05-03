@@ -99,8 +99,15 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = (body?.action ?? "transcribe") as "transcribe" | "analyze";
 
-    // ===== TRANSCRIBE (Haiku, audio only) =====
+    // ===== TRANSCRIBE (Whisper for audio→text+timestamps, Claude Haiku for speaker diarization) =====
     if (action === "transcribe") {
+      const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+      if (!OPENAI_API_KEY) {
+        return new Response(JSON.stringify({ success: false, error: "OPENAI_API_KEY no configurada", segments: [] }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const { audio, mime_type, audioMediaType } = body ?? {};
       if (!audio || typeof audio !== "string") {
         return new Response(JSON.stringify({ success: false, error: "audio (base64) requerido", segments: [] }), {
@@ -108,13 +115,68 @@ Deno.serve(async (req) => {
         });
       }
       const rawMime = (audioMediaType || mime_type || "audio/webm").split(";")[0];
-      // Anthropic accepts a limited set; map common recorder MIMEs
-      const allowed = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg", "audio/wav"];
-      const mediaType = allowed.includes(rawMime) ? rawMime : "audio/webm";
-      console.log("transcribe: audio base64 length =", audio.length, "mediaType =", mediaType, "(raw:", rawMime, ")");
+      const ext = rawMime.includes("mp4") || rawMime.includes("m4a") ? "mp4"
+        : rawMime.includes("mpeg") || rawMime.includes("mp3") ? "mp3"
+        : rawMime.includes("ogg") ? "ogg"
+        : rawMime.includes("wav") ? "wav"
+        : "webm";
 
-      async function tryWithMedia(mt: string) {
-        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const bytes = base64ToBytes(audio);
+      const audioBlob = new Blob([bytes], { type: rawMime || "audio/webm" });
+
+      const formData = new FormData();
+      formData.append("file", audioBlob, `audio.${ext}`);
+      formData.append("model", "whisper-1");
+      formData.append("language", "es");
+      formData.append("response_format", "verbose_json");
+      formData.append("timestamp_granularities[]", "segment");
+
+      console.log("whisper: audio bytes =", bytes.length, "mime =", rawMime);
+
+      const whisperResp = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+        body: formData,
+      });
+
+      if (!whisperResp.ok) {
+        const errText = await whisperResp.text();
+        console.error("Whisper error", whisperResp.status, errText);
+        return new Response(JSON.stringify({ success: false, error: `whisper_${whisperResp.status}: ${errText.slice(0, 300)}`, segments: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const whisperData = await whisperResp.json();
+      const fullText: string = whisperData?.text ?? "";
+      const rawSegments: Array<{ start: number; end: number; text: string }> = Array.isArray(whisperData?.segments) ? whisperData.segments : [];
+
+      if (!rawSegments.length && !fullText.trim()) {
+        return new Response(JSON.stringify({ success: true, segments: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const timestampedSegments = rawSegments.map((s) => ({
+        timestamp: fmtTimestamp(s.start),
+        text: (s.text ?? "").trim(),
+      }));
+
+      if (!timestampedSegments.length) {
+        return new Response(JSON.stringify({
+          success: true,
+          segments: [{ speaker: "Hablante", timestamp: "[00:00]", text: fullText.trim() }],
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Ask Claude Haiku to assign speakers per segment, preserving timestamps and text.
+      const diarizeUserMsg = `Segmentos transcritos (orden y texto se deben preservar tal cual):\n\n${timestampedSegments
+        .map((s, i) => `${i + 1}. ${s.timestamp} ${s.text}`)
+        .join("\n")}`;
+
+      let diarizedSegments: Array<{ speaker: string; timestamp: string; text: string }> = [];
+      try {
+        const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -124,36 +186,30 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             model: HAIKU_MODEL,
             max_tokens: 2000,
-            messages: [{
-              role: "user",
-              content: [
-                { type: "text", text: TRANSCRIBE_PROMPT },
-                { type: "document", source: { type: "base64", media_type: mt, data: audio } },
-              ],
-            }],
+            system: DIARIZE_PROMPT,
+            messages: [{ role: "user", content: diarizeUserMsg }],
           }),
         });
-        const json = await resp.json();
-        return { ok: resp.ok, status: resp.status, json };
+        const claudeJson = await claudeResp.json();
+        const text: string = claudeJson?.content?.[0]?.text ?? "";
+        const parsed = tryParseJson(text);
+        const arr = Array.isArray(parsed?.segments) ? parsed.segments : [];
+        if (arr.length === timestampedSegments.length) {
+          diarizedSegments = arr.map((s: any, i: number) => ({
+            speaker: typeof s.speaker === "string" ? s.speaker : "Hablante",
+            timestamp: timestampedSegments[i].timestamp,
+            text: timestampedSegments[i].text,
+          }));
+        }
+      } catch (e) {
+        console.error("Diarization failed, returning segments without speaker:", e);
       }
 
-      let result = await tryWithMedia(mediaType);
-      console.log("Claude response status:", result.status, "body:", JSON.stringify(result.json).slice(0, 800));
-      if (!result.ok && mediaType !== "audio/mp4") {
-        console.log("Retrying with audio/mp4 fallback");
-        result = await tryWithMedia("audio/mp4");
-        console.log("Claude retry response:", result.status, JSON.stringify(result.json).slice(0, 800));
-      }
-      if (!result.ok || result.json?.error) {
-        const msg = result.json?.error?.message || `anthropic_${result.status}`;
-        return new Response(JSON.stringify({ success: false, error: msg, segments: [] }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const text: string = result.json?.content?.[0]?.text ?? "";
-      const parsed = tryParseJson(text);
-      const segments = Array.isArray(parsed?.segments) ? parsed.segments : [];
-      return new Response(JSON.stringify({ success: true, segments }), {
+      const finalSegments = diarizedSegments.length
+        ? diarizedSegments
+        : timestampedSegments.map((s) => ({ speaker: "Hablante", ...s }));
+
+      return new Response(JSON.stringify({ success: true, segments: finalSegments, full_text: fullText }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
