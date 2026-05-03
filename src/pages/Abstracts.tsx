@@ -1038,7 +1038,7 @@ function PubMedFullscreenSearch({
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
