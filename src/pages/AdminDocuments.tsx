@@ -856,99 +856,127 @@ export default function AdminDocuments() {
       )}
 
       {/* Table */}
-      <div className="border rounded-lg overflow-x-auto bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
+      <div className="border rounded-lg overflow-hidden bg-card">
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col style={{ width: "3%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "5%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "9%" }} />
+          </colgroup>
+          <thead className="bg-muted/40 text-xs text-muted-foreground">
+            <tr>
+              <th className="px-2 py-2 text-left">
                 <Checkbox checked={allOnPageSelected} onCheckedChange={(v) => toggleAllOnPage(!!v)} />
-              </TableHead>
-              <TableHead style={{ width: "25%" }}>Título</TableHead>
-              <TableHead style={{ width: "10%" }}>Autor</TableHead>
-              <TableHead style={{ width: "5%" }}>Año</TableHead>
-              <TableHead style={{ width: "8%" }}>Tipo</TableHead>
-              <TableHead style={{ width: "30%" }}>Área(s) clínica(s)</TableHead>
-              <TableHead style={{ width: "8%" }}>Fuente</TableHead>
-              <TableHead style={{ width: "5%" }} className="text-center">Chunks</TableHead>
-              <TableHead style={{ width: "5%" }}>Modo</TableHead>
-              <TableHead style={{ width: "5%" }}>Origen</TableHead>
-              <TableHead style={{ width: "7%" }}>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Título" active={!!colTitle} activeText={colTitle || undefined} onClear={() => setColTitle("")}>
+                  <Label className="text-xs">Buscar por título</Label>
+                  <Input autoFocus value={colTitle} onChange={(e) => setColTitle(e.target.value)} placeholder="Texto contenido..." className="h-8 text-xs mt-1" />
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Autor" active={!!colAuthor} activeText={colAuthor || undefined} onClear={() => setColAuthor("")}>
+                  <Label className="text-xs">Buscar por autor</Label>
+                  <Input autoFocus value={colAuthor} onChange={(e) => setColAuthor(e.target.value)} placeholder="Nombre..." className="h-8 text-xs mt-1" />
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Año" active={!!(colYearFrom || colYearTo)} activeText={colYearFrom || colYearTo ? `${colYearFrom || "…"}–${colYearTo || "…"}` : undefined} onClear={() => { setColYearFrom(""); setColYearTo(""); }}>
+                  <div className="space-y-2">
+                    <div><Label className="text-xs">Desde</Label><Input type="number" value={colYearFrom} onChange={(e) => setColYearFrom(e.target.value)} className="h-8 text-xs mt-1" /></div>
+                    <div><Label className="text-xs">Hasta</Label><Input type="number" value={colYearTo} onChange={(e) => setColYearTo(e.target.value)} className="h-8 text-xs mt-1" /></div>
+                  </div>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Tipo" active={colType !== ANY} activeText={colType !== ANY ? DOC_TYPE_LABELS[colType as DocType] : undefined} onClear={() => setColType(ANY)}>
+                  <Select value={colType} onValueChange={setColType}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ANY}>Todos</SelectItem>
+                      {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Área(s) clínica(s)" active={colAreas.length > 0} activeText={colAreas.length > 0 ? `${colAreas.length} sel.` : undefined} onClear={() => setColAreas([])}>
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {colAreas.length > 0 && (
+                      <button type="button" onClick={() => setColAreas([])} className="text-xs text-primary hover:underline mb-1">Limpiar selección</button>
+                    )}
+                    {[...CLINICAL_AREAS_NICE, ...CLINICAL_AREAS_TRANSVERSAL].map((a) => {
+                      const checked = colAreas.includes(a);
+                      return (
+                        <label key={a} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
+                          <Checkbox checked={checked} onCheckedChange={(v) => { if (v) setColAreas([...colAreas, a]); else setColAreas(colAreas.filter((x) => x !== a)); }} />
+                          <span className="truncate">{clinicalAreaLabel(a)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Fuente" active={colSourceCol !== ANY} activeText={colSourceCol !== ANY ? shortInstitutionName(colSourceCol) : undefined} onClear={() => setColSourceCol(ANY)}>
+                  <Select value={colSourceCol} onValueChange={setColSourceCol}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value={ANY}>Todas</SelectItem>
+                      {distinctInstitutions.map((s) => <SelectItem key={s} value={s}>{sourceIconFor(s)} {shortInstitutionName(s)}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Chunks" active={colChunks !== ANY} activeText={colChunks === "0" ? "Sin (0)" : colChunks === "1+" ? "Con (1+)" : undefined} onClear={() => setColChunks(ANY)}>
+                  <Select value={colChunks} onValueChange={setColChunks}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ANY}>Todos</SelectItem>
+                      <SelectItem value="0">Sin chunks (0)</SelectItem>
+                      <SelectItem value="1+">Con chunks (1+)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter label="Origen" active={colOrigin !== ANY} activeText={colOrigin !== ANY ? colOrigin : undefined} onClear={() => setColOrigin(ANY)}>
+                  <Select value={colOrigin} onValueChange={setColOrigin}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ANY}>Todos</SelectItem>
+                      {distinctOrigins.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
                 <button
                   type="button"
                   onClick={() => setSortDate((s) => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
                   className={cn(
-                    "inline-flex items-center gap-1 hover:text-foreground transition-colors",
-                    sortDate !== "none" && "text-primary font-semibold"
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium hover:bg-muted",
+                    sortDate !== "none" && "text-teal-700 dark:text-teal-300 bg-teal-500/10"
                   )}
-                  title={
-                    sortDate === "none" ? "Sin ordenar"
-                    : sortDate === "asc" ? "Más antiguos primero"
-                    : "Más recientes primero"
-                  }
+                  title={sortDate === "none" ? "Sin ordenar" : sortDate === "asc" ? "Más antiguos primero" : "Más recientes primero"}
                 >
-                  Subido
-                  <span className="text-xs">
-                    {sortDate === "none" ? "↕" : sortDate === "asc" ? "↑" : "↓"}
-                  </span>
+                  <span>Subido</span>
+                  <span>{sortDate === "none" ? "↕" : sortDate === "asc" ? "↑" : "↓"}</span>
                 </button>
-              </TableHead>
-              <TableHead style={{ width: "5%" }}>Acciones</TableHead>
-            </TableRow>
-            {/* Column filter row */}
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="p-1" />
-              <TableHead className="p-1">
-                <ColTextFilter value={colTitle} onChange={setColTitle} placeholder="Filtrar título…" />
-              </TableHead>
-              <TableHead className="p-1">
-                <ColTextFilter value={colAuthor} onChange={setColAuthor} placeholder="Filtrar autor…" />
-              </TableHead>
-              <TableHead className="p-1">
-                <div className="flex gap-1">
-                  <ColTextFilter value={colYearFrom} onChange={setColYearFrom} placeholder="Desde" type="number" compact />
-                  <ColTextFilter value={colYearTo} onChange={setColYearTo} placeholder="Hasta" type="number" compact />
-                </div>
-              </TableHead>
-              <TableHead className="p-1">
-                <ColSelectFilter
-                  value={colType}
-                  onChange={setColType}
-                  options={[{ value: ANY, label: "Todos" }, ...DOC_TYPES.map((t) => ({ value: t, label: DOC_TYPE_LABELS[t] }))]}
-                />
-              </TableHead>
-              <TableHead className="p-1">
-                <ColAreasFilter value={colAreas} onChange={setColAreas} />
-              </TableHead>
-              <TableHead className="p-1">
-                <ColSelectFilter
-                  value={colSourceCol}
-                  onChange={setColSourceCol}
-                  options={[{ value: ANY, label: "Todas" }, ...distinctInstitutions.map((s) => ({ value: s, label: shortInstitutionName(s) }))]}
-                />
-              </TableHead>
-              <TableHead className="p-1">
-                <ColSelectFilter
-                  value={colChunks}
-                  onChange={setColChunks}
-                  options={[
-                    { value: ANY, label: "Todos" },
-                    { value: "0", label: "Sin chunks (0)" },
-                    { value: "1+", label: "Con chunks (1+)" },
-                  ]}
-                />
-              </TableHead>
-              <TableHead className="p-1" />
-              <TableHead className="p-1">
-                <ColSelectFilter
-                  value={colOrigin}
-                  onChange={setColOrigin}
-                  options={[{ value: ANY, label: "Todos" }, ...distinctOrigins.map((o) => ({ value: o, label: o }))]}
-                />
-              </TableHead>
-              <TableHead className="p-1" />
-              <TableHead className="p-1" />
-            </TableRow>
-          </TableHeader>
+              </th>
+              <th className="px-2 py-2 text-left">Acciones</th>
+            </tr>
+          </thead>
+
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
