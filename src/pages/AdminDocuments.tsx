@@ -859,12 +859,30 @@ export default function AdminDocuments() {
               <TableHead style={{ width: "5%" }}>Año</TableHead>
               <TableHead style={{ width: "8%" }}>Tipo</TableHead>
               <TableHead style={{ width: "30%" }}>Área(s) clínica(s)</TableHead>
-              <TableHead style={{ width: "10%" }}>Fuente</TableHead>
-              <TableHead style={{ width: "5%" }}>Idioma</TableHead>
+              <TableHead style={{ width: "8%" }}>Fuente</TableHead>
               <TableHead style={{ width: "5%" }} className="text-center">Chunks</TableHead>
               <TableHead style={{ width: "5%" }}>Modo</TableHead>
               <TableHead style={{ width: "5%" }}>Origen</TableHead>
-              <TableHead style={{ width: "7%" }}>Subido</TableHead>
+              <TableHead style={{ width: "7%" }}>
+                <button
+                  type="button"
+                  onClick={() => setSortDate((s) => s === "none" ? "asc" : s === "asc" ? "desc" : "none")}
+                  className={cn(
+                    "inline-flex items-center gap-1 hover:text-foreground transition-colors",
+                    sortDate !== "none" && "text-primary font-semibold"
+                  )}
+                  title={
+                    sortDate === "none" ? "Sin ordenar"
+                    : sortDate === "asc" ? "Más antiguos primero"
+                    : "Más recientes primero"
+                  }
+                >
+                  Subido
+                  <span className="text-xs">
+                    {sortDate === "none" ? "↕" : sortDate === "asc" ? "↑" : "↓"}
+                  </span>
+                </button>
+              </TableHead>
               <TableHead style={{ width: "5%" }}>Acciones</TableHead>
             </TableRow>
             {/* Column filter row */}
@@ -901,18 +919,6 @@ export default function AdminDocuments() {
               </TableHead>
               <TableHead className="p-1">
                 <ColSelectFilter
-                  value={colLang}
-                  onChange={setColLang}
-                  options={[
-                    { value: ANY, label: "Todos" },
-                    { value: "es", label: "Español" },
-                    { value: "en", label: "Inglés" },
-                    { value: "otro", label: "Otro" },
-                  ]}
-                />
-              </TableHead>
-              <TableHead className="p-1">
-                <ColSelectFilter
                   value={colChunks}
                   onChange={setColChunks}
                   options={[
@@ -930,9 +936,7 @@ export default function AdminDocuments() {
                   options={[{ value: ANY, label: "Todos" }, ...distinctOrigins.map((o) => ({ value: o, label: o }))]}
                 />
               </TableHead>
-              <TableHead className="p-1">
-                <ColDateRangeFilter from={colDateFrom} to={colDateTo} onFromChange={setColDateFrom} onToChange={setColDateTo} />
-              </TableHead>
+              <TableHead className="p-1" />
               <TableHead className="p-1" />
             </TableRow>
           </TableHeader>
