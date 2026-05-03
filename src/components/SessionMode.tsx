@@ -342,9 +342,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       // 1) Transcribe accumulated chunks (if any)
       let transcribeFailed = false;
       if (pending.length) {
-        const blobMime = liveMimeRef.current || "audio/webm";
-        const baseMime = blobMime.split(";")[0];
-        const blob = new Blob(pending, { type: blobMime });
+        const rawMime = liveMimeRef.current || "audio/webm";
+        const baseMime = rawMime.split(";")[0] || "audio/webm";
+        const blob = new Blob(pending, { type: baseMime });
         console.log("Blob mimeType:", blob.type, "size:", blob.size);
         unprocessedChunksRef.current = [];
         if (blob.size >= 1000) {
@@ -352,7 +352,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           try {
             const audio = await blobToBase64(blob);
             const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-              body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: blob.type || baseMime },
+              body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: baseMime },
             });
             console.log("Transcription response:", data, error);
             if (error) throw error;
