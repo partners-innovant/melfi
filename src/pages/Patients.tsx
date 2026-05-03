@@ -296,7 +296,7 @@ export function PatientForm({ form, setForm }: { form: any; setForm: (f: any) =>
           <Label>Sexo</Label>
           <Select value={form.sex} onValueChange={(v) => u("sex", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{SEX_OPTIONS.map((s) => <SelectItem key={s} value={s}>{capitalize(s)}</SelectItem>)}<SelectItem value="otro">Otro</SelectItem></SelectContent>
+            <SelectContent>{SEX_OPTIONS.map((s) => <SelectItem key={s} value={s}>{capitalize(s)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </div>
