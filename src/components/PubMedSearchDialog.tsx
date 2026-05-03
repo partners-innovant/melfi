@@ -33,6 +33,7 @@ export interface PubMedArticle {
   is_open_access: boolean;
   pdf_url: string | null;
   article_url: string;
+  citations_count?: number | null;
 }
 
 export interface PubMedUploadPrefill {
