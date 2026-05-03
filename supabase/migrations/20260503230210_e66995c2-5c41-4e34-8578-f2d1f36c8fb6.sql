@@ -1,0 +1,1 @@
+ALTER TABLE public.abstracts ADD COLUMN IF NOT EXISTS abstract_sections jsonb;

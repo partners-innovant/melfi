@@ -67,6 +67,7 @@ export type Database = {
       }
       abstracts: {
         Row: {
+          abstract_sections: Json | null
           abstract_text: string
           authors: string | null
           citations_count: number | null
@@ -95,6 +96,7 @@ export type Database = {
           year: number | null
         }
         Insert: {
+          abstract_sections?: Json | null
           abstract_text: string
           authors?: string | null
           citations_count?: number | null
@@ -123,6 +125,7 @@ export type Database = {
           year?: number | null
         }
         Update: {
+          abstract_sections?: Json | null
           abstract_text?: string
           authors?: string | null
           citations_count?: number | null
