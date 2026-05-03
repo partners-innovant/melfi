@@ -103,6 +103,17 @@ ${snippet}`;
                   year: { type: ["string", "null"] },
                   publication_date: { type: ["string", "null"] },
                   language: { type: "string", enum: ["español", "ingles", "otro"] },
+                  evidence_level: {
+                    type: ["string", "null"],
+                    enum: [
+                      "meta_analisis","revision_sistematica","ensayo_clinico_rct","estudio_cohorte",
+                      "guia_practica_clinica","consenso_expertos","reporte_caso","opinion_experto","otro", null,
+                    ],
+                  },
+                  geographic_relevance: {
+                    type: ["string", "null"],
+                    enum: ["chile", "latinoamerica", "internacional", null],
+                  },
                 },
                 required: ["document_type", "clinical_areas"],
                 additionalProperties: false,
