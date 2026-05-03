@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { DOC_TYPES, DOC_TYPE_LABELS, type DocType } from "@/lib/clinical";
+import { DOC_TYPES, DOC_TYPE_LABELS, formatAuthor, type DocType } from "@/lib/clinical";
 import {
   CLINICAL_AREAS_NICE, CLINICAL_AREAS_TRANSVERSAL, MAX_CLINICAL_AREAS,
   clinicalAreaLabel, clinicalAreaColor,
