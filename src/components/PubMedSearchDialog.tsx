@@ -219,6 +219,7 @@ export function PubMedPanel({
       language: ai?.language ?? null,
       ai_classified: !!ai,
     });
+    markImported(a);
   }
 
   return (
