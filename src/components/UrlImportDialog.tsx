@@ -107,6 +107,7 @@ export default function UrlImportDialog({
           storage_path: null,
           source_url: data.source_url || it.url,
           import_source: 'url',
+          repository: (() => { try { return new URL(it.url).hostname.replace(/^www\./, ''); } catch { return 'URL'; } })(),
         } as any)
         .select()
         .single();

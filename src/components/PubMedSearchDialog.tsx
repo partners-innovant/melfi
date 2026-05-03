@@ -48,6 +48,9 @@ export interface PubMedUploadPrefill {
   source_url: string | null;
   source_institution: string;
   source_institution_type: string;
+  journal?: string | null;
+  repository?: string | null;
+  repository_id?: string | null;
   clinical_areas?: string[];
   language?: string | null;
   ai_classified?: boolean;
@@ -200,6 +203,9 @@ export function PubMedPanel({
       source_url: pdfDirectUrl(a),
       source_institution: a.journal || "PubMed / NCBI",
       source_institution_type: "revista_cientifica",
+      journal: a.journal || null,
+      repository: "PubMed / EuropePMC",
+      repository_id: a.pubmed_id || a.pmc_id || a.doi || a.europepmc_id || null,
     };
     // Fire-and-forget AI classification using title + abstract
     const classifyPromise = (async () => {

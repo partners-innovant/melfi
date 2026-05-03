@@ -23,11 +23,12 @@ Responde SIEMPRE con este JSON exacto, sin texto adicional fuera del JSON:
     {
       "chunk_id": "el id exacto del chunk usado",
       "document_title": "título del documento",
-      "author": "autor si está disponible",
+      "author": "autor si está disponible (primer autor + et al. si corresponde)",
       "year": "año si está disponible",
+      "journal": "revista científica si está disponible o null",
+      "source_institution": "institución exacta o null",
       "page_number": "número de página aproximado",
       "document_type": "tipo de documento (clave, ej. guia_clinica)",
-      "source_institution": "institución exacta o null",
       "excerpt": "el fragmento exacto del texto original en el idioma del paper que respalda la afirmación"
     }
   ]
@@ -186,7 +187,7 @@ Deno.serve(async (req) => {
     const docIds = [...new Set((chunks ?? []).map((c: any) => c.document_id))];
     const { data: docs } = await supabase
       .from("documents")
-      .select("id, title, author, year, document_type, source_institution, source_institution_type, clinical_areas")
+      .select("id, title, author, year, document_type, source_institution, source_institution_type, journal, clinical_areas")
       .in("id", docIds);
     const docMap = new Map((docs ?? []).map((d: any) => [d.id, d]));
 
@@ -307,8 +308,9 @@ ${(team ?? []).map((t: any) => `- ${t.professional_name} (${t.professional_role}
     } else {
       chunks.forEach((c: any, i: number) => {
         const d = docMap.get(c.document_id) as any;
-        const inst = d?.source_institution ? ` — Fuente: ${d.source_institution}` : "";
-        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
+        const inst = d?.source_institution ? ` — Institución: ${d.source_institution}` : "";
+        const jrn = d?.journal ? ` — Revista: ${d.journal}` : "";
+        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${jrn}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
       });
     }
 

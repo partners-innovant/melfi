@@ -44,8 +44,11 @@ Deno.serve(async (req) => {
 {
   "document_type": "articulo_cientifico|guia_clinica|manual_diagnostico|libro_academico|codigo_etico|informe_consenso|otro",
   "clinical_areas": ["1 to 3 values from: ${CLINICAL_AREAS.join(", ")}"],
-  "source_institution": "exact institution name or null",
+  "source_institution": "universidad, hospital u organización que produjo el documento — NO la revista. Null si no aplica",
   "source_institution_type": "organizacion_internacional|asociacion_profesional|gobierno_ministerio|universidad|revista_cientifica|autor_independiente|otro",
+  "journal": "nombre de la revista científica donde se publicó — solo si es un artículo. Null si no aplica",
+  "repository": "base de datos o repositorio donde se encuentra: PubMed, Cochrane, APA PsycNET, NICE, OMS, etc. Null si no se identifica",
+  "repository_id": "PMID, DOI, PMC ID u otro identificador único. Null si no se identifica",
   "title": "suggested title or null",
   "author": "Solo el primer autor en formato 'Apellido, Iniciales.' seguido de 'et al.' si hay más de un autor. Ejemplo: 'Barlow, D.H. et al.' o 'Beck, A.T.' si es autor único",
   "publication_date": "fecha completa en formato YYYY-MM-DD si se puede identificar, o solo el año como YYYY-01-01 si solo hay año disponible",
@@ -90,6 +93,9 @@ ${snippet}`;
                   },
                   source_institution: { type: ["string", "null"] },
                   source_institution_type: { type: ["string", "null"], enum: [...INSTITUTION_TYPES, null] },
+                  journal: { type: ["string", "null"] },
+                  repository: { type: ["string", "null"] },
+                  repository_id: { type: ["string", "null"] },
                   title: { type: ["string", "null"] },
                   author: { type: ["string", "null"] },
                   year: { type: ["string", "null"] },
@@ -135,6 +141,9 @@ ${snippet}`;
       clinical_areas: [],
       source_institution: null,
       source_institution_type: null,
+      journal: null,
+      repository: null,
+      repository_id: null,
       language: null,
     };
     if (toolCall?.function?.arguments) {
