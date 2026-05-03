@@ -67,6 +67,7 @@ interface Abstract {
   geographic_relevance: string | null;
   citations_count: number | null;
   language: string | null;
+  abstract_sections: Record<string, string> | null;
   created_at: string;
 }
 
@@ -285,8 +286,14 @@ export default function AbstractsPage() {
 
       {/* Reader panel */}
       <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-[450px] overflow-y-auto">
-          {viewing && <ReaderContent a={viewing} onAssistant={() => navigate(`/assistant?q=${encodeURIComponent(`Analiza este abstract: ${viewing.title}\n\n${viewing.abstract_text}`)}`)} />}
+        <SheetContent side="right" className="w-full sm:max-w-[560px] md:w-[42vw] md:max-w-[640px] p-0 overflow-y-auto">
+          {viewing && (
+            <ReaderContent
+              a={viewing}
+              onAssistant={() => navigate(`/assistant?q=${encodeURIComponent(`Analiza este abstract: ${viewing.title}\n\n${viewing.abstract_text}`)}`)}
+              onUpdated={(updated) => { setViewing(updated); load(); }}
+            />
+          )}
         </SheetContent>
       </Sheet>
 
@@ -334,66 +341,171 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ReaderContent({ a, onAssistant }: { a: Abstract; onAssistant: () => void }) {
+function ReaderContent({
+  a, onAssistant, onUpdated,
+}: { a: Abstract; onAssistant: () => void; onUpdated: (a: Abstract) => void }) {
   const sourceUrl = a.source_url ?? (a.doi ? `https://doi.org/${a.doi}` : null);
-  const formatted = useMemo(() => formatAbstract(a.abstract_text), [a.abstract_text]);
+  const [parsing, setParsing] = useState(false);
+
+  const sections = useMemo(() => {
+    if (a.abstract_sections && Object.keys(a.abstract_sections).some((k) => k !== "full_text")) {
+      return a.abstract_sections;
+    }
+    return null;
+  }, [a.abstract_sections]);
+
+  async function parseNow() {
+    setParsing(true);
+    try {
+      const parsed = parseSectionsClient(a.abstract_text);
+      const { error } = await supabase.from("abstracts" as any).update({ abstract_sections: parsed } as any).eq("id", a.id);
+      if (error) throw error;
+      toast.success("Secciones detectadas");
+      onUpdated({ ...a, abstract_sections: parsed });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al parsear");
+    } finally {
+      setParsing(false);
+    }
+  }
+
   return (
-    <div className="space-y-4 pt-4">
-      <h2 className="text-lg font-semibold leading-snug">{a.title}</h2>
-      <div className="text-sm text-muted-foreground space-y-0.5">
-        {a.authors && <div>{a.authors}</div>}
-        <div>
-          {a.journal && <span>{a.journal}</span>}
-          {a.year && <span> · {a.year}</span>}
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <h2 className="text-[17px] font-bold leading-snug">{a.title}</h2>
+        <div className="text-[13px] text-muted-foreground space-y-1">
+          {a.authors && <div className="line-clamp-2">{a.authors}</div>}
+          <div>
+            {a.journal && <span>{a.journal}</span>}
+            {a.year && <span> · {a.year}</span>}
+          </div>
+          {a.doi && (
+            <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5 text-xs">
+              DOI: {a.doi} <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
         </div>
-        {a.doi && (
-          <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5 text-xs">
-            DOI: {a.doi} <ExternalLink className="h-3 w-3" />
-          </a>
-        )}
-      </div>
-      {(a.clinical_areas ?? []).length > 0 && (
-        <div className="flex flex-wrap gap-1">
+
+        <div className="flex flex-wrap gap-1.5">
           {(a.clinical_areas ?? []).map((ca) => (
-            <span key={ca} className={cn("text-[10px] px-1.5 py-0.5 rounded", clinicalAreaColor(ca))}>
+            <span key={ca} className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", clinicalAreaColor(ca))}>
               {clinicalAreaLabel(ca)}
             </span>
           ))}
+          {a.evidence_level && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-muted/50">
+              {EVIDENCE_LABELS[a.evidence_level] ?? a.evidence_level}
+            </span>
+          )}
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted/50 border border-border">
+            📊 {a.citations_count ?? 0} citas
+          </span>
         </div>
-      )}
-      <div className="flex flex-wrap gap-2 text-xs">
-        {a.evidence_level && <Badge variant="outline">{EVIDENCE_LABELS[a.evidence_level] ?? a.evidence_level}</Badge>}
-        <Badge variant="secondary">📊 {a.citations_count ?? 0} citas</Badge>
+
+        <div className="border-t pt-4">
+          {sections ? (
+            <SectionedAbstract sections={sections} />
+          ) : (
+            <div className="text-[14px] leading-[1.6] whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: highlightInlineHeaders(a.abstract_text) }} />
+          )}
+          {!sections && (
+            <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={parseNow} disabled={parsing}>
+              {parsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Parsear secciones
+            </Button>
+          )}
+        </div>
       </div>
-      {sourceUrl && (
-        <a href={sourceUrl} target="_blank" rel="noreferrer">
-          <Button variant="outline" className="gap-2 w-full"><ExternalLink className="h-4 w-4" /> Ver fuente original</Button>
-        </a>
-      )}
-      <div className="border-t pt-4">
-        <div className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formatted }} />
-      </div>
-      <div className="flex flex-col gap-2 sticky bottom-0 bg-background pt-3 border-t">
-        <Button variant="outline" className="gap-2" onClick={() => { navigator.clipboard.writeText(a.abstract_text); toast.success("Abstract copiado"); }}>
-          <Copy className="h-4 w-4" /> Copiar abstract
-        </Button>
-        <Button className="gap-2" onClick={onAssistant}>
-          <Sparkles className="h-4 w-4" /> Buscar en Asistente IA
-        </Button>
+
+      <div className="border-t bg-background p-4 flex flex-col gap-2">
+        {sourceUrl && (
+          <a href={sourceUrl} target="_blank" rel="noreferrer">
+            <Button variant="outline" className="gap-2 w-full"><ExternalLink className="h-4 w-4" /> Ver fuente original</Button>
+          </a>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => { navigator.clipboard.writeText(a.abstract_text); toast.success("Abstract copiado"); }}>
+            <Copy className="h-4 w-4" /> Copiar
+          </Button>
+          <Button className="gap-2" onClick={onAssistant}>
+            <Sparkles className="h-4 w-4" /> Asistente IA
+          </Button>
+        </div>
       </div>
     </div>
   );
 }
 
-function formatAbstract(text: string): string {
-  // Highlight section headers in teal
-  const headers = ["Objective", "Objectives", "Background", "Methods", "Method", "Results", "Conclusions", "Conclusion", "Discussion", "Aim", "Aims", "Findings", "Setting", "Participants", "Design", "Introduction", "Purpose"];
+const SECTION_LABELS: Record<string, string> = {
+  background: "Background",
+  introduction: "Introduction",
+  objective: "Objective",
+  methods: "Methods",
+  results: "Results",
+  conclusions: "Conclusions",
+  keywords: "Keywords",
+};
+const SECTION_ORDER = ["background", "introduction", "objective", "methods", "results", "conclusions", "keywords"];
+
+function SectionedAbstract({ sections }: { sections: Record<string, string> }) {
+  const present = SECTION_ORDER.filter((k) => sections[k]);
+  return (
+    <div className="space-y-4">
+      {present.map((k) => (
+        <div key={k}>
+          <div className="text-[13px] font-bold text-teal-600 dark:text-teal-400 mb-1 uppercase tracking-wide">
+            {SECTION_LABELS[k]}
+          </div>
+          <div className="text-[14px] leading-[1.6] whitespace-pre-wrap">{sections[k]}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function highlightInlineHeaders(text: string): string {
+  const headers = ["Objective", "Objectives", "Background", "Methods", "Method", "Results", "Conclusions", "Conclusion", "Discussion", "Aim", "Aims", "Findings", "Setting", "Participants", "Design", "Introduction", "Purpose", "Keywords"];
   let html = text.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] ?? c));
   for (const h of headers) {
     const re = new RegExp(`(^|\\n|\\s)(${h}s?:)`, "g");
     html = html.replace(re, '$1<strong class="text-teal-600 dark:text-teal-400">$2</strong>');
   }
   return html;
+}
+
+function parseSectionsClient(text: string): Record<string, string> {
+  const SECTION_MAP: Record<string, string> = {
+    background: "background", introduction: "introduction",
+    objective: "objective", objectives: "objective", aim: "objective", aims: "objective", purpose: "objective",
+    methods: "methods", method: "methods", "materials and methods": "methods", design: "methods",
+    results: "results", findings: "results",
+    conclusions: "conclusions", conclusion: "conclusions", discussion: "conclusions",
+    keywords: "keywords", "key words": "keywords",
+  };
+  const HEADER_KEYS = Object.keys(SECTION_MAP).sort((a, b) => b.length - a.length);
+  const out: Record<string, string> = { full_text: text };
+  if (!text || text.length < 30) return out;
+  const pattern = new RegExp(
+    `(^|\\n|\\.\\s+)\\s*(${HEADER_KEYS.map((h) => h.replace(/ /g, "\\s+")).join("|")})\\s*[:\\.\\-–—]\\s+`,
+    "gi",
+  );
+  const matches: { key: string; start: number; contentStart: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) {
+    const headerLower = m[2].toLowerCase().replace(/\s+/g, " ");
+    const key = SECTION_MAP[headerLower];
+    if (!key) continue;
+    matches.push({ key, start: m.index + m[1].length, contentStart: m.index + m[0].length });
+  }
+  if (matches.length < 2) return out;
+  for (let i = 0; i < matches.length; i++) {
+    const cur = matches[i];
+    const next = matches[i + 1];
+    const end = next ? next.start : text.length;
+    const content = text.slice(cur.contentStart, end).trim();
+    if (content && !out[cur.key]) out[cur.key] = content;
+  }
+  return out;
 }
 
 function ManualAbstractDialog({
@@ -1011,7 +1123,7 @@ function PubMedFullscreenSearch({
                             <td colSpan={13} className="p-4">
                               <div
                                 className="text-xs leading-relaxed whitespace-pre-wrap mb-3"
-                                dangerouslySetInnerHTML={{ __html: formatAbstract((a.abstractText ?? "").replace(/<[^>]*>/g, "")) }}
+                                dangerouslySetInnerHTML={{ __html: highlightInlineHeaders((a.abstractText ?? "").replace(/<[^>]*>/g, "")) }}
                               />
                               <div className="flex flex-wrap gap-2 items-center">
                                 {a.doi && (
