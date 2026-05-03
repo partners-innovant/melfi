@@ -68,7 +68,7 @@ export default function PatientProfileBuilderPanel({
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/30 shrink-0">
         <div className="flex items-center gap-2">
           <Brain className="h-4 w-4 text-teal-600" />
-          <span className="font-semibold text-sm">Constructor de Perfil</span>
+          <span className="font-semibold text-sm">Constructor de Perfil con IA</span>
         </div>
         <Button
           size="icon"
