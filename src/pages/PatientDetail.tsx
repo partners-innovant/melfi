@@ -126,12 +126,17 @@ export default function PatientDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)} className="gap-1.5">
-              <Send className="h-3.5 w-3.5" />Transferir a otro terapeuta
+            <Button
+              onClick={() => setSessionModeOpen(true)}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Play className="h-4 w-4" />Iniciar sesión
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
-              <Pencil className="h-3.5 w-3.5" />Editar
-            </Button>
+            <Link to={`/assistant?patient=${patient.id}`}>
+              <Button variant="outline" className="gap-2">
+                <Sparkles className="h-4 w-4" />Consultar IA sobre este paciente
+              </Button>
+            </Link>
           </div>
         </div>
 
