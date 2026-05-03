@@ -324,20 +324,25 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     let newSegments: TranscriptSegment[] = [];
     try {
       // 1) Transcribe accumulated chunks (if any)
+      let transcribeFailed = false;
       if (pending.length) {
-        const baseMime = (liveMimeRef.current || "audio/webm").split(";")[0];
-        const blob = new Blob(pending, { type: liveMimeRef.current || "audio/webm" });
-        // Clear processed chunks from memory immediately
+        const blobMime = liveMimeRef.current || "audio/webm";
+        const baseMime = blobMime.split(";")[0];
+        const blob = new Blob(pending, { type: blobMime });
+        console.log("Blob mimeType:", blob.type, "size:", blob.size);
         unprocessedChunksRef.current = [];
         if (blob.size >= 1000) {
           setTranscribing(true);
           try {
             const audio = await blobToBase64(blob);
-            const ctx = transcriptRef.current.slice(-6).map((s) => ({ speaker: s.speaker, text: s.text }));
             const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-              body: { action: "transcribe", audio, mime_type: baseMime },
+              body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: blob.type || baseMime },
             });
+            console.log("Transcription response:", data, error);
             if (error) throw error;
+            if ((data as any)?.success === false || (data as any)?.error) {
+              throw new Error((data as any)?.error || "Transcripción falló");
+            }
             const segs: any[] = (data as any)?.segments ?? [];
             const now = Date.now();
             newSegments = segs
@@ -349,18 +354,33 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               setTranscript(next);
               const sid = sessionIdRef.current;
               if (sid) supabase.from("sessions").update({ live_transcript: next }).eq("id", sid);
+            } else {
+              transcribeFailed = true;
+              const errSeg: TranscriptSegment = { speaker: "Aviso", text: "⚠️ No se pudo transcribir el audio. Verifica que el micrófono esté funcionando y vuelve a intentarlo.", t: Date.now(), error: true };
+              const next = [...transcriptRef.current, errSeg];
+              transcriptRef.current = next;
+              setTranscript(next);
             }
           } catch (e: any) {
             console.error("transcribe failed", e);
-            const errSeg: TranscriptSegment = { speaker: "Error", text: "⚠️ Error transcribiendo fragmento", t: Date.now(), error: true };
+            transcribeFailed = true;
+            const errSeg: TranscriptSegment = { speaker: "Aviso", text: "⚠️ No se pudo transcribir el audio. Verifica que el micrófono esté funcionando y vuelve a intentarlo.", t: Date.now(), error: true };
             const next = [...transcriptRef.current, errSeg];
             transcriptRef.current = next;
             setTranscript(next);
-            toast.error("Error al transcribir fragmento");
+            toast.error("Error al transcribir audio");
           } finally {
             setTranscribing(false);
           }
         }
+      }
+
+      // STOP if no real transcript exists — never generate bullets from the profile alone
+      const hasAnyTranscript = newSegments.length > 0 || transcriptRef.current.some((s) => !s.error);
+      if (!hasAnyTranscript || (transcribeFailed && !newSegments.length)) {
+        setAnalyzing(false);
+        setAnalyzeStage("idle");
+        return;
       }
 
       // 2) Build condensed context and call analyze (Sonnet) — only the NEW transcript chunk
