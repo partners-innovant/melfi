@@ -1142,7 +1142,7 @@ function CitationPanel({ citation }: { citation: Citation }) {
         <div>
           <div className="font-semibold text-base">{citation.document_title}</div>
           <div className="text-sm text-muted-foreground">
-            {citation.author ?? "Autor s/d"}
+            {citation.author ? formatAuthor(citation.author) : "Autor s/d"}
             {citation.year ? ` · ${citation.year}` : ""}
           </div>
           {citation.document_type && (
