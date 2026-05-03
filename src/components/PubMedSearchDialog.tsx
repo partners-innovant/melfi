@@ -46,6 +46,9 @@ export interface PubMedUploadPrefill {
   source_url: string | null;
   source_institution: string;
   source_institution_type: string;
+  clinical_areas?: string[];
+  language?: string | null;
+  ai_classified?: boolean;
 }
 
 export function PubMedSearchDialog({
