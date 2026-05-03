@@ -9,8 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, Sparkles, RefreshCw, Calendar, Clock, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 
