@@ -339,6 +339,7 @@ export default function Documents() {
           onView={setViewing}
           canDeleteDoc={canDeleteDoc}
           selected={selected} onToggle={toggleSelect}
+          filters={filterProps}
         />
       </section>
 
@@ -354,6 +355,7 @@ export default function Documents() {
           onView={setViewing}
           canDeleteDoc={canDeleteDoc}
           selected={selected} onToggle={toggleSelect}
+          filters={filterProps}
         />
       </section>
 
