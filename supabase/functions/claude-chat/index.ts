@@ -164,11 +164,10 @@ Deno.serve(async (req) => {
     }
 
     // 1. Match chunks
-    const { data: chunks, error: matchErr } = await supabase.rpc("match_chunks", {
+    const { data: chunks, error: matchErr } = await supabase.rpc("match_all_chunks", {
       query_embedding,
       match_count: 5,
       p_psychologist_id: user.id,
-      p_document_type: document_type || null,
       p_clinical_area: clinical_area || null,
       p_source_institution: source_institution || null,
       p_year_from: typeof year_from === "number" ? year_from : null,
