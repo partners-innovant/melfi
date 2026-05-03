@@ -1000,6 +1000,10 @@ export default function AdminDocuments() {
           >
             <ScanEye className="h-4 w-4 mr-1" /> Re-procesar seleccionados con visión
           </Button>
+          <Button size="sm" variant="outline" onClick={enrichSelected} disabled={enrichOpen}
+            className="border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-500/10">
+            🔄 Enriquecer desde EuropePMC
+          </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
           </Button>
