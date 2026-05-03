@@ -305,7 +305,7 @@ export function PatientForm({ form, setForm }: { form: any; setForm: (f: any) =>
           <Label>Estado civil</Label>
           <Select value={form.marital_status} onValueChange={(v) => u("marital_status", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{MARITAL_OPTIONS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+            <SelectContent>{MARITAL_OPTIONS.map((m) => <SelectItem key={m} value={m}>{capitalize(m)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div><Label>Ocupación</Label><Input value={form.occupation} onChange={(e) => u("occupation", e.target.value)} /></div>
