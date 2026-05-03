@@ -655,6 +655,7 @@ function PubMedFullscreenSearch({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState<Set<string>>(new Set());
   const [imported, setImported] = useState<Set<string>>(new Set());
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const existingKeys = useMemo(() => {
     const s = new Set<string>();
