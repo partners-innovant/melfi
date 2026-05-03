@@ -39,9 +39,8 @@ type AnalyzedSuggestion = {
 };
 type SummaryBlock = { t: number; bullets: string[] };
 type TopicSuggestion = { id: string; text: string; addressed: boolean };
-const HAIKU_USD = 0.02;
+const WHISPER_USD_PER_MIN = 0.006;
 const SONNET_USD = 0.08;
-const TRANSCRIPTION_USD = HAIKU_USD + SONNET_USD;
 
 interface Props {
   open: boolean;
@@ -115,6 +114,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
   const [sessionInsight, setSessionInsight] = useState<string>("");
   const [transcriptionCount, setTranscriptionCount] = useState(0);
+  const [lastAudioSec, setLastAudioSec] = useState(0);
+  const [totalAudioSec, setTotalAudioSec] = useState(0);
+  const processedAudioSecRef = useRef(0);
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState<number | null>(null);
   const unprocessedChunksRef = useRef<Blob[]>([]);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
@@ -461,6 +463,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       if (pBullets.length) setPatientBullets((prev) => [...prev, ...pBullets]);
       if (tBullets.length) setTherapistBullets((prev) => [...prev, ...tBullets]);
 
+      const totalElapsedSec = Math.max(0, Math.round(recElapsed / 1000));
+      const newAudioSec = Math.max(0, totalElapsedSec - processedAudioSecRef.current);
+      processedAudioSecRef.current = totalElapsedSec;
+      setLastAudioSec(newAudioSec);
+      setTotalAudioSec((s) => s + newAudioSec);
       setTranscriptionCount((n) => n + 1);
       setLastAnalyzedAt(Date.now());
       toast.success("✨ Transcripción y análisis listos");
@@ -791,11 +798,17 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
             </span>
           )}
-          {transcriptionCount > 0 && (
-            <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
-              Transcripción (Haiku): ~${HAIKU_USD.toFixed(2)} · Análisis (Sonnet): ~${SONNET_USD.toFixed(2)} · Total esta vez: ~${TRANSCRIPTION_USD.toFixed(2)} · Acumulado sesión: ~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} ({transcriptionCount}×)
-            </span>
-          )}
+          {transcriptionCount > 0 && (() => {
+            const lastWhisper = (lastAudioSec / 60) * WHISPER_USD_PER_MIN;
+            const lastTotal = lastWhisper + SONNET_USD;
+            const cumWhisper = (totalAudioSec / 60) * WHISPER_USD_PER_MIN;
+            const cumTotal = cumWhisper + SONNET_USD * transcriptionCount;
+            return (
+              <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
+                Transcripción (Whisper): ~$0.006/min · Análisis (Sonnet): ~${SONNET_USD.toFixed(2)} · Total esta vez: ~${lastTotal.toFixed(3)} · Acumulado sesión: ~${cumTotal.toFixed(3)} ({transcriptionCount}×)
+              </span>
+            );
+          })()}
           {recState !== "idle" && (
             <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
               Fragmentos: {chunkCount}
