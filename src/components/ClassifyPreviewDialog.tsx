@@ -23,6 +23,11 @@ import {
   MAX_CLINICAL_AREAS, clinicalAreaColor, clinicalAreaLabel,
   SOURCE_INSTITUTIONS, sourceIconFor, type SourceInstitutionType,
 } from "@/lib/clinical-areas";
+import {
+  EVIDENCE_LEVELS, EVIDENCE_LEVEL_LABELS, type EvidenceLevel,
+  GEOGRAPHIC_RELEVANCES, GEOGRAPHIC_RELEVANCE_LABELS, geographicIcon, type GeographicRelevance,
+  impactFactorForJournal,
+} from "@/lib/document-relevance";
 
 export interface ClassifyTarget {
   id: string;
