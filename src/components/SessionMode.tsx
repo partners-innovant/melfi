@@ -231,11 +231,21 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       const s = (data as any)?.suggestions ?? { questions: [], patterns: [], interventions: [], unexplored: [] };
       // Filter out already-used
       const usedSet = new Set(usedSuggestions.map((u) => u.text.toLowerCase().trim()));
-      setSuggestions({
+      const next = {
         questions: (s.questions ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
         patterns: (s.patterns ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
         interventions: (s.interventions ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
         unexplored: (s.unexplored ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
+      };
+      setSuggestions(next);
+      // Also build a flat topic checklist (all suggestion types are "topics" to address)
+      setTopicSuggestions((prev) => {
+        const existingTexts = new Set(prev.map((t) => t.text.toLowerCase().trim()));
+        const all = [...next.questions, ...next.patterns, ...next.interventions, ...next.unexplored];
+        const fresh = all
+          .filter((t) => !existingTexts.has(t.toLowerCase().trim()))
+          .map((t, i) => ({ id: `topic-${Date.now()}-${i}`, text: t, addressed: false }));
+        return [...prev, ...fresh];
       });
     } catch (e: any) {
       toast.error("Claude: " + (e?.message ?? "error"));
