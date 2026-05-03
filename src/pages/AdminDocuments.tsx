@@ -977,17 +977,19 @@ export default function AdminDocuments() {
             </tr>
           </thead>
 
-          <TableBody>
+          <tbody>
             {loading ? (
-              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">Cargando…</TableCell></TableRow>
+              <tr><td colSpan={11} className="text-center py-8 text-muted-foreground">Cargando…</td></tr>
             ) : paged.length === 0 ? (
-              <TableRow><TableCell colSpan={12} className="text-center py-8 text-muted-foreground">No hay documentos</TableCell></TableRow>
+              <tr><td colSpan={11} className="text-center py-8 text-muted-foreground">No hay documentos</td></tr>
             ) : paged.map((d) => (
-              <TableRow key={d.id} className={cn(
+              <tr key={d.id} className={cn(
+                "border-t hover:bg-muted/30 transition-colors",
                 selected.has(d.id) && "bg-primary/5",
                 recentlyProcessed[d.id] && "bg-emerald-500/10 transition-colors duration-1000",
-              )}>
-                <TableCell>
+              )}
+              style={{ minHeight: "3.5rem" }}>
+                <td className="px-2 py-2 align-middle">
                   <Checkbox
                     checked={selected.has(d.id)}
                     onCheckedChange={(v) => {
@@ -998,33 +1000,33 @@ export default function AdminDocuments() {
                       });
                     }}
                   />
-                </TableCell>
-                <TableCell className="min-w-[220px] max-w-[320px]">
-                  <InlineText value={d.title} onSave={(v) => updateField(d.id, { title: v })} />
-                </TableCell>
-                <TableCell className="min-w-[140px] max-w-[200px]">
+                </td>
+                <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                  <InlineText value={d.title} onSave={(v) => updateField(d.id, { title: v })} multiline />
+                </td>
+                <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                   <InlineText value={d.author ?? ""} placeholder="—" onSave={(v) => updateField(d.id, { author: v || null })} />
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="px-2 py-2 align-middle">
                   <InlineText
                     value={d.year ?? ""}
                     placeholder="—"
                     type="number"
                     onSave={(v) => updateField(d.id, { year: v || null })}
                   />
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="px-2 py-2 align-middle">
                   <InlineSelect
                     value={d.document_type}
                     options={DOC_TYPES.map((t) => ({ value: t, label: DOC_TYPE_LABELS[t] }))}
                     onSave={(v) => updateField(d.id, { document_type: v as DocType })}
                     renderValue={(v) => DOC_TYPE_LABELS[v as DocType] ?? "—"}
                   />
-                </TableCell>
-                <TableCell style={{ width: "25%" }} className="min-w-[260px]">
+                </td>
+                <td className="px-2 py-2 align-middle">
                   <InlineAreas value={d.clinical_areas} onSave={(v) => updateClinicalAreas(d.id, v)} />
-                </TableCell>
-                <TableCell className="min-w-[180px]">
+                </td>
+                <td className="px-2 py-2 align-middle" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                   <InlineSource
                     value={d.source_institution ?? ""}
                     onSave={(name) => {
@@ -1035,8 +1037,8 @@ export default function AdminDocuments() {
                       });
                     }}
                   />
-                </TableCell>
-                <TableCell className="text-center text-sm tabular-nums">
+                </td>
+                <td className="px-2 py-2 align-middle text-center text-sm tabular-nums">
                   {reprocessing.has(d.id) ? (
                     <span className="inline-flex items-center gap-1 text-muted-foreground text-[11px]">
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -1047,10 +1049,7 @@ export default function AdminDocuments() {
                   ) : recentlyProcessed[d.id] && d.chunk_count > 0 ? (
                     <div className="flex flex-col items-center gap-0.5">
                       <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
-                        ✅ {d.chunk_count} fragmentos
-                      </span>
-                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-0.5">
-                        <Check className="h-3 w-3" /> Procesado
+                        ✅ {d.chunk_count}
                       </span>
                     </div>
                   ) : d.chunk_count === 0 ? (
@@ -1066,7 +1065,7 @@ export default function AdminDocuments() {
                                 disabled={!d.storage_path}
                                 className="text-[11px] text-destructive hover:underline inline-flex items-center gap-0.5"
                               >
-                                <X className="h-3 w-3" /> Error
+                                <X className="h-3 w-3" />
                               </button>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-[320px] text-xs">
@@ -1081,7 +1080,7 @@ export default function AdminDocuments() {
                             title={d.storage_path ? "Re-procesar documento" : "Sin archivo en storage"}
                             className="text-[11px] text-primary hover:underline inline-flex items-center gap-0.5 disabled:opacity-50 disabled:no-underline"
                           >
-                            <RotateCw className="h-3 w-3" /> Re-procesar
+                            <RotateCw className="h-3 w-3" />
                           </button>
                         )}
                       </div>
@@ -1089,62 +1088,51 @@ export default function AdminDocuments() {
                   ) : (
                     d.chunk_count
                   )}
-                </TableCell>
-                <TableCell>
-                  {d.processing_mode === "vision" ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
-                      🔍 Visión
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
-                      ⚡ Texto
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="px-2 py-2 align-middle">
                   <Badge variant="secondary" className="text-[10px]">{d.import_source ?? "upload"}</Badge>
-                </TableCell>
-                <TableCell className="text-xs whitespace-nowrap">
+                </td>
+                <td className="px-2 py-2 align-middle text-xs whitespace-nowrap">
                   <div className="flex flex-col leading-tight">
                     <span>{formatDateFn(new Date(d.created_at), "dd-MM-yyyy")}</span>
                     <span className="text-[10px] text-muted-foreground">{formatDateFn(new Date(d.created_at), "HH:mm")}</span>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
+                </td>
+                <td className="px-2 py-2 align-middle">
+                  <div className="flex items-center gap-0.5">
                     <Button
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8"
+                      className="h-7 w-7"
                       onClick={() => classifySingle(d)}
                       title="Auto-clasificar"
                     >
-                      <Sparkles className="h-4 w-4 text-primary" />
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
                     </Button>
                     <Button
                       size="icon"
                       variant="outline"
-                      className="h-8 w-8 border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
+                      className="h-7 w-7 border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
                       onClick={() => setConfirmVision(d)}
                       disabled={reprocessing.has(d.id) || !d.storage_path}
                       title="Re-procesar con OCR y visión"
                     >
                       {reprocessing.has(d.id) && visionProgress[d.id]
-                        ? <Loader2 className="h-4 w-4 animate-spin" />
-                        : <ScanEye className="h-4 w-4" />}
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <ScanEye className="h-3.5 w-3.5" />}
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openViewer(d)} title="Ver documento">
-                      <Eye className="h-4 w-4" />
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openViewer(d)} title="Ver documento">
+                      <Eye className="h-3.5 w-3.5" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setConfirmDelete(d)} title="Eliminar">
-                      <Trash2 className="h-4 w-4" />
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setConfirmDelete(d)} title="Eliminar">
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
       {/* Pagination */}
