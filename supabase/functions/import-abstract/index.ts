@@ -6,55 +6,47 @@ const corsHeaders = {
 };
 
 const CLINICAL_AREAS = [
-  "addiction","alcohol_use_disorders","anxiety","attention_deficit_disorder","autism",
-  "bipolar_disorder","delirium","dementia","depression","drug_misuse","eating_disorders",
-  "mental_health_services","personality_disorders","psychosis_and_schizophrenia",
-  "self_harm","suicide_prevention","intervenciones_psicoterapias","neuropsicologia_evaluacion",
-  "psicologia_desarrollo","salud_mental_perinatal","salud_mental_laboral","psicologia_salud",
-  "etica_deontologia","trauma_estres","trastornos_disociativos","disfunciones_sexuales",
-  "trastornos_sueno","trastornos_neurocognitivos","otro",
+  "addiction",
+  "alcohol_use_disorders",
+  "anxiety",
+  "attention_deficit_disorder",
+  "autism",
+  "bipolar_disorder",
+  "delirium",
+  "dementia",
+  "depression",
+  "drug_misuse",
+  "eating_disorders",
+  "mental_health_services",
+  "personality_disorders",
+  "psychosis_and_schizophrenia",
+  "self_harm",
+  "suicide_prevention",
+  "intervenciones_psicoterapias",
+  "neuropsicologia_evaluacion",
+  "psicologia_desarrollo",
+  "salud_mental_perinatal",
+  "salud_mental_laboral",
+  "psicologia_salud",
+  "etica_deontologia",
+  "trauma_estres",
+  "trastornos_disociativos",
+  "disfunciones_sexuales",
+  "trastornos_sueno",
+  "trastornos_neurocognitivos",
+  "otro",
 ];
 
-const SECTION_MAP: Record<string, string> = {
-  background: "background", introduction: "introduction",
-  objective: "objective", objectives: "objective", aim: "objective", aims: "objective", purpose: "objective",
-  methods: "methods", method: "methods", "materials and methods": "methods", design: "methods",
-  results: "results", findings: "results",
-  conclusions: "conclusions", conclusion: "conclusions", discussion: "conclusions",
-  keywords: "keywords", "key words": "keywords",
-};
-const HEADER_KEYS = Object.keys(SECTION_MAP).sort((a, b) => b.length - a.length);
-
-function parseSections(text: string): Record<string, string> {
-  const out: Record<string, string> = { full_text: text };
-  if (!text || text.length < 30) return out;
-  const pattern = new RegExp(
-    `(^|\\n|\\.\\s+)\\s*(${HEADER_KEYS.map((h) => h.replace(/ /g, "\\s+")).join("|")})\\s*[:\\.\\-–—]\\s+`,
-    "gi",
-  );
-  const matches: { key: string; start: number; contentStart: number }[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = pattern.exec(text)) !== null) {
-    const headerLower = m[2].toLowerCase().replace(/\s+/g, " ");
-    const key = SECTION_MAP[headerLower];
-    if (!key) continue;
-    matches.push({ key, start: m.index + m[1].length, contentStart: m.index + m[0].length });
-  }
-  if (matches.length < 2) return out;
-  for (let i = 0; i < matches.length; i++) {
-    const cur = matches[i];
-    const next = matches[i + 1];
-    const end = next ? next.start : text.length;
-    const content = text.slice(cur.contentStart, end).trim();
-    if (content && !out[cur.key]) out[cur.key] = content;
-  }
-  return out;
-}
-
 const EVIDENCE_LEVELS = [
-  "meta_analisis","revision_sistematica","ensayo_clinico_rct",
-  "estudio_cohorte","guia_practica_clinica","consenso_expertos",
-  "reporte_caso","opinion_experto","otro",
+  "meta_analisis",
+  "revision_sistematica",
+  "ensayo_clinico_rct",
+  "estudio_cohorte",
+  "guia_practica_clinica",
+  "consenso_expertos",
+  "reporte_caso",
+  "opinion_experto",
+  "otro",
 ];
 
 async function classify(title: string, abstract: string, LOVABLE_API_KEY: string) {
@@ -104,31 +96,63 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return new Response(JSON.stringify({ error: "No autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!authHeader)
+      return new Response(JSON.stringify({ error: "No autorizado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
 
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return new Response(JSON.stringify({ error: "No autorizado" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
+    if (!user)
+      return new Response(JSON.stringify({ error: "No autorizado" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
 
     const body = await req.json();
     const {
-      title, authors, journal, year, publication_date, abstract_text,
-      doi, pubmed_id, pmc_id, europepmc_id, source_url, repository,
-      repository_id, source_institution, impact_factor, document_type,
-      citations_count, is_global,
-      clinical_areas: ca_in, evidence_level: el_in,
-      geographic_relevance: gr_in, language: lang_in,
+      title,
+      authors,
+      journal,
+      year,
+      publication_date,
+      abstract_text,
+      doi,
+      pubmed_id,
+      pmc_id,
+      europepmc_id,
+      source_url,
+      repository,
+      repository_id,
+      source_institution,
+      impact_factor,
+      document_type,
+      citations_count,
+      is_global,
+      clinical_areas: ca_in,
+      evidence_level: el_in,
+      geographic_relevance: gr_in,
+      language: lang_in,
     } = body ?? {};
 
     function calcRelevance(ev: string | null, cites: number, yr: number | null, geo: string | null): number {
       const ev_s: Record<string, number> = {
-        meta_analisis: 100, revision_sistematica: 90, ensayo_clinico_rct: 80,
-        guia_practica_clinica: 75, estudio_cohorte: 60, consenso_expertos: 50,
-        opinion_experto: 30, reporte_caso: 20, otro: 10,
+        meta_analisis: 100,
+        revision_sistematica: 90,
+        ensayo_clinico_rct: 80,
+        guia_practica_clinica: 75,
+        estudio_cohorte: 60,
+        consenso_expertos: 50,
+        opinion_experto: 30,
+        reporte_caso: 20,
+        otro: 10,
       };
       const evScore = ev_s[ev ?? "otro"] ?? 10;
       const citScore = Math.min((cites || 0) / 10, 100);
@@ -141,7 +165,10 @@ Deno.serve(async (req) => {
     }
 
     if (!title || !abstract_text) {
-      return new Response(JSON.stringify({ error: "title y abstract_text requeridos" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "title y abstract_text requeridos" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Dedupe by identifier
@@ -151,9 +178,16 @@ Deno.serve(async (req) => {
       if (pmc_id) ors.push(`pmc_id.eq.${pmc_id}`);
       if (europepmc_id) ors.push(`europepmc_id.eq.${europepmc_id}`);
       if (doi) ors.push(`doi.eq.${doi}`);
-      const { data: existing } = await userClient.from("abstracts").select("id").or(ors.join(",")).limit(1).maybeSingle();
+      const { data: existing } = await userClient
+        .from("abstracts")
+        .select("id")
+        .or(ors.join(","))
+        .limit(1)
+        .maybeSingle();
       if (existing) {
-        return new Response(JSON.stringify({ ok: true, abstract_id: existing.id, duplicate: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ ok: true, abstract_id: existing.id, duplicate: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
     }
 
@@ -176,7 +210,20 @@ Deno.serve(async (req) => {
     }
 
     const yearNum = year ? Number(year) : null;
-    const citNum = citations_count ?? 0;
+    let citNum = citations_count != null ? Number(citations_count) : 0;
+    if (!citations_count && pubmed_id) {
+      try {
+        const epmc = await fetch(
+          `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:${pubmed_id}&format=json`,
+        );
+        if (epmc.ok) {
+          const epd = await epmc.json();
+          citNum = epd.resultList?.result?.[0]?.citedByCount ?? 0;
+        }
+      } catch (_e) {
+        console.error("[import-abstract] citations fetch error", _e);
+      }
+    }
     const relevance_score = calcRelevance(evidence_level, citNum, yearNum, geographic_relevance);
 
     const insertRow: Record<string, unknown> = {
@@ -204,11 +251,13 @@ Deno.serve(async (req) => {
       geographic_relevance: geographic_relevance ?? "internacional",
       language: language ?? "ingles",
       relevance_score,
-      abstract_sections: parseSections(abstract_text),
     };
 
     const { data: inserted, error: insErr } = await userClient
-      .from("abstracts").insert(insertRow).select("id").single();
+      .from("abstracts")
+      .insert(insertRow)
+      .select("id")
+      .single();
     if (insErr) throw insErr;
     const abstractId = inserted.id as string;
 
@@ -234,7 +283,8 @@ Deno.serve(async (req) => {
   } catch (e) {
     console.error("[import-abstract] error", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
