@@ -1031,13 +1031,13 @@ function CommsTab({ childId }: { childId: string }) {
                 <div><Label>Tipo</Label>
                   <Select value={form.contact_type} onValueChange={(v) => setForm({ ...form, contact_type: v })}>
                     <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>{CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                    <SelectContent>{CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{capitalize(t)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div><Label>Contacto</Label>
                   <Select value={form.contact_with} onValueChange={(v) => setForm({ ...form, contact_with: v })}>
                     <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>{CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{w.replace(/_/g, " ")}</SelectItem>)}</SelectContent>
+                    <SelectContent>{CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{capitalize(w.replace(/_/g, " "))}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
