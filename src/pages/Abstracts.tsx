@@ -67,6 +67,7 @@ interface Abstract {
   geographic_relevance: string | null;
   citations_count: number | null;
   language: string | null;
+  abstract_sections: Record<string, string> | null;
   created_at: string;
 }
 
@@ -285,8 +286,14 @@ export default function AbstractsPage() {
 
       {/* Reader panel */}
       <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-[450px] overflow-y-auto">
-          {viewing && <ReaderContent a={viewing} onAssistant={() => navigate(`/assistant?q=${encodeURIComponent(`Analiza este abstract: ${viewing.title}\n\n${viewing.abstract_text}`)}`)} />}
+        <SheetContent side="right" className="w-full sm:max-w-[560px] md:w-[42vw] md:max-w-[640px] p-0 overflow-y-auto">
+          {viewing && (
+            <ReaderContent
+              a={viewing}
+              onAssistant={() => navigate(`/assistant?q=${encodeURIComponent(`Analiza este abstract: ${viewing.title}\n\n${viewing.abstract_text}`)}`)}
+              onUpdated={(updated) => { setViewing(updated); load(); }}
+            />
+          )}
         </SheetContent>
       </Sheet>
 
