@@ -1773,3 +1773,349 @@ function ColDateRangeFilter({ from, to, onFromChange, onToChange }: {
     </div>
   );
 }
+
+// ---------- Fullscreen Document Viewer ----------
+function FullscreenDocViewer({
+  doc, viewUrl, onClose, onPatch, onAreasChange, onClassify,
+}: {
+  doc: DocRow;
+  viewUrl: string | null;
+  onClose: () => void;
+  onPatch: (patch: Partial<DocRow>) => Promise<boolean>;
+  onAreasChange: (areas: string[]) => Promise<void>;
+  onClassify: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [savedFlash, setSavedFlash] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setMounted(true));
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      cancelAnimationFrame(t);
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  function flash(field: string) {
+    setSavedFlash(field);
+    setTimeout(() => setSavedFlash((f) => (f === field ? null : f)), 1500);
+  }
+
+  async function save<K extends keyof DocRow>(field: K, value: DocRow[K]) {
+    const ok = await onPatch({ [field]: value } as Partial<DocRow>);
+    if (ok) flash(String(field));
+    return ok;
+  }
+
+  const originLabels: Record<string, string> = {
+    upload: "📤 Upload", google_drive: "📁 Google Drive", url: "🔗 URL",
+    web_search: "🌐 Web search", pubmed: "🧬 PubMed",
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-background/95 backdrop-blur-sm flex"
+      style={{ zIndex: 9999 }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="flex w-full h-full transition-transform duration-300 ease-out"
+        style={{ transform: mounted ? "translateX(0)" : "translateX(100%)" }}
+      >
+        {/* Left: metadata */}
+        <div className="w-[35%] min-w-[380px] h-full border-r bg-background flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="h-4 w-4 text-primary shrink-0" />
+              <h2 className="text-sm font-semibold truncate">Detalles del documento</h2>
+            </div>
+            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onClose} aria-label="Cerrar">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+            <Field label="Título" saved={savedFlash === "title"}>
+              <AutoSaveTextarea
+                value={doc.title}
+                rows={3}
+                onSave={(v) => save("title", v)}
+              />
+            </Field>
+
+            <Field label="Autor" saved={savedFlash === "author"}>
+              <AutoSaveInput
+                value={doc.author ?? ""}
+                onSave={(v) => save("author", (v || null) as any)}
+              />
+            </Field>
+
+            <Field label="Año" saved={savedFlash === "year"}>
+              <AutoSaveInput
+                type="number"
+                value={doc.year ?? ""}
+                onSave={(v) => save("year", (v || null) as any)}
+              />
+            </Field>
+
+            <Field label="Tipo de documento" saved={savedFlash === "document_type"}>
+              <Select
+                value={doc.document_type}
+                onValueChange={(v) => save("document_type", v as DocType)}
+              >
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DOC_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field label="Área(s) clínica(s)" saved={savedFlash === "clinical_areas"}>
+              <div className="rounded-md border bg-background">
+                <AreaPicker
+                  value={doc.clinical_areas}
+                  onChange={async (v) => { await onAreasChange(v); flash("clinical_areas"); }}
+                />
+              </div>
+            </Field>
+
+            <Field label="Fuente / Institución" saved={savedFlash === "source_institution"}>
+              <SourcePicker
+                value={doc.source_institution ?? ""}
+                onSave={async (name) => {
+                  const m = SOURCE_INSTITUTIONS.find((s) => s.name === name);
+                  const ok = await onPatch({
+                    source_institution: name || null,
+                    source_institution_type: (m?.type ?? null) as any,
+                  });
+                  if (ok) flash("source_institution");
+                }}
+              />
+            </Field>
+
+            <Field label="Idioma" saved={savedFlash === "language"}>
+              <Select
+                value={doc.language ?? ""}
+                onValueChange={(v) => save("language", v as any)}
+              >
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="es">Español</SelectItem>
+                  <SelectItem value="en">Inglés</SelectItem>
+                  <SelectItem value="otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field label="Abstract" saved={savedFlash === "abstract"}>
+              <AutoSaveTextarea
+                value={doc.abstract ?? ""}
+                rows={5}
+                placeholder="Sin abstract"
+                onSave={(v) => save("abstract", (v || null) as any)}
+              />
+            </Field>
+
+            <Field label="PubMed ID" saved={savedFlash === "pubmed_id"}>
+              <AutoSaveInput
+                value={doc.pubmed_id ?? ""}
+                onSave={(v) => save("pubmed_id", (v || null) as any)}
+              />
+            </Field>
+
+            <Field label="PMC ID" saved={savedFlash === "pmc_id"}>
+              <AutoSaveInput
+                value={doc.pmc_id ?? ""}
+                onSave={(v) => save("pmc_id", (v || null) as any)}
+              />
+            </Field>
+
+            <Field label="URL de origen">
+              {doc.source_url ? (
+                <a
+                  href={doc.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary hover:underline break-all"
+                >
+                  {doc.source_url}
+                </a>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Origen">
+                <Badge variant="secondary" className="text-[11px]">
+                  {originLabels[doc.import_source ?? "upload"] ?? doc.import_source ?? "—"}
+                </Badge>
+              </Field>
+              <Field label="Modo de procesamiento">
+                <Badge variant="secondary" className="text-[11px]">
+                  {doc.processing_mode === "vision" ? "🔍 Visión" : "⚡ Texto"}
+                </Badge>
+              </Field>
+              <Field label="Chunks indexados">
+                <span className="text-sm font-medium">{doc.chunk_count}</span>
+              </Field>
+              <Field label="Fecha de subida">
+                <span className="text-sm">{new Date(doc.created_at).toLocaleDateString("es-CL")}</span>
+              </Field>
+            </div>
+
+            <Field label="Global" saved={savedFlash === "is_global"}>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={doc.is_global}
+                  onChange={(e) => save("is_global", e.target.checked as any)}
+                  className="h-4 w-4"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {doc.is_global ? "Visible para todos" : "Solo admin"}
+                </span>
+              </div>
+            </Field>
+          </div>
+
+          <div className="px-4 py-3 border-t shrink-0 bg-background">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={onClassify}
+            >
+              <Sparkles className="h-4 w-4 mr-2 text-primary" />
+              ✨ Auto-clasificar
+            </Button>
+          </div>
+        </div>
+
+        {/* Right: PDF / abstract */}
+        <div className="flex-1 h-full bg-muted">
+          {viewUrl ? (
+            <iframe
+              src={`${viewUrl}#toolbar=0&navpanes=0&view=FitH&page=1`}
+              style={{ width: "100%", height: "100%", border: "none", margin: 0, padding: 0, display: "block" }}
+              title={doc.title}
+            />
+          ) : doc.abstract ? (
+            <div className="h-full overflow-y-auto p-8 bg-background">
+              <h3 className="text-lg font-semibold mb-2">{doc.title}</h3>
+              {doc.author && <p className="text-sm text-muted-foreground mb-4">{doc.author}{doc.year ? ` · ${doc.year}` : ""}</p>}
+              <h4 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Abstract</h4>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{doc.abstract}</p>
+            </div>
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              No hay archivo ni abstract disponible para este documento.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, saved, children }: { label: string; saved?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{label}</label>
+        {saved && <span className="text-[10px] text-emerald-600 dark:text-emerald-400 animate-fade-in">✓ Guardado</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AutoSaveInput({
+  value, onSave, placeholder, type = "text",
+}: { value: string; onSave: (v: string) => void | Promise<boolean | void>; placeholder?: string; type?: string }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+  return (
+    <Input
+      type={type}
+      value={draft}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { if (draft !== value) onSave(draft); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); }
+        else if (e.key === "Escape") { setDraft(value); (e.target as HTMLInputElement).blur(); }
+      }}
+      className="h-9 text-sm"
+    />
+  );
+}
+
+function AutoSaveTextarea({
+  value, onSave, placeholder, rows = 3,
+}: { value: string; onSave: (v: string) => void | Promise<boolean | void>; placeholder?: string; rows?: number }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+  return (
+    <textarea
+      value={draft}
+      placeholder={placeholder}
+      rows={rows}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { if (draft !== value) onSave(draft); }}
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+    />
+  );
+}
+
+function SourcePicker({ value, onSave }: { value: string; onSave: (v: string) => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const icon = sourceIconFor(value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent/30"
+        >
+          <span className="truncate">
+            {value ? `${icon} ${shortInstitutionName(value)}` : <span className="text-muted-foreground">Seleccionar fuente…</span>}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[340px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar fuente..." />
+          <CommandList>
+            <CommandEmpty>No encontrado</CommandEmpty>
+            {value && (
+              <CommandGroup heading="Acción">
+                <CommandItem onSelect={async () => { await onSave(""); setOpen(false); }}>
+                  <X className="h-4 w-4 mr-2" /> Quitar fuente
+                </CommandItem>
+              </CommandGroup>
+            )}
+            {Array.from(new Set(SOURCE_INSTITUTIONS.map((s) => s.group))).map((group) => (
+              <CommandGroup key={group} heading={group}>
+                {SOURCE_INSTITUTIONS.filter((s) => s.group === group).map((s) => (
+                  <CommandItem key={s.name} value={s.name} onSelect={async () => { await onSave(s.name); setOpen(false); }}>
+                    <span className="mr-2">{s.icon}</span>{s.name}
+                    {value === s.name && <Check className="h-4 w-4 ml-auto" />}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
