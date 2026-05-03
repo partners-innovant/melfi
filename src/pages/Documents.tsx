@@ -1567,12 +1567,18 @@ function QueueRow({
               />
             </div>
             <div>
-              <FieldLabel text="Año" ai={item.autoFilled.year} />
-              <Input
-                value={item.year}
-                onChange={(e) => onChange({ year: e.target.value, autoFilled: { ...item.autoFilled, year: false } })}
+              <FieldLabel text="Fecha de publicación" ai={item.autoFilled.year} />
+              <PubDatePicker
+                value={item.publicationDate}
+                onChange={(iso) => {
+                  const yr = iso ? iso.slice(0, 4) : "";
+                  onChange({
+                    publicationDate: iso,
+                    year: yr,
+                    autoFilled: { ...item.autoFilled, year: false },
+                  });
+                }}
                 disabled={!editable || disabled}
-                className="h-8 text-sm"
               />
             </div>
           </div>
