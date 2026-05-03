@@ -476,27 +476,31 @@ export default function Dashboard() {
 
       <DashboardEthicalDisclaimer />
 
-      <div className="grid grid-cols-1 lg:grid-cols-[30%_1fr] gap-5 mt-4">
-        {/* Left sidebar */}
-        <CafeSidebar
-          patients={allPatients}
-          onStartSession={startSession}
-          onOpenPicker={() => setPickerOpen(true)}
+      <div className="space-y-5 mt-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {FEATURES.map((f) => <FeatureCard key={f.title} f={f} />)}
+        </div>
+
+        <Card className="rounded-xl p-5">
+          <h2 className="text-base font-semibold mb-3">Acciones rápidas</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button onClick={() => setPickerOpen(true)}
+              className="rounded-lg p-4 bg-teal-600 hover:bg-teal-700 text-white text-left transition-colors flex items-center gap-2 text-sm font-medium">
+              <Play className="h-4 w-4" /> Iniciar nueva sesión
+            </button>
+            <Link to="/patients?new=1"
+              className="rounded-lg p-4 bg-primary/10 hover:bg-primary/20 text-primary text-left transition-colors flex items-center gap-2 text-sm font-medium">
+              <Plus className="h-4 w-4" /> Nuevo paciente
+            </Link>
+          </div>
+        </Card>
+
+        <PubMedFeed
+          onImport={handleImportPubMed}
+          onSeeMore={() => { setPubmedQuery("psychology psychiatry"); setPubmedDialogOpen(true); }}
         />
 
-        {/* Right main area */}
-        <div className="space-y-5 min-w-0">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-            {FEATURES.map((f) => <FeatureCard key={f.title} f={f} />)}
-          </div>
-
-          <PubMedFeed
-            onImport={handleImportPubMed}
-            onSeeMore={() => { setPubmedQuery("psychology psychiatry"); setPubmedDialogOpen(true); }}
-          />
-
-          <NewsFeed />
-        </div>
+        <NewsFeed />
       </div>
 
       <PatientSelectorDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={startSession} />
