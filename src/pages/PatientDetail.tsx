@@ -65,25 +65,6 @@ export default function PatientDetail() {
 
   useEffect(() => { load(); }, [id]);
 
-  async function saveEdit() {
-    setSaving(true);
-    const payload = {
-      ...form,
-      birth_date: form.birth_date || null,
-      sex: form.sex || null,
-      marital_status: form.marital_status || null,
-      start_date: form.start_date || null,
-      occupation: form.occupation || null,
-      diagnosis: form.diagnosis || null,
-      notes: form.notes || null,
-    };
-    const { error } = await supabase.from("patients").update(payload).eq("id", id!);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success("Paciente actualizado");
-    setEditOpen(false);
-    load();
-  }
 
   if (loading) return <div className="p-10 text-center text-muted-foreground">Cargando...</div>;
   if (!patient) return <div className="p-10 text-center">Paciente no encontrado</div>;
