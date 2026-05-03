@@ -790,16 +790,20 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
 
       // After analysis, override fields with PubMed prefill (user picks them as canonical).
       if (consumedPrefill && prefillTargetId) {
+        const aiAreas = (consumedPrefill.clinical_areas ?? [])
+          .filter((a) => (CLINICAL_AREAS as readonly string[]).includes(a))
+          .slice(0, MAX_CLINICAL_AREAS);
         update(prefillTargetId, {
           title: consumedPrefill.title || undefined,
           author: consumedPrefill.author || undefined,
           year: consumedPrefill.year || undefined,
           sourceInstitution: consumedPrefill.source_institution,
           sourceInstitutionType: consumedPrefill.source_institution_type,
+          ...(aiAreas.length > 0 ? { clinicalAreas: aiAreas } : {}),
           pubmedPrefill: consumedPrefill,
           autoFilled: {
             title: true, author: !!consumedPrefill.author, year: !!consumedPrefill.year,
-            docType: true, clinicalAreas: false, sourceInstitution: true,
+            docType: true, clinicalAreas: aiAreas.length > 0, sourceInstitution: true,
           },
         });
       }
@@ -866,6 +870,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
             europepmc_id: item.pubmedPrefill.europepmc_id,
             europepmc_source: item.pubmedPrefill.europepmc_source,
             abstract: item.pubmedPrefill.abstract || null,
+            ...(item.pubmedPrefill.language ? { language: item.pubmedPrefill.language } : {}),
           } : {}),
         } as any)
         .select()
@@ -997,12 +1002,20 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
       </DialogHeader>
 
       <div className="space-y-4">
+        {prefill && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm flex items-start gap-2">
+            <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div>
+              📄 Arrastra el PDF que acabas de descargar de PMC. Los metadatos han sido pre-llenados automáticamente.
+            </div>
+          </div>
+        )}
         <div>
-          <Label>Archivos (PDF o TXT) — selección múltiple</Label>
+          <Label>{prefill ? "Arrastra aquí el PDF que descargaste" : "Archivos (PDF o TXT) — selección múltiple"}</Label>
           <Input
             type="file"
             accept=".pdf,.txt"
-            multiple
+            multiple={!prefill}
             onChange={(e) => { onPickFiles(e.target.files); e.target.value = ""; }}
             disabled={busy}
           />
