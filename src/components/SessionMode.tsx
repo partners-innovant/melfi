@@ -496,9 +496,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       liveStreamRef.current = stream;
-      const mime = pickMimeType();
-      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      liveMimeRef.current = (mr.mimeType || mime || "audio/webm").split(";")[0];
+      // Use plain mimeType without codec specification
+      const mr = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      liveMimeRef.current = "audio/webm";
       liveChunksRef.current = [];
       unprocessedChunksRef.current = [];
       mr.ondataavailable = (e) => {
