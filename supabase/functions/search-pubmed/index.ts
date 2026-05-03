@@ -81,6 +81,7 @@ serve(async (req) => {
         is_open_access: a.isOpenAccess === 'Y',
         pdf_url: pdfUrl,
         article_url: `https://europepmc.org/article/${a.source}/${a.id}`,
+        citations_count: typeof a.citedByCount === "number" ? a.citedByCount : (a.citedByCount ? Number(a.citedByCount) : null),
       }
     })
 
