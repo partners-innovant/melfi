@@ -71,6 +71,9 @@ interface DocRow {
   abstract: string | null;
   pubmed_id: string | null;
   pmc_id: string | null;
+  journal: string | null;
+  repository: string | null;
+  repository_id: string | null;
 }
 
 export default function AdminDocuments() {
