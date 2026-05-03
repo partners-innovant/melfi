@@ -881,16 +881,16 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               </div>
             )}
 
-            {summaryBlocks.length > 0 && (
+            {summaryBullets.length > 0 && (
               <div className="mt-6">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-                  📝 Resumen de lo conversado
+                  📝 Resumen de lo conversado · solo cambios e inconsistencias ({summaryBullets.length})
                 </div>
-                <div className="space-y-2">
-                  {summaryBlocks.map((block, idx) => (
-                    <SummaryBlockCard key={block.t} block={block} defaultOpen={idx === 0} />
+                <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1 border rounded-md bg-card py-3">
+                  {summaryBullets.map((b, i) => (
+                    <li key={i}>{b}</li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
           </div>
