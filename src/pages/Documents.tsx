@@ -1029,6 +1029,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
       title: file.name.replace(/\.(pdf|txt)$/i, ""),
       author: "",
       year: "",
+      publicationDate: "",
       docType: "articulo_cientifico",
       isGlobal: false,
       clinicalAreas: [],
