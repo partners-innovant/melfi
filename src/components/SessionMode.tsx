@@ -463,6 +463,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       if (pBullets.length) setPatientBullets((prev) => [...prev, ...pBullets]);
       if (tBullets.length) setTherapistBullets((prev) => [...prev, ...tBullets]);
 
+      const totalElapsedSec = Math.max(0, Math.round(recElapsed / 1000));
+      const newAudioSec = Math.max(0, totalElapsedSec - processedAudioSecRef.current);
+      processedAudioSecRef.current = totalElapsedSec;
+      setLastAudioSec(newAudioSec);
+      setTotalAudioSec((s) => s + newAudioSec);
       setTranscriptionCount((n) => n + 1);
       setLastAnalyzedAt(Date.now());
       toast.success("✨ Transcripción y análisis listos");
