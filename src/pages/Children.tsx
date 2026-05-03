@@ -179,7 +179,7 @@ export default function Children() {
                   <div className="flex-1 min-w-0 max-w-full overflow-hidden">
                     <div className="font-medium break-words">{p.first_name} {p.last_name}</div>
                     {(() => {
-                      const line = `${age !== null ? `${age} años` : "—"}${p.grade ? ` · ${p.grade}` : ""}${p.school ? ` · ${p.school}` : ""}`;
+                      const line = age !== null ? `${age} años` : "";
                       return (
                         <div
                           className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
