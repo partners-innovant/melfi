@@ -821,26 +821,10 @@ function PubMedFullscreenSearch({
               <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
-          {years === "custom" && (
-            <>
-              <Input placeholder="Desde" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-[80px] h-8" />
-              <Input placeholder="Hasta" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-[80px] h-8" />
-            </>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Switch id="pdf" checked={onlyPDF} onCheckedChange={setOnlyPDF} />
           <Label htmlFor="pdf" className="cursor-pointer">📄 Solo con PDF</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">Mín. citas:</span>
-          <Input
-            type="number"
-            placeholder="Ej: 50"
-            value={minCitations}
-            onChange={(e) => setMinCitations(e.target.value)}
-            className="w-[80px] h-8"
-          />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Idioma:</span>
