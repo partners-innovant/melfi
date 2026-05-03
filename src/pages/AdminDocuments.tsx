@@ -1207,6 +1207,7 @@ export default function AdminDocuments() {
                     onSave={async (v) => {
                       const ok = await updateField(viewDoc.id, { author: v || null });
                       if (ok) setViewDoc({ ...viewDoc, author: v || null });
+                      return !!ok;
                     }}
                   />
                 </div>
