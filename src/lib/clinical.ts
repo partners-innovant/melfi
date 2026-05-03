@@ -81,3 +81,26 @@ export function timeInTherapy(startDate: string | null | undefined): string {
   const rem = months % 12;
   return `${years} ${years === 1 ? "año" : "años"}${rem > 0 ? ` y ${rem} m` : ""}`;
 }
+
+/**
+ * Format an author string to keep only the first author + "et al." when
+ * the original string contains multiple authors separated by commas or
+ * semicolons. Returns the input unchanged if there's only one author.
+ */
+export function formatAuthor(authorString: string | null | undefined): string {
+  if (!authorString) return "";
+  const raw = String(authorString).trim();
+  if (!raw) return "";
+  // If already contains "et al", normalize and return
+  if (/\bet\s*al\.?/i.test(raw)) {
+    const first = raw.split(/[,;]/)[0].trim();
+    return `${first} et al.`;
+  }
+  const parts = raw.split(/\s*;\s*|\s*,\s*/).filter(Boolean);
+  // Heuristic: "Apellido, Iniciales" -> 2 parts but one author. Detect by checking if second part is initials.
+  if (parts.length === 2 && /^[A-Z]\.?([A-Z]\.?)*$/.test(parts[1])) {
+    return raw;
+  }
+  if (parts.length <= 1) return raw;
+  return `${parts[0]} et al.`;
+}
