@@ -14,7 +14,7 @@ import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
 import PatientProfileBuilderPanel, { ProfileBuilderLauncher } from "@/components/PatientProfileBuilderPanel";
 import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
-import TransferPatientDialog from "@/components/TransferPatientDialog";
+
 import SessionSchedulePill from "@/components/SessionSchedulePill";
 import { useAppSidebar } from "@/components/sidebar-state";
 
