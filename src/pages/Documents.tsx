@@ -102,11 +102,16 @@ export default function Documents() {
   const isAdmin = !!profile?.is_admin;
 
   async function load() {
-    const { data } = await supabase
-      .from("documents")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setDocs((data as Doc[]) ?? []);
+    const [{ data }, chunkRes] = await Promise.all([
+      supabase.from("documents").select("*").order("created_at", { ascending: false }),
+      supabase.from("document_chunks").select("document_id"),
+    ]);
+    const counts = new Map<string, number>();
+    for (const r of (chunkRes.data ?? []) as Array<{ document_id: string }>) {
+      counts.set(r.document_id, (counts.get(r.document_id) ?? 0) + 1);
+    }
+    const list = ((data as Doc[]) ?? []).map((d) => ({ ...d, chunk_count: counts.get(d.id) ?? 0 }));
+    setDocs(list);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
