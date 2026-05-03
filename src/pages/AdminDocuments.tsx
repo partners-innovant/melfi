@@ -1486,6 +1486,74 @@ export default function AdminDocuments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* EuropePMC enrichment progress */}
+      <Dialog open={enrichOpen} onOpenChange={(o) => { if (!o && !enrichProgress) { setEnrichOpen(false); load(); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>🔄 Enriqueciendo desde EuropePMC</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {enrichProgress && (
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Procesando {enrichProgress.current} de {enrichProgress.total}...
+              </div>
+            )}
+            {enrichSkippedNoId > 0 && (
+              <div className="text-xs text-amber-600 dark:text-amber-400">
+                {enrichSkippedNoId} documento(s) omitido(s) por no tener PubMed ID
+              </div>
+            )}
+            <div className="max-h-[50vh] overflow-y-auto border rounded-md divide-y">
+              {enrichItems.map((it) => (
+                <div key={it.id} className="px-3 py-2 text-xs">
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0">
+                      {it.status === "pending" && "⏸"}
+                      {it.status === "querying" && "⏳"}
+                      {it.status === "done" && "✅"}
+                      {it.status === "skipped" && "⚪"}
+                      {it.status === "error" && "❌"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate font-medium">{it.title}</div>
+                      {it.status === "done" && it.fields && it.fields.length > 0 && (
+                        <div className="text-muted-foreground mt-0.5">
+                          {it.fields.map((f) => `✓ ${f}`).join(" · ")}
+                        </div>
+                      )}
+                      {it.status === "done" && (!it.fields || it.fields.length === 0) && (
+                        <div className="text-muted-foreground mt-0.5">Sin campos nuevos para enriquecer</div>
+                      )}
+                      {it.status === "error" && <div className="text-destructive mt-0.5">{it.error}</div>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {enrichItems.length === 0 && (
+                <div className="px-3 py-4 text-xs text-muted-foreground">Sin documentos con PubMed/PMC ID</div>
+              )}
+            </div>
+            {!enrichProgress && enrichItems.length > 0 && (
+              <div className="text-sm pt-1">
+                ✅ {enrichItems.filter((i) => i.status === "done").length} enriquecidos
+                {" · "}⚪ {enrichItems.filter((i) => i.status === "skipped").length + enrichSkippedNoId} sin PubMed ID
+                {" · "}❌ {enrichItems.filter((i) => i.status === "error").length} error(es)
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={!!enrichProgress}
+              onClick={() => { setEnrichOpen(false); load(); }}
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
