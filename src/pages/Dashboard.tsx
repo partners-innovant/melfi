@@ -63,17 +63,13 @@ function PatientSelectorDialog({
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const tasks: Promise<any>[] = [
-        supabase.from("patients").select("id, first_name, last_name, diagnosis").order("first_name"),
-      ];
+      const adultsRes = await supabase.from("patients").select("id, first_name, last_name, diagnosis").order("first_name");
+      const adults: SchedPatient[] = (adultsRes.data ?? []).map((p: any) => ({ ...p, kind: "adult" as const }));
+      let kids: SchedPatient[] = [];
       if (includeChildren) {
-        tasks.push(supabase.from("child_patients").select("id, first_name, last_name, medical_diagnosis").order("first_name"));
+        const kidsRes = await supabase.from("child_patients").select("id, first_name, last_name, medical_diagnosis").order("first_name");
+        kids = (kidsRes.data ?? []).map((p: any) => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, diagnosis: p.medical_diagnosis ?? null, kind: "child" as const }));
       }
-      const results = await Promise.all(tasks);
-      const adults: SchedPatient[] = (results[0].data ?? []).map((p: any) => ({ ...p, kind: "adult" as const }));
-      const kids: SchedPatient[] = includeChildren
-        ? (results[1].data ?? []).map((p: any) => ({ id: p.id, first_name: p.first_name, last_name: p.last_name, diagnosis: p.medical_diagnosis ?? null, kind: "child" as const }))
-        : [];
       setPatients([...adults, ...kids]);
     })();
   }, [open, includeChildren]);
