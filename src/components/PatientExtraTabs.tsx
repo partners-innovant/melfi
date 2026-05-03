@@ -386,12 +386,10 @@ export function PatientProfileBuilderTab({
     >
       <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center gap-2">
         <Wand2 className="h-4 w-4 text-primary" />
-        <h3 className="font-semibold text-sm">Constructor de Perfil con IA</h3>
-        <Badge variant="secondary" className="ml-auto text-[10px]">Claude Sonnet</Badge>
         <Button
           size="sm"
           variant="outline"
-          className="h-7 gap-1.5 text-xs border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
+          className="ml-auto h-7 gap-1.5 text-xs border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
           onClick={() => setResetOpen(true)}
           disabled={loading || sending}
         >
