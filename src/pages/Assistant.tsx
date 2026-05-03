@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Send, Sparkles, MessageSquare, Plus, Menu, User as UserIcon, X, Copy, Download, Globe, Loader2, ExternalLink, Search, Plus as PlusIcon, Check, AlertCircle, Filter, ChevronDown, RefreshCw, FlaskConical } from "lucide-react";
 import { PubMedSearchDialog } from "@/components/PubMedSearchDialog";
 import { useNavigate } from "react-router-dom";
-import { DOC_TYPES, DOC_TYPE_LABELS, DocType } from "@/lib/clinical";
+import { DOC_TYPES, DOC_TYPE_LABELS, DocType, formatAuthor } from "@/lib/clinical";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, type ClinicalArea } from "@/lib/clinical-areas";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ImprovePromptButton } from "@/components/ImprovePromptButton";
