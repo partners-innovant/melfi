@@ -266,7 +266,7 @@ export function ChildForm({
           <Label>Origen de derivación</Label>
           <Select value={form.referral_source} onValueChange={(v) => u("referral_source", v)}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-            <SelectContent>{REFERRAL_SOURCES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+            <SelectContent>{REFERRAL_SOURCES.map((r) => <SelectItem key={r} value={r}>{capitalize(r)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div><Label>Motivo de derivación</Label><Textarea rows={2} value={form.referral_reason} onChange={(e) => u("referral_reason", e.target.value)} /></div>
