@@ -74,6 +74,10 @@ interface DocRow {
   journal: string | null;
   repository: string | null;
   repository_id: string | null;
+  evidence_level: string | null;
+  geographic_relevance: string | null;
+  citations_count: number | null;
+  impact_factor: number | null;
 }
 
 export default function AdminDocuments() {
