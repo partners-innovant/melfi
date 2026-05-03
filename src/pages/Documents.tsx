@@ -999,6 +999,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
         title,
         author,
         year,
+        publicationDate,
         docType,
         clinicalAreas,
         sourceInstitution,
