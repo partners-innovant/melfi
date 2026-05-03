@@ -2010,6 +2010,46 @@ function FullscreenDocViewer({
   const [mounted, setMounted] = useState(false);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
   const [autoClassifying, setAutoClassifying] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function handleSaveAll() {
+    if (saveState === "saving") return;
+    setSaveState("saving");
+    try {
+      // Flush any pending debounced auto-saves from focused inputs
+      const active = document.activeElement as HTMLElement | null;
+      if (active && typeof active.blur === "function") active.blur();
+      await new Promise((r) => setTimeout(r, 350));
+
+      const ok = await onPatch({
+        title: doc.title,
+        author: doc.author ?? null,
+        journal: (doc as any).journal ?? null,
+        year: doc.year ?? null,
+        publication_date: doc.publication_date ?? null,
+        document_type: doc.document_type,
+        clinical_areas: doc.clinical_areas,
+        source_institution: doc.source_institution ?? null,
+        source_institution_type: (doc as any).source_institution_type ?? null,
+        evidence_level: doc.evidence_level ?? null,
+        citations_count: doc.citations_count ?? null,
+        impact_factor: doc.impact_factor ?? null,
+        geographic_relevance: doc.geographic_relevance ?? null,
+        language: doc.language ?? null,
+        abstract: doc.abstract ?? null,
+        pubmed_id: doc.pubmed_id ?? null,
+        pmc_id: doc.pmc_id ?? null,
+        is_global: doc.is_global,
+      } as any);
+      if (!ok) throw new Error("No se pudo guardar");
+      setSaveState("saved");
+      setTimeout(() => onClose(), 700);
+    } catch (err) {
+      console.error("Save error:", err);
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 2000);
+    }
+  }
 
   async function runAutoClassify() {
     if (autoClassifying) return;
@@ -2370,17 +2410,32 @@ function FullscreenDocViewer({
             </Field>
           </div>
 
-          <div className="px-4 py-3 border-t shrink-0 bg-background">
+          <div className="px-4 py-3 border-t shrink-0 bg-background flex gap-2">
             <Button
               variant="outline"
-              className="w-full"
+              className="flex-1"
               onClick={runAutoClassify}
-              disabled={autoClassifying}
+              disabled={autoClassifying || saveState === "saving"}
             >
               {autoClassifying ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> ✨ Clasificando...</>
               ) : (
                 <><Sparkles className="h-4 w-4 mr-2 text-primary" /> ✨ Auto-clasificar</>
+              )}
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleSaveAll}
+              disabled={saveState === "saving" || autoClassifying}
+            >
+              {saveState === "saving" ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> 💾 Guardando...</>
+              ) : saveState === "saved" ? (
+                <>✅ Guardado</>
+              ) : saveState === "error" ? (
+                <>❌ Error al guardar</>
+              ) : (
+                <>💾 Guardar cambios</>
               )}
             </Button>
           </div>
