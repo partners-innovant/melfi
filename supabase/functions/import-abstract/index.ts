@@ -15,6 +15,42 @@ const CLINICAL_AREAS = [
   "trastornos_sueno","trastornos_neurocognitivos","otro",
 ];
 
+const SECTION_MAP: Record<string, string> = {
+  background: "background", introduction: "introduction",
+  objective: "objective", objectives: "objective", aim: "objective", aims: "objective", purpose: "objective",
+  methods: "methods", method: "methods", "materials and methods": "methods", design: "methods",
+  results: "results", findings: "results",
+  conclusions: "conclusions", conclusion: "conclusions", discussion: "conclusions",
+  keywords: "keywords", "key words": "keywords",
+};
+const HEADER_KEYS = Object.keys(SECTION_MAP).sort((a, b) => b.length - a.length);
+
+function parseSections(text: string): Record<string, string> {
+  const out: Record<string, string> = { full_text: text };
+  if (!text || text.length < 30) return out;
+  const pattern = new RegExp(
+    `(^|\\n|\\.\\s+)\\s*(${HEADER_KEYS.map((h) => h.replace(/ /g, "\\s+")).join("|")})\\s*[:\\.\\-–—]\\s+`,
+    "gi",
+  );
+  const matches: { key: string; start: number; contentStart: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) {
+    const headerLower = m[2].toLowerCase().replace(/\s+/g, " ");
+    const key = SECTION_MAP[headerLower];
+    if (!key) continue;
+    matches.push({ key, start: m.index + m[1].length, contentStart: m.index + m[0].length });
+  }
+  if (matches.length < 2) return out;
+  for (let i = 0; i < matches.length; i++) {
+    const cur = matches[i];
+    const next = matches[i + 1];
+    const end = next ? next.start : text.length;
+    const content = text.slice(cur.contentStart, end).trim();
+    if (content && !out[cur.key]) out[cur.key] = content;
+  }
+  return out;
+}
+
 const EVIDENCE_LEVELS = [
   "meta_analisis","revision_sistematica","ensayo_clinico_rct",
   "estudio_cohorte","guia_practica_clinica","consenso_expertos",
@@ -168,6 +204,7 @@ Deno.serve(async (req) => {
       geographic_relevance: geographic_relevance ?? "internacional",
       language: language ?? "ingles",
       relevance_score,
+      abstract_sections: parseSections(abstract_text),
     };
 
     const { data: inserted, error: insErr } = await userClient
