@@ -55,6 +55,7 @@ interface DocRow {
   title: string;
   author: string | null;
   year: string | null;
+  publication_date: string | null;
   document_type: DocType;
   clinical_areas: string[];
   source_institution: string | null;
