@@ -3,17 +3,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PROMPT = `Search for the latest psychology and psychiatry news from the last 7 days from these sources: Psychiatric Times (psychiatrictimes.com), APA News (apa.org/news), NIMH News (nimh.nih.gov/news), Medscape Psychiatry (medscape.com/psychiatry), Psychology Today (psychologytoday.com).
+const PROMPT = `Search for the latest psychology and psychiatry news from the last 14 days from these scientific sources: Psychiatric Times (psychiatrictimes.com), APA News (apa.org/news), NIMH News (nimh.nih.gov/news), Medscape Psychiatry (medscape.com/psychiatry), Psychology Today (psychologytoday.com), The Lancet Psychiatry blog.
 
-Return ONLY a JSON array (no markdown fences, no prose) with the 6 most relevant clinical/scientific news items. Format:
+Return ONLY a JSON array (no markdown fences, no prose) with the 8 most clinically relevant news items:
 [{
-  "title": "article title",
+  "title": "article title in original language",
+  "title_es": "título traducido al español",
   "source": "source name",
   "url": "article URL",
-  "summary": "2 sentence summary in Spanish",
+  "summary_es": "resumen de 2 oraciones en español, tono clínico y objetivo",
   "date": "YYYY-MM-DD",
-  "category": "investigación|clínica|política_salud|neurociencia|otro"
-}]`;
+  "category": "investigación|clínica|política_salud|neurociencia|farmacología|otro"
+}]
+
+Prioritize: clinical trials, treatment guidelines, meta-analyses, and practice-changing findings. Avoid opinion pieces.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
