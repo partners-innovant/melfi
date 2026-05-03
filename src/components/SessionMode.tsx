@@ -818,7 +818,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 value={patientText}
                 onChange={(e) => setPatientText(e.target.value)}
                 placeholder="Anota intervenciones, frases clave, conductas observadas del paciente..."
-                className="min-h-[110px] resize-none"
+                className="min-h-[90px] resize-none"
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); addPatientEntry(); }
                 }}
@@ -828,6 +828,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <Send className="h-3.5 w-3.5" /> Registrar
                 </Button>
               </div>
+              <BulletList bullets={patientBullets} emptyText="Los bullets auto-generados aparecerán aquí tras transcribir." tone="blue" />
             </Card>
 
             {/* Therapist input */}
@@ -839,7 +840,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 value={therapistText}
                 onChange={(e) => setTherapistText(e.target.value)}
                 placeholder="Anota tus intervenciones, preguntas realizadas, observaciones..."
-                className="min-h-[110px] resize-none"
+                className="min-h-[90px] resize-none"
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); addTherapistEntry(); }
                 }}
@@ -849,6 +850,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <Send className="h-3.5 w-3.5" /> Registrar
                 </Button>
               </div>
+              <BulletList bullets={therapistBullets} emptyText="Los bullets auto-generados aparecerán aquí tras transcribir." tone="teal" />
             </Card>
           </div>
 
