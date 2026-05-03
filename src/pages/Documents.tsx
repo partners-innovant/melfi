@@ -1832,3 +1832,91 @@ function SourceInstitutionPicker({
     </Popover>
   );
 }
+
+/** Publication date picker — full date (DD/MM/YYYY) with quick year-only mode. */
+function PubDatePicker({
+  value, onChange, disabled,
+}: { value: string; onChange: (iso: string) => void; disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [yearInput, setYearInput] = useState("");
+  const date = value ? parseISO(value) : undefined;
+  const isYearOnly = !!value && /-01-01$/.test(value);
+  const display = !value
+    ? "—"
+    : isYearOnly
+      ? value.slice(0, 4)
+      : formatDateFn(parseISO(value), "dd/MM/yyyy");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled}
+          className={cn(
+            "h-8 w-full justify-start text-left font-normal text-sm",
+            !value && "text-muted-foreground",
+          )}
+        >
+          <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{display}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <div className="p-3 border-b space-y-2">
+          <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Solo año</Label>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder="YYYY"
+              value={yearInput}
+              onChange={(e) => setYearInput(e.target.value)}
+              className="h-8 text-sm"
+              min={1900}
+              max={2100}
+            />
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => {
+                if (/^\d{4}$/.test(yearInput)) {
+                  onChange(`${yearInput}-01-01`);
+                  setYearInput("");
+                  setOpen(false);
+                }
+              }}
+            >
+              OK
+            </Button>
+          </div>
+        </div>
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={(d) => {
+            if (d) {
+              onChange(formatDateFn(d, "yyyy-MM-dd"));
+              setOpen(false);
+            }
+          }}
+          locale={esLocale}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+        {value && (
+          <div className="p-2 border-t">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-full h-7 text-xs"
+              onClick={() => { onChange(""); setOpen(false); }}
+            >
+              <X className="h-3 w-3 mr-1" /> Limpiar
+            </Button>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
