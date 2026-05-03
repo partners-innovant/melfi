@@ -163,9 +163,9 @@ export function PubMedPanel({
     return a.pdf_url;
   }
 
-  function handleUploadClick(a: PubMedArticle) {
+  async function handleUploadClick(a: PubMedArticle) {
     if (!onRequestUpload) return;
-    onRequestUpload({
+    const basePrefill: PubMedUploadPrefill = {
       title: a.title,
       author: a.authors,
       year: a.year,
@@ -175,8 +175,29 @@ export function PubMedPanel({
       europepmc_id: a.europepmc_id,
       europepmc_source: a.source,
       source_url: pdfDirectUrl(a),
-      source_institution: "PubMed / NCBI",
+      source_institution: a.journal || "PubMed / NCBI",
       source_institution_type: "revista_cientifica",
+    };
+    // Fire-and-forget AI classification using title + abstract
+    const classifyPromise = (async () => {
+      try {
+        const text = `Título: ${a.title}\n\nAbstract: ${a.abstract || "(sin abstract)"}`;
+        const { data, error } = await supabase.functions.invoke("extract-metadata", { body: { text } });
+        if (error || !data || data.error) return null;
+        return {
+          clinical_areas: Array.isArray(data.clinical_areas) ? data.clinical_areas as string[] : [],
+          language: (data.language as string) ?? null,
+        };
+      } catch { return null; }
+    })();
+    const toastId = toast.loading("Clasificando artículo con IA...");
+    const ai = await classifyPromise;
+    toast.dismiss(toastId);
+    onRequestUpload({
+      ...basePrefill,
+      clinical_areas: ai?.clinical_areas ?? [],
+      language: ai?.language ?? null,
+      ai_classified: !!ai,
     });
   }
 
