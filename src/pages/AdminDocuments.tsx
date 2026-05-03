@@ -67,6 +67,9 @@ interface DocRow {
   created_at: string;
   chunk_count: number;
   processing_mode: "text" | "vision" | null;
+  abstract: string | null;
+  pubmed_id: string | null;
+  pmc_id: string | null;
 }
 
 export default function AdminDocuments() {
