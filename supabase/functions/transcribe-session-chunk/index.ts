@@ -249,6 +249,7 @@ Deno.serve(async (req) => {
       therapist_notes,
       patient_notes,
       active_suggestions,
+      topic_suggestions,
       recent_summary_bullets,
     } = body ?? {};
     if (!patient_id) {
@@ -273,14 +274,19 @@ Deno.serve(async (req) => {
       ? sugList.map((s: any) => `- [${s.id}] (${s.type}) ${s.text}`).join("\n")
       : "(ninguna)";
 
+    const topicList = Array.isArray(topic_suggestions) ? topic_suggestions : [];
+    const topicBlock = topicList.length
+      ? topicList.map((s: any) => `- [${s.id}] ${s.text}`).join("\n")
+      : "(ninguno)";
+
     const recentBullets = Array.isArray(recent_summary_bullets)
-      ? recent_summary_bullets.slice(0, 3)
+      ? recent_summary_bullets.slice(0, 10)
       : [];
     const bulletsBlock = recentBullets.length
       ? recentBullets.map((b: string) => `• ${b}`).join("\n")
       : "(sin resúmenes previos)";
 
-    const userMessage = `Resumen reciente de la sesión (últimos 3 bullets):
+    const userMessage = `Resumen previo acumulado de la sesión (bullets ya registrados):
 ${bulletsBlock}
 
 Transcripción nueva (último fragmento):
@@ -298,17 +304,18 @@ ${profileBlock}
 Sugerencias activas actuales:
 ${sugBlock}
 
+Tópicos sugeridos pendientes:
+${topicBlock}
+
 Devuelve el JSON pedido.`;
 
     // Run bullets (Haiku) and suggestions+insights (Sonnet) in parallel
     const [bulletsResp, analyzeResp] = await Promise.all([
-      // Using Haiku — summary bullets are pure summarization, no clinical reasoning needed
       callAnthropic(HAIKU_MODEL, {
-        max_tokens: 1000,
+        max_tokens: 1200,
         system: BULLETS_SYSTEM,
         messages: [{ role: "user", content: userMessage }],
       }, ANTHROPIC_API_KEY),
-      // Using Sonnet — clinical suggestions + insights require deeper reasoning
       callAnthropic(SONNET_MODEL, {
         max_tokens: 1500,
         system: ANALYZE_SYSTEM,
@@ -320,8 +327,11 @@ Devuelve el JSON pedido.`;
     const parsed = tryParseJson(analyzeResp?.content?.[0]?.text ?? "");
     return new Response(JSON.stringify({
       summary_bullets: Array.isArray(bulletsParsed.summary_bullets) ? bulletsParsed.summary_bullets : [],
+      patient_bullets: Array.isArray(bulletsParsed.patient_bullets) ? bulletsParsed.patient_bullets : [],
+      therapist_bullets: Array.isArray(bulletsParsed.therapist_bullets) ? bulletsParsed.therapist_bullets : [],
       suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
       suggestions_addressed: Array.isArray(parsed.suggestions_addressed) ? parsed.suggestions_addressed : [],
+      topics_addressed: Array.isArray(parsed.topics_addressed) ? parsed.topics_addressed : [],
       session_insights: typeof parsed.session_insights === "string" ? parsed.session_insights : "",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e: any) {
