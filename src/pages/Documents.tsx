@@ -385,8 +385,73 @@ export default function Documents() {
   );
 }
 
+interface TableFilterProps {
+  titleInput: string; setTitleInput: (v: string) => void;
+  filterType: string; setFilterType: (v: string) => void;
+  filterAreas: string[]; setFilterAreas: (v: string[]) => void;
+  filterSource: string; setFilterSource: (v: string) => void;
+  filterLanguage: string; setFilterLanguage: (v: string) => void;
+  filterChunks: "all" | "none" | "some"; setFilterChunks: (v: "all" | "none" | "some") => void;
+  filterOrigin: string; setFilterOrigin: (v: string) => void;
+  filterDateFrom: string; setFilterDateFrom: (v: string) => void;
+  filterDateTo: string; setFilterDateTo: (v: string) => void;
+  allSourcesInUse: string[];
+  ANY: string;
+}
+
+function HeaderFilter({
+  label, active, activeText, onClear, children, align = "start",
+}: {
+  label: string;
+  active: boolean;
+  activeText?: string;
+  onClear?: () => void;
+  children: React.ReactNode;
+  align?: "start" | "end";
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted text-xs font-medium ${
+              active ? "text-teal-700 dark:text-teal-300 bg-teal-500/10" : ""
+            }`}
+          >
+            <span>{label}</span>
+            <ChevronsUpDown className="h-3 w-3 opacity-60" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3" align={align}>
+          {children}
+        </PopoverContent>
+      </Popover>
+      {active && (
+        <>
+          {activeText && (
+            <span className="text-[10px] text-teal-700 dark:text-teal-300 truncate max-w-[80px]" title={activeText}>
+              {activeText}
+            </span>
+          )}
+          {onClear && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-muted-foreground hover:text-destructive"
+              aria-label="Limpiar filtro"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function DocList({
-  docs, loading, onDelete, onView, canDeleteDoc, selected, onToggle,
+  docs, loading, onDelete, onView, canDeleteDoc, selected, onToggle, filters,
 }: {
   docs: Doc[];
   loading: boolean;
@@ -395,40 +460,210 @@ function DocList({
   canDeleteDoc: (d: Doc) => boolean;
   selected: Set<string>;
   onToggle: (id: string) => void;
+  filters: TableFilterProps;
 }) {
-  if (loading) return <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-12 bg-card rounded-xl animate-pulse" />)}</div>;
-  if (docs.length === 0) return <Card className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</Card>;
+  const f = filters;
+  const ANY = f.ANY;
+
   return (
     <Card className="w-full overflow-hidden">
       <div className="w-full overflow-x-auto">
         <table className="w-full text-sm table-fixed">
           <colgroup>
             <col className="w-10" />
-            <col style={{ width: "35%" }} />
-            <col style={{ width: "20%" }} />
-            <col style={{ width: "20%" }} />
-            <col style={{ width: "6%" }} />
+            <col style={{ width: "26%" }} />
             <col style={{ width: "12%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "8%" }} />
             <col style={{ width: "7%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "8%" }} />
           </colgroup>
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left"></th>
-              <th className="px-3 py-2 text-left font-medium">Nombre</th>
-              <th className="px-3 py-2 text-left font-medium">Área(s) clínica(s)</th>
-              <th className="px-3 py-2 text-left font-medium">Fuente</th>
-              <th className="px-3 py-2 text-left font-medium">Año</th>
-              <th className="px-3 py-2 text-left font-medium">Tipo</th>
-              <th className="px-3 py-2 text-right font-medium">Acciones</th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Nombre"
+                  active={!!f.titleInput}
+                  activeText={f.titleInput || undefined}
+                  onClear={() => f.setTitleInput("")}
+                >
+                  <Label className="text-xs">Buscar por título</Label>
+                  <Input
+                    autoFocus
+                    value={f.titleInput}
+                    onChange={(e) => f.setTitleInput(e.target.value)}
+                    placeholder="Texto contenido..."
+                    className="h-8 text-xs mt-1"
+                  />
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Tipo"
+                  active={f.filterType !== ANY}
+                  activeText={f.filterType !== ANY ? DOC_TYPE_LABELS[f.filterType as DocType] : undefined}
+                  onClear={() => f.setFilterType(ANY)}
+                >
+                  <Select value={f.filterType} onValueChange={f.setFilterType}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ANY}>Todos</SelectItem>
+                      {DOC_TYPES.map((t) => <SelectItem key={t} value={t}>{DOC_TYPE_LABELS[t]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Área(s) clínica(s)"
+                  active={f.filterAreas.length > 0}
+                  activeText={f.filterAreas.length > 0 ? `${f.filterAreas.length} sel.` : undefined}
+                  onClear={() => f.setFilterAreas([])}
+                >
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {f.filterAreas.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => f.setFilterAreas([])}
+                        className="text-xs text-primary hover:underline mb-1"
+                      >
+                        Limpiar selección
+                      </button>
+                    )}
+                    {CLINICAL_AREAS.map((a) => {
+                      const checked = f.filterAreas.includes(a);
+                      return (
+                        <label key={a} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-muted rounded px-1 py-0.5">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(v) => {
+                              if (v) f.setFilterAreas([...f.filterAreas, a]);
+                              else f.setFilterAreas(f.filterAreas.filter((x) => x !== a));
+                            }}
+                          />
+                          <span className="truncate">{CLINICAL_AREA_LABELS[a]}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Fuente"
+                  active={f.filterSource !== ANY}
+                  activeText={f.filterSource !== ANY ? f.filterSource : undefined}
+                  onClear={() => f.setFilterSource(ANY)}
+                >
+                  <Select value={f.filterSource} onValueChange={f.setFilterSource}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value={ANY}>Todas</SelectItem>
+                      {f.allSourcesInUse.map((s) => (
+                        <SelectItem key={s} value={s}>{sourceIconFor(s)} {s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Idioma"
+                  active={f.filterLanguage !== ANY}
+                  activeText={f.filterLanguage !== ANY ? (LANGUAGE_OPTIONS.find((l) => l.value === f.filterLanguage)?.label ?? f.filterLanguage) : undefined}
+                  onClear={() => f.setFilterLanguage(ANY)}
+                >
+                  <Select value={f.filterLanguage} onValueChange={f.setFilterLanguage}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ANY}>Todos</SelectItem>
+                      {LANGUAGE_OPTIONS.map((l) => (
+                        <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Chunks"
+                  active={f.filterChunks !== "all"}
+                  activeText={f.filterChunks === "none" ? "0" : f.filterChunks === "some" ? "1+" : undefined}
+                  onClear={() => f.setFilterChunks("all")}
+                >
+                  <Select value={f.filterChunks} onValueChange={(v: any) => f.setFilterChunks(v)}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="none">Sin chunks (0)</SelectItem>
+                      <SelectItem value="some">Con chunks (1+)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Origen"
+                  active={f.filterOrigin !== ANY}
+                  activeText={f.filterOrigin !== ANY ? IMPORT_SOURCE_META[f.filterOrigin as ImportSource]?.label : undefined}
+                  onClear={() => f.setFilterOrigin(ANY)}
+                >
+                  <Select value={f.filterOrigin} onValueChange={f.setFilterOrigin}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ANY}>Todos</SelectItem>
+                      {(Object.keys(IMPORT_SOURCE_META) as ImportSource[]).map((k) => (
+                        <SelectItem key={k} value={k}>
+                          {IMPORT_SOURCE_META[k].icon} {IMPORT_SOURCE_META[k].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </HeaderFilter>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <HeaderFilter
+                  label="Subido"
+                  active={!!(f.filterDateFrom || f.filterDateTo)}
+                  activeText={f.filterDateFrom || f.filterDateTo ? `${f.filterDateFrom || "…"}→${f.filterDateTo || "…"}` : undefined}
+                  onClear={() => { f.setFilterDateFrom(""); f.setFilterDateTo(""); }}
+                  align="end"
+                >
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs">Desde</Label>
+                      <Input type="date" value={f.filterDateFrom} onChange={(e) => f.setFilterDateFrom(e.target.value)} className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Hasta</Label>
+                      <Input type="date" value={f.filterDateTo} onChange={(e) => f.setFilterDateTo(e.target.value)} className="h-8 text-xs" />
+                    </div>
+                  </div>
+                </HeaderFilter>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {docs.map((d) => {
+            {loading && (
+              <tr><td colSpan={9} className="p-4">
+                <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-10 bg-muted/40 rounded animate-pulse" />)}</div>
+              </td></tr>
+            )}
+            {!loading && docs.length === 0 && (
+              <tr><td colSpan={9} className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</td></tr>
+            )}
+            {!loading && docs.map((d) => {
               const canDelete = canDeleteDoc(d);
               const isSelected = selected.has(d.id);
               const areas = (d.clinical_areas ?? []) as string[];
               const visibleAreas = areas.slice(0, 2);
               const extraAreas = areas.slice(2);
+              const origin = (d.import_source ?? "upload") as ImportSource;
+              const originMeta = IMPORT_SOURCE_META[origin];
+              const langLabel = LANGUAGE_OPTIONS.find((l) => l.value === d.language)?.label;
               return (
                 <tr
                   key={d.id}
@@ -443,7 +678,7 @@ function DocList({
                       />
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 align-middle min-w-0">
+                  <td className="px-2 py-2 align-middle min-w-0">
                     <button
                       type="button"
                       onClick={() => onView(d)}
@@ -453,7 +688,12 @@ function DocList({
                       <span className="font-medium truncate">{d.title}</span>
                     </button>
                   </td>
-                  <td className="px-3 py-2 align-middle">
+                  <td className="px-2 py-2 align-middle">
+                    <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
+                      {DOC_TYPE_LABELS[d.document_type]}
+                    </Badge>
+                  </td>
+                  <td className="px-2 py-2 align-middle">
                     <div className="flex flex-wrap gap-1">
                       {visibleAreas.map((a) => (
                         <span
@@ -475,7 +715,7 @@ function DocList({
                       {areas.length === 0 && <span className="text-[11px] text-muted-foreground">—</span>}
                     </div>
                   </td>
-                  <td className="px-3 py-2 align-middle text-xs">
+                  <td className="px-2 py-2 align-middle text-xs">
                     {d.source_institution ? (
                       <span className="inline-flex items-center gap-1">
                         <span aria-hidden>{sourceIconFor(d.source_institution, d.source_institution_type)}</span>
@@ -485,24 +725,31 @@ function DocList({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 align-middle text-muted-foreground">
-                    {d.year ?? "—"}
+                  <td className="px-2 py-2 align-middle text-xs text-muted-foreground">
+                    {langLabel ?? "—"}
                   </td>
-                  <td className="px-3 py-2 align-middle">
-                    <Badge variant="secondary" className="text-[10px] whitespace-nowrap">
-                      {DOC_TYPE_LABELS[d.document_type]}
-                    </Badge>
+                  <td className="px-2 py-2 align-middle text-xs text-muted-foreground">
+                    {d.chunk_count ?? 0}
                   </td>
-                  <td className="px-3 py-2 align-middle">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onView(d)} aria-label="Ver">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {canDelete && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDelete(d.id)} aria-label="Eliminar">
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                  <td className="px-2 py-2 align-middle text-xs">
+                    <span className="inline-flex items-center gap-1" title={originMeta?.label}>
+                      <span aria-hidden>{originMeta?.icon ?? "📄"}</span>
+                      <span className="truncate">{originMeta?.label ?? origin}</span>
+                    </span>
+                  </td>
+                  <td className="px-2 py-2 align-middle text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between gap-1">
+                      <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                      <div className="flex items-center gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(d)} aria-label="Ver">
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
-                      )}
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(d.id)} aria-label="Eliminar">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
