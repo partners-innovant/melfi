@@ -144,23 +144,115 @@ type PubMedItem = {
   title: string; authors: string; journal: string; date: string;
   hasPdf: boolean; pdfUrl: string | null; articleUrl: string;
   source: string; year?: string; citedByCount?: number;
+  isOpenAccess: boolean; abstractText?: string; doiUrl: string;
 };
-const PUBMED_CACHE_KEY = "cafe-pubmed:v1";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
-function PubMedSection({ onImport, onSeeMore }: {
+function mapArticle(a: any): PubMedItem {
+  const isOA = a.isOpenAccess === "Y";
+  const hasPDF = a.hasPDF === "Y";
+  const hasPdf = isOA && hasPDF;
+  let pdfUrl: string | null = null;
+  const ftList: any[] = a.fullTextUrlList?.fullTextUrl ?? [];
+  const oaPdf = ftList.find((u) => u.availabilityCode === "OA" && u.documentStyle === "pdf");
+  if (oaPdf) pdfUrl = oaPdf.url;
+  else if (hasPdf && a.pmcid) pdfUrl = `https://pmc.ncbi.nlm.nih.gov/articles/${a.pmcid}/pdf/`;
+  const doiUrl = a.doi ? `https://doi.org/${a.doi}` : `https://europepmc.org/article/${a.source ?? "MED"}/${a.id}`;
+  return {
+    id: a.id, pmid: a.pmid, pmcid: a.pmcid, doi: a.doi,
+    title: a.title ?? "Sin título",
+    authors: (a.authorString ?? "").split(",")[0] + (a.authorString?.includes(",") ? " et al." : ""),
+    journal: a.journalTitle ?? "",
+    date: a.firstPublicationDate ?? a.pubYear ?? "",
+    year: a.pubYear,
+    citedByCount: a.citedByCount,
+    hasPdf: !!pdfUrl,
+    pdfUrl,
+    articleUrl: `https://europepmc.org/article/${a.source ?? "MED"}/${a.id}`,
+    source: a.source ?? "MED",
+    isOpenAccess: isOA,
+    abstractText: a.abstractText,
+    doiUrl,
+  };
+}
+
+function ArticleCard({ it, onImport }: { it: PubMedItem; onImport: (it: PubMedItem) => void }) {
+  const [showAbs, setShowAbs] = useState(false);
+  return (
+    <div className="border rounded-lg p-3 flex flex-col gap-1.5 hover:border-primary/50 transition-colors">
+      <a href={it.doiUrl} target="_blank" rel="noreferrer"
+        className="text-sm font-semibold leading-snug line-clamp-2 hover:text-primary">
+        {it.title}
+      </a>
+      <div className="text-xs text-muted-foreground truncate">{it.authors} · {it.journal}</div>
+      <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+        <span>{it.date}</span>
+        {typeof it.citedByCount === "number" && it.citedByCount > 0 && (
+          <Badge variant="secondary" className="text-[10px] py-0 px-1.5">📊 {it.citedByCount} citas</Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 mt-auto pt-1.5 flex-wrap">
+        {it.hasPdf ? (
+          <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+            🟢 PDF disponible
+          </Badge>
+        ) : (
+          <Badge variant="secondary" className="text-[10px] py-0 px-1.5">⚪ Solo abstract</Badge>
+        )}
+        {it.hasPdf && it.pdfUrl && (
+          <a href={it.pdfUrl} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline" className="h-7 text-xs px-2">📄 Abrir PDF ↗</Button>
+          </a>
+        )}
+        {!it.hasPdf && (
+          <a href={it.doiUrl} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline" className="h-7 text-xs px-2">🔗 Ver artículo ↗</Button>
+          </a>
+        )}
+        <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => onImport(it)}>
+          <Plus className="h-3 w-3 mr-0.5" /> Importar
+        </Button>
+        {!it.hasPdf && it.abstractText && (
+          <button
+            onClick={() => setShowAbs((s) => !s)}
+            className="text-xs text-primary hover:underline ml-auto"
+          >
+            Ver abstract {showAbs ? "▲" : "▼"}
+          </button>
+        )}
+      </div>
+      {showAbs && it.abstractText && (
+        <p className="text-xs text-muted-foreground border-t pt-2 mt-1 line-clamp-[10]">{it.abstractText}</p>
+      )}
+    </div>
+  );
+}
+
+type FeedKind = "recent" | "top";
+
+function PubFeedSection({
+  kind, title, icon, subtitle, cacheKey, buildUrl, postProcess, onImport,
+}: {
+  kind: FeedKind;
+  title: string;
+  icon: React.ReactNode;
+  subtitle: string;
+  cacheKey: string;
+  buildUrl: (showOnlyPDF: boolean) => string;
+  postProcess?: (items: PubMedItem[]) => PubMedItem[];
   onImport: (it: PubMedItem) => void;
-  onSeeMore: () => void;
 }) {
   const [items, setItems] = useState<PubMedItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [showOnlyPDF, setShowOnlyPDF] = useState(false);
 
-  const load = useCallback(async (force = false) => {
+  const load = useCallback(async (force = false, pdfOnly = showOnlyPDF) => {
+    const ck = `${cacheKey}:${pdfOnly ? "pdf" : "all"}`;
     if (!force) {
       try {
-        const raw = localStorage.getItem(PUBMED_CACHE_KEY);
+        const raw = localStorage.getItem(ck);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Date.now() - parsed.ts < CACHE_TTL_MS) {
@@ -171,60 +263,55 @@ function PubMedSection({ onImport, onSeeMore }: {
     }
     setLoading(true); setError(null);
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const q = `(MeSH_TERM:"Mental Disorders" OR MeSH_TERM:"Psychotherapy" OR MeSH_TERM:"Psychiatry" OR MeSH_TERM:"Psychology, Clinical") AND OPEN_ACCESS:y AND FIRST_PDATE:[${twoWeeksAgo} TO ${today}]`;
-      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=8&sort=CITED&resultType=core`;
+      const url = buildUrl(pdfOnly);
       const res = await fetch(url);
       const data = await res.json();
-      const mapped: PubMedItem[] = (data.resultList?.result ?? []).map((a: any) => {
-        const hasPdf = a.hasPDF === "Y" && !!a.pmcid;
-        return {
-          id: a.id, pmid: a.pmid, pmcid: a.pmcid, doi: a.doi,
-          title: a.title ?? "Sin título",
-          authors: (a.authorString ?? "").split(",")[0] + (a.authorString?.includes(",") ? " et al." : ""),
-          journal: a.journalTitle ?? "",
-          date: a.firstPublicationDate ?? a.pubYear ?? "",
-          year: a.pubYear,
-          citedByCount: a.citedByCount,
-          hasPdf,
-          pdfUrl: hasPdf ? `https://pmc.ncbi.nlm.nih.gov/articles/${a.pmcid}/pdf/` : null,
-          articleUrl: `https://europepmc.org/article/${a.source}/${a.id}`,
-          source: a.source ?? "MED",
-        };
-      });
+      let mapped: PubMedItem[] = (data.resultList?.result ?? []).map(mapArticle);
+      if (postProcess) mapped = postProcess(mapped);
       setItems(mapped);
       const ts = Date.now();
       setUpdatedAt(ts);
-      localStorage.setItem(PUBMED_CACHE_KEY, JSON.stringify({ ts, items: mapped }));
+      localStorage.setItem(ck, JSON.stringify({ ts, items: mapped }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
       setLoading(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildUrl, cacheKey, showOnlyPDF]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(false, showOnlyPDF); /* eslint-disable-next-line */ }, [showOnlyPDF]);
 
   return (
     <Card className="rounded-xl p-5">
-      <div className="flex items-start justify-between mb-4 gap-3">
+      <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
         <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <FlaskConical className="h-5 w-5 text-primary" /> Publicaciones recientes
-          </h2>
+          <h2 className="text-lg font-semibold flex items-center gap-2">{icon} {title}</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            PubMed · Últimos 14 días{updatedAt ? ` · Actualizado ${relativeTime(updatedAt)}` : ""}
+            {subtitle}{updatedAt ? ` · Actualizado ${relativeTime(updatedAt)}` : ""}
           </p>
         </div>
-        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => load(true)} disabled={loading}>
-          <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Actualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowOnlyPDF((s) => !s)}
+            className={cn(
+              "text-xs px-2.5 py-1 rounded-full border transition-colors",
+              showOnlyPDF
+                ? "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800"
+                : "bg-muted text-muted-foreground border-transparent hover:bg-muted/80"
+            )}
+          >
+            📄 Solo con PDF
+          </button>
+          <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => load(true, showOnlyPDF)} disabled={loading}>
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Actualizar
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {loading && !items ? (
-          Array.from({ length: 6 }).map((_, i) => (
+          Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="border rounded-lg p-3 space-y-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-3 w-2/3" />
@@ -234,45 +321,8 @@ function PubMedSection({ onImport, onSeeMore }: {
         ) : error ? (
           <p className="text-sm text-destructive col-span-full">{error}</p>
         ) : items?.length === 0 ? (
-          <p className="text-sm text-muted-foreground col-span-full">Sin resultados recientes.</p>
-        ) : items?.map((it) => (
-          <div key={it.id} className="border rounded-lg p-3 flex flex-col gap-1.5 hover:border-primary/50 transition-colors">
-            <a href={it.pdfUrl ?? it.articleUrl} target="_blank" rel="noreferrer"
-              className="text-sm font-semibold leading-snug line-clamp-2 hover:text-primary">
-              {it.title}
-            </a>
-            <div className="text-xs text-muted-foreground truncate">{it.authors} · {it.journal}</div>
-            <div className="text-xs text-muted-foreground">
-              {it.date}
-              {typeof it.citedByCount === "number" && it.citedByCount > 0 && (
-                <span className="ml-2">· {it.citedByCount} citas</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-auto pt-1.5 flex-wrap">
-              {it.hasPdf && (
-                <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                  🟢 PDF disponible
-                </Badge>
-              )}
-              {it.hasPdf && it.pdfUrl && (
-                <a href={it.pdfUrl} target="_blank" rel="noreferrer">
-                  <Button size="sm" variant="outline" className="h-7 text-xs px-2">
-                    📄 Abrir PDF ↗
-                  </Button>
-                </a>
-              )}
-              <Button size="sm" variant="outline" className="h-7 text-xs px-2" onClick={() => onImport(it)}>
-                <Plus className="h-3 w-3 mr-0.5" /> Importar
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-3 text-right">
-        <button onClick={onSeeMore} className="text-xs text-primary hover:underline inline-flex items-center gap-1">
-          Ver más en PubMed <ExternalLink className="h-3 w-3" />
-        </button>
+          <p className="text-sm text-muted-foreground col-span-full">Sin resultados.</p>
+        ) : items?.map((it) => <ArticleCard key={it.id} it={it} onImport={onImport} />)}
       </div>
     </Card>
   );
