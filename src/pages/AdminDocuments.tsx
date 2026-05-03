@@ -495,6 +495,9 @@ export default function AdminDocuments() {
       language: d.language,
       storage_path: d.storage_path,
       source_url: d.source_url,
+      journal: d.journal,
+      evidence_level: d.evidence_level,
+      geographic_relevance: d.geographic_relevance,
     };
   }
 
