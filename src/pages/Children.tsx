@@ -304,7 +304,7 @@ export function ChildForm({
                 <Label>Implicación</Label>
                 <Select value={g.involvement_level} onValueChange={(v) => ug(i, "involvement_level", v)}>
                   <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{INVOLVEMENT_LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                  <SelectContent>{INVOLVEMENT_LEVELS.map((l) => <SelectItem key={l} value={l}>{capitalize(l)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
