@@ -103,12 +103,15 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptEditable, setTranscriptEditable] = useState(false);
-  const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
+  const [activeTab, setActiveTab] = useState<"support" | "topics" | "transcript">("support");
   const [chunkCount, setChunkCount] = useState(0);
   // Manual on-demand transcription + analysis
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeStage, setAnalyzeStage] = useState<"idle" | "transcribing" | "analyzing">("idle");
-  const [summaryBlocks, setSummaryBlocks] = useState<SummaryBlock[]>([]);
+  const [summaryBullets, setSummaryBullets] = useState<string[]>([]);
+  const [patientBullets, setPatientBullets] = useState<string[]>([]);
+  const [therapistBullets, setTherapistBullets] = useState<string[]>([]);
+  const [topicSuggestions, setTopicSuggestions] = useState<TopicSuggestion[]>([]);
   const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
   const [sessionInsight, setSessionInsight] = useState<string>("");
   const [transcriptionCount, setTranscriptionCount] = useState(0);
