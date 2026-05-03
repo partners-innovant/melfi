@@ -331,6 +331,7 @@ export default function GoogleDriveImport({
           storage_path: storagePath,
           source_url: item.name,
           import_source: 'google_drive',
+          repository: 'Google Drive',
         } as any)
         .select()
         .single();

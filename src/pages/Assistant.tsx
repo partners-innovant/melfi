@@ -34,6 +34,8 @@ interface Citation {
   page_number?: string;
   excerpt: string;
   document_type?: string;
+  journal?: string | null;
+  source_institution?: string | null;
 }
 
 interface ChatMessage {
@@ -1142,8 +1144,11 @@ function CitationPanel({ citation }: { citation: Citation }) {
         <div>
           <div className="font-semibold text-base">{citation.document_title}</div>
           <div className="text-sm text-muted-foreground">
-            {citation.author ? formatAuthor(citation.author) : "Autor s/d"}
-            {citation.year ? ` · ${citation.year}` : ""}
+            {[
+              citation.author ? formatAuthor(citation.author) : "Autor s/d",
+              citation.journal || citation.source_institution || null,
+              citation.year || null,
+            ].filter(Boolean).join(" · ")}
           </div>
           {citation.document_type && (
             <Badge variant="secondary" className="mt-2 text-[10px]">{citation.document_type}</Badge>
