@@ -861,6 +861,7 @@ interface QueueItem {
   title: string;
   author: string;
   year: string;
+  publicationDate: string; // YYYY-MM-DD or ""
   docType: DocType;
   isGlobal: boolean;
   clinicalAreas: string[];
