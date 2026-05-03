@@ -1123,7 +1123,7 @@ function PubMedFullscreenSearch({
                             <td colSpan={13} className="p-4">
                               <div
                                 className="text-xs leading-relaxed whitespace-pre-wrap mb-3"
-                                dangerouslySetInnerHTML={{ __html: formatAbstract((a.abstractText ?? "").replace(/<[^>]*>/g, "")) }}
+                                dangerouslySetInnerHTML={{ __html: highlightInlineHeaders((a.abstractText ?? "").replace(/<[^>]*>/g, "")) }}
                               />
                               <div className="flex flex-wrap gap-2 items-center">
                                 {a.doi && (
