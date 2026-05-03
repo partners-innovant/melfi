@@ -859,44 +859,21 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             </Card>
           </div>
 
-          {/* Timeline */}
+          {/* Resumen de lo conversado (accumulating) */}
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-              Timeline de sesión ({timeline.length})
+              📝 Resumen de lo conversado ({summaryBullets.length})
             </div>
-            {timeline.length === 0 ? (
+            {summaryBullets.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
-                Aún no hay registros. Empieza a anotar arriba.
+                Los puntos clave de la sesión se irán acumulando aquí cada vez que pulses ✨ Analizar.
               </div>
             ) : (
-              <div className="space-y-2">
-                {timeline.map((e, i) => (
-                  <div
-                    key={i}
-                    className={`p-2.5 rounded-md border-l-4 bg-card text-sm ${
-                      e.who === "patient" ? "border-l-blue-400 bg-blue-500/5" : "border-l-teal-400 bg-teal-500/5"
-                    }`}
-                  >
-                    <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
-                      {e.who === "patient" ? "Paciente" : "Terapeuta"} [{clockFromTimestamp(e.t)}]
-                    </div>
-                    <div className="whitespace-pre-wrap">{e.text}</div>
-                  </div>
+              <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1 border rounded-md bg-card py-3">
+                {summaryBullets.map((b, i) => (
+                  <li key={i}>{b}</li>
                 ))}
-              </div>
-            )}
-
-            {summaryBullets.length > 0 && (
-              <div className="mt-6">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-                  📝 Resumen de lo conversado · solo cambios e inconsistencias ({summaryBullets.length})
-                </div>
-                <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1 border rounded-md bg-card py-3">
-                  {summaryBullets.map((b, i) => (
-                    <li key={i}>{b}</li>
-                  ))}
-                </ul>
-              </div>
+              </ul>
             )}
           </div>
         </div>
