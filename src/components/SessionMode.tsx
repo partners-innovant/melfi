@@ -211,9 +211,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   }
 
   const transcriptSummaryText = useMemo(() => {
-    if (!summaryBlocks.length) return "";
-    return summaryBlocks[0].bullets.map((b) => `• ${b}`).join("\n");
-  }, [summaryBlocks]);
+    if (!summaryBullets.length) return "";
+    return summaryBullets.map((b) => `• ${b}`).join("\n");
+  }, [summaryBullets]);
 
   async function requestSuggestions() {
     if (!sessionId) return;
