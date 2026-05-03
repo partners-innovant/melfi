@@ -17,6 +17,7 @@ const baseItems = [
   { to: "/children", label: "Infanto-Juvenil", icon: Baby },
   { to: "/calendar", label: "Calendario", icon: Calendar },
   { to: "/documents", label: "Documentos", icon: FileText },
+  { to: "/cafe", label: "Café", icon: Coffee },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
