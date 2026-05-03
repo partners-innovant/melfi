@@ -282,7 +282,7 @@ export default function AdminDocuments() {
       colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, sortDate]);
 
   // Reset to page 1 when column filters change
-  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin]);
 
   // Active column filter count + clear-all
   const activeColFilterCount = useMemo(() => {
@@ -294,21 +294,17 @@ export default function AdminDocuments() {
     if (colType !== ANY) n++;
     if (colAreas.length > 0) n++;
     if (colSourceCol !== ANY) n++;
-    if (colLang !== ANY) n++;
     if (colChunks !== ANY) n++;
     if (colOrigin !== ANY) n++;
-    if (colDateFrom) n++;
-    if (colDateTo) n++;
     return n;
-  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colLang, colChunks, colOrigin, colDateFrom, colDateTo]);
+  }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin]);
 
   function clearAllColFilters() {
     setColTitle(""); setColAuthor("");
     setColYearFrom(""); setColYearTo("");
     setColType(ANY); setColAreas([]);
-    setColSourceCol(ANY); setColLang(ANY);
+    setColSourceCol(ANY);
     setColChunks(ANY); setColOrigin(ANY);
-    setColDateFrom(undefined); setColDateTo(undefined);
   }
 
   // Distinct institutions present in rows (for Fuente column dropdown)
