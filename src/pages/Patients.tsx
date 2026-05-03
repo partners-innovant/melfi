@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Users as UsersIcon, Inbox, X } from "lucide-react";
+import { Plus, Users as UsersIcon, Inbox, X, MoreVertical, Pencil, Send } from "lucide-react";
+import TransferPatientDialog from "@/components/TransferPatientDialog";
 import { calcAge, SEX_OPTIONS, MARITAL_OPTIONS, capitalize } from "@/lib/clinical";
 
 interface Patient {
@@ -20,6 +24,11 @@ interface Patient {
   last_name: string;
   birth_date: string | null;
   diagnosis: string | null;
+  start_date: string | null;
+  sex: string | null;
+  marital_status: string | null;
+  occupation: string | null;
+  notes: string | null;
   session_day: string | null;
   session_time: string | null;
 }
@@ -49,14 +58,19 @@ const empty = {
 };
 
 export default function Patients() {
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [sortMode, setSortMode] = useState<"recent" | "schedule">("recent");
-  const [transferredMap, setTransferredMap] = useState<Record<string, string>>({}); // patientId -> ISO date received
+  const [transferredMap, setTransferredMap] = useState<Record<string, string>>({});
   const [incoming, setIncoming] = useState<IncomingTransfer[]>([]);
+  const [editPatient, setEditPatient] = useState<Patient | null>(null);
+  const [editForm, setEditForm] = useState<any>(empty);
+  const [editSaving, setEditSaving] = useState(false);
+  const [transferPatient, setTransferPatient] = useState<Patient | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
     try {
       return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]"));
@@ -65,11 +79,47 @@ export default function Patients() {
     }
   });
 
+  function openEdit(p: Patient) {
+    setEditForm({
+      first_name: p.first_name,
+      last_name: p.last_name,
+      birth_date: p.birth_date ?? "",
+      sex: p.sex ?? "",
+      marital_status: p.marital_status ?? "",
+      occupation: p.occupation ?? "",
+      start_date: p.start_date ?? "",
+      diagnosis: p.diagnosis ?? "",
+      notes: p.notes ?? "",
+    });
+    setEditPatient(p);
+  }
+
+  async function saveEdit() {
+    if (!editPatient) return;
+    setEditSaving(true);
+    const payload = {
+      ...editForm,
+      birth_date: editForm.birth_date || null,
+      sex: editForm.sex || null,
+      marital_status: editForm.marital_status || null,
+      start_date: editForm.start_date || null,
+      occupation: editForm.occupation || null,
+      diagnosis: editForm.diagnosis || null,
+      notes: editForm.notes || null,
+    };
+    const { error } = await supabase.from("patients").update(payload).eq("id", editPatient.id);
+    setEditSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Paciente actualizado");
+    setEditPatient(null);
+    load();
+  }
+
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from("patients")
-      .select("id, first_name, last_name, birth_date, diagnosis, session_day, session_time")
+      .select("id, first_name, last_name, birth_date, diagnosis, start_date, sex, marital_status, occupation, notes, session_day, session_time")
       .order("created_at", { ascending: false });
     setPatients((data as Patient[]) ?? []);
 
@@ -243,40 +293,92 @@ export default function Patients() {
             const dl = p.session_day ? DAY_LABELS[p.session_day] : null;
             const tl = p.session_time ? String(p.session_time).slice(0, 5) : null;
             return (
-              <Link key={p.id} to={`/patients/${p.id}`}>
-                <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold flex-shrink-0">
-                    {p.first_name[0]}{p.last_name[0]}
-                  </div>
-                  <div className="flex-1 min-w-0 max-w-full overflow-hidden">
-                    <div className="font-medium flex items-center gap-2 flex-wrap">
-                      <span className="break-words">{p.first_name} {p.last_name}</span>
-                      {transferDate && (
-                        <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded whitespace-nowrap">
-                          Transferido · {new Date(transferDate).toLocaleDateString("es-CL")}
-                        </span>
+              <div key={p.id} className="relative group">
+                <Link to={`/patients/${p.id}`}>
+                  <Card className="p-4 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer flex items-center gap-4 pr-12">
+                    <div className="h-10 w-10 rounded-full bg-primary-soft text-primary flex items-center justify-center font-semibold flex-shrink-0">
+                      {p.first_name[0]}{p.last_name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                      <div className="font-medium flex items-center gap-2 flex-wrap">
+                        <span className="break-words">{p.first_name} {p.last_name}</span>
+                        {transferDate && (
+                          <span className="text-[10px] uppercase tracking-wide bg-primary-soft text-primary px-1.5 py-0.5 rounded whitespace-nowrap">
+                            Transferido · {new Date(transferDate).toLocaleDateString("es-CL")}
+                          </span>
+                        )}
+                      </div>
+                      {(() => {
+                        const line = age !== null ? `${age} años` : "";
+                        return (
+                          <div
+                            className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                            title={line}
+                          >
+                            {line}
+                          </div>
+                        );
+                      })()}
+                      {dl && tl && (
+                        <div className="text-xs text-primary mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">📅 {dl} {tl}</div>
                       )}
                     </div>
-                    {(() => {
-                      const line = age !== null ? `${age} años` : "";
-                      return (
-                        <div
-                          className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
-                          title={line}
-                        >
-                          {line}
-                        </div>
-                      );
-                    })()}
-                    {dl && tl && (
-                      <div className="text-xs text-primary mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">📅 {dl} {tl}</div>
-                    )}
-                  </div>
-                </Card>
-              </Link>
+                  </Card>
+                </Link>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        aria-label="Acciones"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem onSelect={() => openEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5 mr-2" />Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setTransferPatient(p)}>
+                        <Send className="h-3.5 w-3.5 mr-2" />Transferir a otro terapeuta
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             );
           })}
         </div>
+      )}
+
+      {/* Edit dialog */}
+      <Dialog open={!!editPatient} onOpenChange={(o) => !o && setEditPatient(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
+          <PatientForm form={editForm} setForm={setEditForm} />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditPatient(null)}>Cancelar</Button>
+            <Button onClick={saveEdit} disabled={editSaving}>{editSaving ? "Guardando..." : "Guardar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {transferPatient && (
+        <TransferPatientDialog
+          open={!!transferPatient}
+          onOpenChange={(o) => !o && setTransferPatient(null)}
+          patient={{
+            id: transferPatient.id,
+            first_name: transferPatient.first_name,
+            last_name: transferPatient.last_name,
+            birth_date: transferPatient.birth_date,
+            diagnosis: transferPatient.diagnosis,
+            start_date: transferPatient.start_date,
+          }}
+        />
       )}
     </div>
   );

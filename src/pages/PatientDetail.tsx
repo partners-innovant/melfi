@@ -4,14 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { ArrowLeft, Pencil, Sparkles, Send, Play } from "lucide-react";
+import { ArrowLeft, Sparkles, Play } from "lucide-react";
 import SessionMode from "@/components/SessionMode";
 import { calcAge, timeInTherapy } from "@/lib/clinical";
-import { PatientForm } from "./Patients";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
@@ -19,7 +14,7 @@ import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
 import PatientProfileBuilderPanel, { ProfileBuilderLauncher } from "@/components/PatientProfileBuilderPanel";
 import TreatmentTeamTab from "@/components/TreatmentTeamTab";
 import ConsolidateNotesButton from "@/components/ConsolidateNotesButton";
-import TransferPatientDialog from "@/components/TransferPatientDialog";
+
 import SessionSchedulePill from "@/components/SessionSchedulePill";
 import { useAppSidebar } from "@/components/sidebar-state";
 
@@ -29,12 +24,8 @@ export default function PatientDetail() {
   const [patient, setPatient] = useState<any>(null);
   const [consults, setConsults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editOpen, setEditOpen] = useState(false);
-  const [form, setForm] = useState<any>({});
-  const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState("profile");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [transferOpen, setTransferOpen] = useState(false);
   const [sessionModeOpen, setSessionModeOpen] = useState(false);
   const [builderOpen, setBuilderOpen] = useState(true);
   const { collapsed: sidebarCollapsed } = useAppSidebar();
@@ -52,14 +43,6 @@ export default function PatientDetail() {
     if (!id) return;
     const { data: p } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
     setPatient(p);
-    if (p) {
-      setForm({
-        first_name: p.first_name, last_name: p.last_name,
-        birth_date: p.birth_date ?? "", sex: p.sex ?? "",
-        marital_status: p.marital_status ?? "", occupation: p.occupation ?? "",
-        start_date: p.start_date ?? "", diagnosis: p.diagnosis ?? "", notes: p.notes ?? "",
-      });
-    }
     const { data: c } = await supabase
       .from("consultations").select("id, question, created_at")
       .eq("patient_id", id).order("created_at", { ascending: false });
@@ -69,25 +52,6 @@ export default function PatientDetail() {
 
   useEffect(() => { load(); }, [id]);
 
-  async function saveEdit() {
-    setSaving(true);
-    const payload = {
-      ...form,
-      birth_date: form.birth_date || null,
-      sex: form.sex || null,
-      marital_status: form.marital_status || null,
-      start_date: form.start_date || null,
-      occupation: form.occupation || null,
-      diagnosis: form.diagnosis || null,
-      notes: form.notes || null,
-    };
-    const { error } = await supabase.from("patients").update(payload).eq("id", id!);
-    setSaving(false);
-    if (error) return toast.error(error.message);
-    toast.success("Paciente actualizado");
-    setEditOpen(false);
-    load();
-  }
 
   if (loading) return <div className="p-10 text-center text-muted-foreground">Cargando...</div>;
   if (!patient) return <div className="p-10 text-center">Paciente no encontrado</div>;
@@ -126,12 +90,17 @@ export default function PatientDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)} className="gap-1.5">
-              <Send className="h-3.5 w-3.5" />Transferir a otro terapeuta
+            <Button
+              onClick={() => setSessionModeOpen(true)}
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Play className="h-4 w-4" />Iniciar sesión
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
-              <Pencil className="h-3.5 w-3.5" />Editar
-            </Button>
+            <Link to={`/assistant?patient=${patient.id}`}>
+              <Button variant="outline" className="gap-2">
+                <Sparkles className="h-4 w-4" />Consultar IA sobre este paciente
+              </Button>
+            </Link>
           </div>
         </div>
 
@@ -144,36 +113,11 @@ export default function PatientDetail() {
           <Field label="Tiempo en terapia" value={timeInTherapy(patient.start_date)} />
         </div>
 
-        {patient.notes && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
-              <ConsolidateNotesButton
-                patientId={patient.id}
-                notes={patient.notes}
-                onConsolidated={(newNotes) => setPatient((p: any) => p ? { ...p, notes: newNotes } : p)}
-              />
-            </div>
-            <p className="text-sm whitespace-pre-wrap">{patient.notes}</p>
-          </div>
-        )}
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button
-            onClick={() => setSessionModeOpen(true)}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            <Play className="h-4 w-4" />Iniciar sesión
-          </Button>
-          <Link to={`/assistant?patient=${patient.id}`}>
-            <Button variant="outline" className="gap-2"><Sparkles className="h-4 w-4" />Consultar IA sobre este paciente</Button>
-          </Link>
-        </div>
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex h-auto w-full justify-start overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <TabsTrigger value="profile" className="flex-shrink-0 w-fit whitespace-nowrap">Perfil</TabsTrigger>
+          <TabsTrigger value="profile" className="flex-shrink-0 w-fit whitespace-nowrap">Notas</TabsTrigger>
           <TabsTrigger value="team" className="flex-shrink-0 w-fit whitespace-nowrap">Equipo tratante</TabsTrigger>
           <TabsTrigger value="sessions" className="flex-shrink-0 w-fit whitespace-nowrap">Sesiones</TabsTrigger>
           <TabsTrigger value="documents" className="flex-shrink-0 w-fit whitespace-nowrap">Documentos e Informes</TabsTrigger>
@@ -189,6 +133,19 @@ export default function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
+          {patient.notes && (
+            <Card className="p-4">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
+                <ConsolidateNotesButton
+                  patientId={patient.id}
+                  notes={patient.notes}
+                  onConsolidated={(newNotes) => setPatient((p: any) => p ? { ...p, notes: newNotes } : p)}
+                />
+              </div>
+              <p className="text-sm whitespace-pre-wrap">{patient.notes}</p>
+            </Card>
+          )}
           <LastSessionCard
             key={refreshKey}
             kind="adult"
@@ -230,29 +187,6 @@ export default function PatientDetail() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Editar paciente</DialogTitle></DialogHeader>
-          <PatientForm form={form} setForm={setForm} />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditOpen(false)}>Cancelar</Button>
-            <Button onClick={saveEdit} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <TransferPatientDialog
-        open={transferOpen}
-        onOpenChange={setTransferOpen}
-        patient={{
-          id: patient.id,
-          first_name: patient.first_name,
-          last_name: patient.last_name,
-          birth_date: patient.birth_date,
-          diagnosis: patient.diagnosis,
-          start_date: patient.start_date,
-        }}
-      />
 
       <SessionMode
         open={sessionModeOpen}
