@@ -154,6 +154,9 @@ export default function PatientDetail() {
             patientId={patient.id}
             onClick={() => setTab("sessions")}
           />
+        </TabsContent>
+
+        <TabsContent value="extended" className="mt-4">
           <ExtendedNotesEditor
             table="patients"
             rowId={patient.id}
@@ -163,6 +166,9 @@ export default function PatientDetail() {
               setPatient((p: any) => p ? { ...p, notes: newNotes, extended_notes: null } : p);
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="medications" className="mt-4">
           <MedicationsSection kind="adult" patientId={patient.id} />
         </TabsContent>
 
