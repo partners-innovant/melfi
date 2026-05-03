@@ -195,6 +195,7 @@ export function PubMedPanel({
 
   async function handleUploadClick(a: PubMedArticle) {
     if (!onRequestUpload) return;
+    const { impactFactorForJournal } = await import("@/lib/document-relevance");
     const basePrefill: PubMedUploadPrefill = {
       title: a.title,
       author: a.authors,
@@ -211,6 +212,8 @@ export function PubMedPanel({
       journal: a.journal || null,
       repository: "PubMed / EuropePMC",
       repository_id: a.pubmed_id || a.pmc_id || a.doi || a.europepmc_id || null,
+      citations_count: a.citations_count ?? null,
+      impact_factor: impactFactorForJournal(a.journal),
     };
     // Fire-and-forget AI classification using title + abstract
     const classifyPromise = (async () => {
@@ -221,6 +224,8 @@ export function PubMedPanel({
         return {
           clinical_areas: Array.isArray(data.clinical_areas) ? data.clinical_areas as string[] : [],
           language: (data.language as string) ?? null,
+          evidence_level: (data.evidence_level as string) ?? null,
+          geographic_relevance: (data.geographic_relevance as string) ?? null,
         };
       } catch { return null; }
     })();
@@ -231,6 +236,8 @@ export function PubMedPanel({
       ...basePrefill,
       clinical_areas: ai?.clinical_areas ?? [],
       language: ai?.language ?? null,
+      evidence_level: ai?.evidence_level ?? null,
+      geographic_relevance: ai?.geographic_relevance ?? null,
       ai_classified: !!ai,
     });
     markImported(a);
