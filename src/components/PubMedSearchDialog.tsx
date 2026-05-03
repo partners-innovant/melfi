@@ -347,36 +347,36 @@ function ArticleCard({
       )}
 
       <div className="flex items-center justify-end gap-2 pt-1">
+        {pdfUrl && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.open(pdfUrl, "_blank", "noopener,noreferrer")}
+                className="h-7 px-3 text-xs gap-1"
+              >
+                <FileText className="h-3 w-3" /> 📄 Abrir PDF
+                <ExternalLink className="h-3 w-3 opacity-60" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[260px]">
+              Abre el PDF — luego usa "⬆️ Subir a Psicoasist" para indexarlo
+            </TooltipContent>
+          </Tooltip>
+        )}
         {inLibrary ? (
-          <Badge className="text-[11px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
-            ✅ Ya en biblioteca
-          </Badge>
+          <Button size="sm" disabled className="h-7 px-3 text-xs gap-1 bg-muted text-muted-foreground">
+            ✅ Importado
+          </Button>
         ) : pdfUrl ? (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => window.open(pdfUrl, "_blank", "noopener,noreferrer")}
-                  className="h-7 px-3 text-xs gap-1"
-                >
-                  <FileText className="h-3 w-3" /> 📄 Abrir PDF
-                  <ExternalLink className="h-3 w-3 opacity-60" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-[260px]">
-                Abre el PDF — luego usa "⬆️ Subir a Psicoasist" para indexarlo
-              </TooltipContent>
-            </Tooltip>
-            <Button
-              size="sm"
-              onClick={onUploadClick}
-              className="h-7 px-3 text-xs gap-1 bg-teal-600 hover:bg-teal-700 text-white"
-            >
-              <Upload className="h-3 w-3" /> ⬆️ Subir a Psicoasist
-            </Button>
-          </>
+          <Button
+            size="sm"
+            onClick={onUploadClick}
+            className="h-7 px-3 text-xs gap-1 bg-teal-600 hover:bg-teal-700 text-white"
+          >
+            <Upload className="h-3 w-3" /> ⬆️ Subir a Psicoasist
+          </Button>
         ) : null}
       </div>
     </Card>
