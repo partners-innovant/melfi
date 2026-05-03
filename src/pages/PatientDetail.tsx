@@ -118,6 +118,8 @@ export default function PatientDetail() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex h-auto w-full justify-start overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <TabsTrigger value="profile" className="flex-shrink-0 w-fit whitespace-nowrap">Notas</TabsTrigger>
+          <TabsTrigger value="extended" className="flex-shrink-0 w-fit whitespace-nowrap">Notas clínicas extendidas</TabsTrigger>
+          <TabsTrigger value="medications" className="flex-shrink-0 w-fit whitespace-nowrap">Medicamentos</TabsTrigger>
           <TabsTrigger value="team" className="flex-shrink-0 w-fit whitespace-nowrap">Equipo tratante</TabsTrigger>
           <TabsTrigger value="sessions" className="flex-shrink-0 w-fit whitespace-nowrap">Sesiones</TabsTrigger>
           <TabsTrigger value="documents" className="flex-shrink-0 w-fit whitespace-nowrap">Documentos e Informes</TabsTrigger>
@@ -152,6 +154,9 @@ export default function PatientDetail() {
             patientId={patient.id}
             onClick={() => setTab("sessions")}
           />
+        </TabsContent>
+
+        <TabsContent value="extended" className="mt-4">
           <ExtendedNotesEditor
             table="patients"
             rowId={patient.id}
@@ -161,6 +166,9 @@ export default function PatientDetail() {
               setPatient((p: any) => p ? { ...p, notes: newNotes, extended_notes: null } : p);
             }}
           />
+        </TabsContent>
+
+        <TabsContent value="medications" className="mt-4">
           <MedicationsSection kind="adult" patientId={patient.id} />
         </TabsContent>
 
