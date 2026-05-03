@@ -114,6 +114,28 @@ export function PubMedPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSearch, initialQuery]);
 
+  async function refreshExisting(articles: PubMedArticle[]) {
+    const pmcIds = articles.map((a) => a.pmc_id).filter((x): x is string => !!x);
+    const pubmedIds = articles.map((a) => a.pubmed_id).filter((x): x is string => !!x);
+    const europeIds = articles.map((a) => a.europepmc_id).filter(Boolean);
+    const ors: string[] = [];
+    if (pmcIds.length) ors.push(`pmc_id.in.(${pmcIds.join(",")})`);
+    if (pubmedIds.length) ors.push(`pubmed_id.in.(${pubmedIds.join(",")})`);
+    if (europeIds.length) ors.push(`europepmc_id.in.(${europeIds.join(",")})`);
+    if (ors.length === 0) { setExisting(new Set()); return; }
+    const { data } = await supabase
+      .from("documents")
+      .select("pubmed_id, pmc_id, europepmc_id")
+      .or(ors.join(","));
+    const ids = new Set<string>();
+    for (const r of (data ?? []) as Array<{ pubmed_id: string | null; pmc_id: string | null; europepmc_id: string | null }>) {
+      if (r.pubmed_id) ids.add(`pmid:${r.pubmed_id}`);
+      if (r.pmc_id) ids.add(`pmc:${r.pmc_id}`);
+      if (r.europepmc_id) ids.add(`epmc:${r.europepmc_id}`);
+    }
+    setExisting(ids);
+  }
+
   async function runSearch() {
     if (!query.trim()) {
       toast.error("Escribe un término de búsqueda");
@@ -122,25 +144,14 @@ export function PubMedPanel({
     setLoading(true);
     setError(null);
     try {
-      const [{ data, error: fnErr }, libRes] = await Promise.all([
-        supabase.functions.invoke("search-pubmed", {
-          body: { action: "search", query, onlyPdf },
-        }),
-        supabase
-          .from("documents")
-          .select("pubmed_id, pmc_id, europepmc_id, source_url"),
-      ]);
+      const { data, error: fnErr } = await supabase.functions.invoke("search-pubmed", {
+        body: { action: "search", query, onlyPdf },
+      });
       if (fnErr) throw new Error(fnErr.message);
       if (data?.error) throw new Error(data.error);
-      setResults((data?.articles ?? []) as PubMedArticle[]);
-      const ids = new Set<string>();
-      for (const r of (libRes.data ?? []) as Array<{ pubmed_id: string | null; pmc_id: string | null; europepmc_id: string | null; source_url: string | null }>) {
-        if (r.pubmed_id) ids.add(`pmid:${r.pubmed_id}`);
-        if (r.pmc_id) ids.add(`pmc:${r.pmc_id}`);
-        if (r.europepmc_id) ids.add(`epmc:${r.europepmc_id}`);
-        if (r.source_url) ids.add(`url:${r.source_url}`);
-      }
-      setExisting(ids);
+      const articles = (data?.articles ?? []) as PubMedArticle[];
+      setResults(articles);
+      await refreshExisting(articles);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -154,8 +165,17 @@ export function PubMedPanel({
     if (a.pubmed_id && existing.has(`pmid:${a.pubmed_id}`)) return true;
     if (a.pmc_id && existing.has(`pmc:${a.pmc_id}`)) return true;
     if (a.europepmc_id && existing.has(`epmc:${a.europepmc_id}`)) return true;
-    if (a.pdf_url && existing.has(`url:${a.pdf_url}`)) return true;
     return false;
+  }
+
+  function markImported(a: PubMedArticle) {
+    setExisting((prev) => {
+      const next = new Set(prev);
+      if (a.pubmed_id) next.add(`pmid:${a.pubmed_id}`);
+      if (a.pmc_id) next.add(`pmc:${a.pmc_id}`);
+      if (a.europepmc_id) next.add(`epmc:${a.europepmc_id}`);
+      return next;
+    });
   }
 
   function pdfDirectUrl(a: PubMedArticle): string | null {
