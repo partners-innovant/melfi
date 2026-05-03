@@ -82,10 +82,27 @@ Deno.serve(async (req) => {
     const {
       title, authors, journal, year, publication_date, abstract_text,
       doi, pubmed_id, pmc_id, europepmc_id, source_url, repository,
+      repository_id, source_institution, impact_factor, document_type,
       citations_count, is_global,
       clinical_areas: ca_in, evidence_level: el_in,
       geographic_relevance: gr_in, language: lang_in,
     } = body ?? {};
+
+    function calcRelevance(ev: string | null, cites: number, yr: number | null, geo: string | null): number {
+      const ev_s: Record<string, number> = {
+        meta_analisis: 100, revision_sistematica: 90, ensayo_clinico_rct: 80,
+        guia_practica_clinica: 75, estudio_cohorte: 60, consenso_expertos: 50,
+        opinion_experto: 30, reporte_caso: 20, otro: 10,
+      };
+      const evScore = ev_s[ev ?? "otro"] ?? 10;
+      const citScore = Math.min((cites || 0) / 10, 100);
+      const yearDiff = new Date().getFullYear() - (yr || 2000);
+      const recScore = Math.max(0, 100 - yearDiff * 10);
+      const geo_s: Record<string, number> = { chile: 100, latinoamerica: 75, internacional: 50 };
+      const geoScore = geo_s[geo ?? "internacional"] ?? 50;
+      const total = evScore * 0.4 + citScore * 0.25 + recScore * 0.2 + geoScore * 0.15;
+      return Math.round(total * 10) / 10;
+    }
 
     if (!title || !abstract_text) {
       return new Response(JSON.stringify({ error: "title y abstract_text requeridos" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -122,13 +139,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    const yearNum = year ? Number(year) : null;
+    const citNum = citations_count ?? 0;
+    const relevance_score = calcRelevance(evidence_level, citNum, yearNum, geographic_relevance);
+
     const insertRow: Record<string, unknown> = {
       psychologist_id: user.id,
       is_global: !!is_global,
       title,
       authors: authors ?? null,
       journal: journal ?? null,
-      year: year ? Number(year) : null,
+      year: yearNum,
       publication_date: publication_date ?? null,
       abstract_text,
       doi: doi ?? null,
@@ -137,11 +158,16 @@ Deno.serve(async (req) => {
       europepmc_id: europepmc_id ?? null,
       source_url: source_url ?? null,
       repository: repository ?? "PubMed / EuropePMC",
-      citations_count: citations_count ?? 0,
+      repository_id: repository_id ?? pubmed_id ?? pmc_id ?? doi ?? null,
+      source_institution: source_institution ?? null,
+      impact_factor: impact_factor ?? null,
+      document_type: document_type ?? "articulo_cientifico",
+      citations_count: citNum,
       clinical_areas: clinical_areas ?? [],
       evidence_level,
       geographic_relevance: geographic_relevance ?? "internacional",
       language: language ?? "ingles",
+      relevance_score,
     };
 
     const { data: inserted, error: insErr } = await userClient

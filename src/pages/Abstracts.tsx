@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, clinicalAreaColor, clinicalAreaLabel } from "@/lib/clinical-areas";
-import { PubMedPanel, type PubMedArticle } from "@/components/PubMedSearchDialog";
+import { X, Search as SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const EVIDENCE_LEVELS = [
@@ -290,17 +290,14 @@ export default function AbstractsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* PubMed search */}
-      <Dialog open={pubmedOpen} onOpenChange={setPubmedOpen}>
-        <DialogContent className="w-[90vw] max-w-[1100px] max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FlaskConical className="h-5 w-5 text-primary" /> Buscar abstracts en PubMed
-            </DialogTitle>
-          </DialogHeader>
-          <PubMedAbstractImporter onImported={load} />
-        </DialogContent>
-      </Dialog>
+      {/* PubMed fullscreen search */}
+      {pubmedOpen && (
+        <PubMedFullscreenSearch
+          existingIds={list}
+          onClose={() => setPubmedOpen(false)}
+          onImported={load}
+        />
+      )}
 
       {/* Manual entry */}
       <ManualAbstractDialog
@@ -397,70 +394,6 @@ function formatAbstract(text: string): string {
     html = html.replace(re, '$1<strong class="text-teal-600 dark:text-teal-400">$2</strong>');
   }
   return html;
-}
-
-function PubMedAbstractImporter({ onImported }: { onImported: () => void }) {
-  const [imported, setImported] = useState<Set<string>>(new Set());
-  const [busy, setBusy] = useState<string | null>(null);
-
-  async function importArticle(a: PubMedArticle) {
-    setBusy(a.europepmc_id);
-    try {
-      const { error } = await supabase.functions.invoke("import-abstract", {
-        body: {
-          title: a.title,
-          authors: a.authors,
-          journal: a.journal,
-          year: a.year ? parseInt(a.year) : null,
-          publication_date: a.publication_date ?? null,
-          abstract_text: a.abstract,
-          doi: a.doi,
-          pubmed_id: a.pubmed_id,
-          pmc_id: a.pmc_id,
-          europepmc_id: a.europepmc_id,
-          source_url: a.article_url,
-          citations_count: a.citations_count ?? 0,
-        },
-      });
-      if (error) throw error;
-      setImported((s) => new Set(s).add(a.europepmc_id));
-      toast.success("Abstract importado");
-      onImported();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Error al importar");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  return (
-    <PubMedPanel
-      onRequestUpload={(prefill) => {
-        // We hijack the prefill-based flow and import abstract directly
-        const fakeArticle: PubMedArticle = {
-          europepmc_id: prefill.europepmc_id,
-          source: prefill.europepmc_source,
-          pubmed_id: prefill.pubmed_id,
-          pmc_id: prefill.pmc_id,
-          doi: null,
-          title: prefill.title,
-          authors: prefill.author,
-          journal: prefill.journal ?? "",
-          year: prefill.year,
-          publication_date: prefill.publication_date ?? null,
-          abstract: prefill.abstract,
-          has_pdf: false,
-          is_open_access: false,
-          pdf_url: null,
-          article_url: prefill.source_url ?? "",
-          citations_count: prefill.citations_count ?? null,
-        };
-        void importArticle(fakeArticle);
-      }}
-    />
-  );
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  void imported; void busy;
 }
 
 function ManualAbstractDialog({
@@ -605,5 +538,525 @@ function ManualAbstractDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ============================================================
+// Fullscreen PubMed search for Abstracts
+// ============================================================
+
+interface EpmcArticle {
+  id: string;
+  source?: string;
+  pmid?: string;
+  pmcid?: string;
+  doi?: string;
+  title?: string;
+  authorString?: string;
+  authorList?: { author?: Array<{ authorAffiliationDetailsList?: { authorAffiliation?: Array<{ affiliation?: string }> } }> };
+  journalTitle?: string;
+  pubYear?: string;
+  firstPublicationDate?: string;
+  abstractText?: string;
+  citedByCount?: number;
+  language?: string;
+  pubTypeList?: { pubType?: string[] };
+  meshHeadingList?: { meshHeading?: Array<{ descriptorName?: string }> };
+  fullTextUrlList?: { fullTextUrl?: Array<{ url?: string; documentStyle?: string; availabilityCode?: string }> };
+}
+
+interface ScoredArticle extends EpmcArticle {
+  relevance_score: number;
+}
+
+const PUB_TYPE_EVIDENCE: Record<string, number> = {
+  "Meta-Analysis": 100,
+  "Systematic Review": 90,
+  "Practice Guideline": 75,
+  "Randomized Controlled Trial": 80,
+  "Review": 70,
+  "Journal Article": 50,
+};
+
+function detectDocumentType(types: string[]): string {
+  if (types.includes("Meta-Analysis")) return "meta_analisis";
+  if (types.includes("Systematic Review")) return "revision_sistematica";
+  if (types.includes("Randomized Controlled Trial")) return "ensayo_clinico_rct";
+  if (types.includes("Practice Guideline")) return "guia_practica_clinica";
+  if (types.includes("Review")) return "revision_sistematica";
+  return "articulo_cientifico";
+}
+function detectEvidenceLevel(types: string[]): string {
+  if (types.includes("Meta-Analysis")) return "meta_analisis";
+  if (types.includes("Systematic Review")) return "revision_sistematica";
+  if (types.includes("Randomized Controlled Trial")) return "ensayo_clinico_rct";
+  if (types.includes("Review")) return "revision_sistematica";
+  if (types.includes("Practice Guideline")) return "guia_practica_clinica";
+  return "estudio_cohorte";
+}
+function detectClinicalAreas(mesh: string[]): string[] {
+  const t = mesh.map((m) => m.toLowerCase());
+  const areas: string[] = [];
+  if (t.some((x) => x.includes("anxiety"))) areas.push("anxiety");
+  if (t.some((x) => x.includes("depress"))) areas.push("depression");
+  if (t.some((x) => x.includes("attention deficit"))) areas.push("attention_deficit_disorder");
+  if (t.some((x) => x.includes("bipolar"))) areas.push("bipolar_disorder");
+  if (t.some((x) => x.includes("schizophrenia") || x.includes("psychosis"))) areas.push("psychosis_and_schizophrenia");
+  if (t.some((x) => x.includes("eating disorder"))) areas.push("eating_disorders");
+  if (t.some((x) => x.includes("personality disorder"))) areas.push("personality_disorders");
+  if (t.some((x) => x.includes("substance") || x.includes("addiction"))) areas.push("addiction");
+  if (t.some((x) => x.includes("autism"))) areas.push("autism");
+  if (t.some((x) => x.includes("trauma") || x.includes("ptsd"))) areas.push("trauma_estres");
+  if (t.some((x) => x.includes("suicide"))) areas.push("suicide_prevention");
+  if (t.some((x) => x.includes("self-harm"))) areas.push("self_harm");
+  if (areas.length === 0) areas.push("intervenciones_psicoterapias");
+  return areas.slice(0, 3);
+}
+
+function previewScore(a: EpmcArticle): number {
+  const types = a.pubTypeList?.pubType ?? [];
+  const evidenceScore = types.length > 0
+    ? Math.max(...types.map((t) => PUB_TYPE_EVIDENCE[t] ?? 10))
+    : 10;
+  const citationsScore = Math.min((a.citedByCount || 0) / 10, 100);
+  const yearDiff = new Date().getFullYear() - (parseInt(a.pubYear ?? "2000") || 2000);
+  const recencyScore = Math.max(0, 100 - yearDiff * 10);
+  return Math.round(evidenceScore * 0.4 + citationsScore * 0.25 + recencyScore * 0.35);
+}
+
+function shortLabel(t: string): string {
+  if (t.includes("Meta-Analysis")) return "Meta-análisis";
+  if (t.includes("Systematic Review")) return "Revisión";
+  if (t.includes("Randomized Controlled Trial")) return "RCT";
+  if (t.includes("Practice Guideline")) return "Guía";
+  if (t.includes("Review")) return "Revisión";
+  return "Artículo";
+}
+
+function pdfUrlOf(a: EpmcArticle): string | null {
+  const fts = a.fullTextUrlList?.fullTextUrl ?? [];
+  const oa = fts.find((x) => x.availabilityCode === "OA" && x.documentStyle === "pdf");
+  if (oa?.url) return oa.url;
+  if (a.pmcid) return `https://pmc.ncbi.nlm.nih.gov/articles/${a.pmcid}/pdf/`;
+  return null;
+}
+
+function PubMedFullscreenSearch({
+  existingIds, onClose, onImported,
+}: {
+  existingIds: Abstract[];
+  onClose: () => void;
+  onImported: () => void;
+}) {
+  const [term, setTerm] = useState("");
+  const [years, setYears] = useState<string>("5");
+  const [yearFrom, setYearFrom] = useState("");
+  const [yearTo, setYearTo] = useState("");
+  const [language, setLanguage] = useState<string>("all");
+  const [onlyPDF, setOnlyPDF] = useState(false);
+  const [sortBy, setSortBy] = useState<"relevancia" | "citaciones" | "recientes">("relevancia");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<ScoredArticle[] | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState<Set<string>>(new Set());
+  const [imported, setImported] = useState<Set<string>>(new Set());
+
+  const existingKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const a of existingIds) {
+      if (a.pubmed_id) s.add(`pmid:${a.pubmed_id}`);
+      if (a.pmc_id) s.add(`pmc:${a.pmc_id}`);
+      if (a.europepmc_id) s.add(`epmc:${a.europepmc_id}`);
+    }
+    return s;
+  }, [existingIds]);
+
+  function isAlreadyImported(a: EpmcArticle): boolean {
+    if (a.pmid && existingKeys.has(`pmid:${a.pmid}`)) return true;
+    if (a.pmcid && existingKeys.has(`pmc:${a.pmcid}`)) return true;
+    if (a.id && existingKeys.has(`epmc:${a.id}`)) return true;
+    if (a.pmid && imported.has(`pmid:${a.pmid}`)) return true;
+    if (a.id && imported.has(`epmc:${a.id}`)) return true;
+    return false;
+  }
+
+  async function runSearch() {
+    if (!term.trim()) { toast.error("Escribe un término de búsqueda"); return; }
+    setLoading(true);
+    try {
+      const currentYear = new Date().getFullYear();
+      let q = term.trim();
+      q += " AND NOT SRC:PPR";
+      if (yearFrom && yearTo) {
+        q += ` AND PUB_YEAR:[${yearFrom} TO ${yearTo}]`;
+      } else if (years && years !== "all") {
+        const fromY = currentYear - parseInt(years);
+        q += ` AND PUB_YEAR:[${fromY} TO ${currentYear}]`;
+      }
+      if (language === "español") q += " AND LANG:spa";
+      if (language === "ingles") q += " AND LANG:eng";
+      if (onlyPDF) q += " AND OPEN_ACCESS:y AND HAS_FT:y";
+
+      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=50&resultType=core`;
+      const r = await fetch(url);
+      const d = await r.json();
+      const list: EpmcArticle[] = d.resultList?.result ?? [];
+      setTotalCount(d.hitCount ?? list.length);
+      const withScores: ScoredArticle[] = list.map((a) => ({ ...a, relevance_score: previewScore(a) }));
+      let sorted = withScores;
+      if (sortBy === "citaciones") sorted = [...withScores].sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
+      else if (sortBy === "recientes") sorted = [...withScores].sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
+      else sorted = [...withScores].sort((a, b) => b.relevance_score - a.relevance_score);
+      setResults(sorted.slice(0, 15));
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al buscar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Re-sort when sortBy changes without re-fetching
+  useEffect(() => {
+    if (!results) return;
+    let sorted = [...results];
+    if (sortBy === "citaciones") sorted.sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
+    else if (sortBy === "recientes") sorted.sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
+    else sorted.sort((a, b) => b.relevance_score - a.relevance_score);
+    setResults(sorted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy]);
+
+  function buildImportBody(a: ScoredArticle) {
+    const types = a.pubTypeList?.pubType ?? [];
+    const mesh = (a.meshHeadingList?.meshHeading ?? []).map((h) => h.descriptorName ?? "").filter(Boolean);
+    const aff = a.authorList?.author?.[0]?.authorAffiliationDetailsList?.authorAffiliation?.[0]?.affiliation ?? null;
+    return {
+      title: a.title ?? "",
+      authors: a.authorString ?? null,
+      journal: a.journalTitle ?? null,
+      source_institution: aff,
+      year: a.pubYear ? parseInt(a.pubYear) : null,
+      publication_date: a.firstPublicationDate ?? null,
+      abstract_text: (a.abstractText ?? "").replace(/<[^>]*>/g, ""),
+      doi: a.doi ?? null,
+      pubmed_id: a.pmid ?? null,
+      pmc_id: a.pmcid ?? null,
+      europepmc_id: a.id,
+      repository: "PubMed / EuropePMC",
+      repository_id: a.pmid ?? a.pmcid ?? a.doi ?? a.id,
+      source_url: a.doi ? `https://doi.org/${a.doi}` : null,
+      citations_count: a.citedByCount || 0,
+      document_type: detectDocumentType(types),
+      evidence_level: detectEvidenceLevel(types),
+      clinical_areas: detectClinicalAreas(mesh),
+      language: a.language === "eng" ? "ingles" : a.language === "spa" ? "español" : "otro",
+      geographic_relevance: "internacional",
+    };
+  }
+
+  async function importOne(a: ScoredArticle) {
+    if (!a.abstractText) { toast.error("Este artículo no tiene abstract disponible"); return; }
+    setImporting((s) => new Set(s).add(a.id));
+    try {
+      const { error } = await supabase.functions.invoke("import-abstract", { body: buildImportBody(a) });
+      if (error) throw error;
+      setImported((s) => {
+        const n = new Set(s);
+        if (a.pmid) n.add(`pmid:${a.pmid}`);
+        n.add(`epmc:${a.id}`);
+        return n;
+      });
+      toast.success("Abstract importado");
+      onImported();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Error al importar");
+    } finally {
+      setImporting((s) => { const n = new Set(s); n.delete(a.id); return n; });
+    }
+  }
+
+  async function importBulk() {
+    if (!results) return;
+    const targets = results.filter((a) => selected.has(a.id) && !isAlreadyImported(a) && a.abstractText);
+    if (targets.length === 0) { toast.error("Nada para importar"); return; }
+    toast.info(`Importando ${targets.length} abstracts...`);
+    for (const a of targets) {
+      // eslint-disable-next-line no-await-in-loop
+      await importOne(a);
+    }
+    setSelected(new Set());
+  }
+
+  const sortLabel = sortBy === "citaciones" ? "más citados" : sortBy === "recientes" ? "más recientes" : "relevancia";
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-background flex flex-col">
+      {/* Top bar */}
+      <div className="border-b px-6 py-3 flex items-center gap-4">
+        <div className="font-semibold flex items-center gap-2">
+          <FlaskConical className="h-5 w-5 text-primary" /> Buscar abstracts en PubMed
+        </div>
+        <div className="flex-1 flex justify-center">
+          <div className="flex gap-2 w-full max-w-[500px]">
+            <Input
+              autoFocus
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Tema, diagnóstico, técnica..."
+              onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
+              className="flex-1"
+            />
+            <Button onClick={runSearch} disabled={loading} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchIcon className="h-4 w-4" />} Buscar
+            </Button>
+          </div>
+        </div>
+        <Button variant="ghost" onClick={onClose} className="gap-1.5"><X className="h-4 w-4" /> Cerrar</Button>
+      </div>
+
+      {/* Filter bar */}
+      <div className="border-b px-6 py-2 flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">Período:</span>
+          <Select value={years} onValueChange={setYears}>
+            <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="1">Último año</SelectItem>
+              <SelectItem value="2">Últimos 2 años</SelectItem>
+              <SelectItem value="5">Últimos 5 años</SelectItem>
+              <SelectItem value="10">Últimos 10 años</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
+          {years === "custom" && (
+            <>
+              <Input placeholder="Desde" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-[80px] h-8" />
+              <Input placeholder="Hasta" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-[80px] h-8" />
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch id="pdf" checked={onlyPDF} onCheckedChange={setOnlyPDF} />
+          <Label htmlFor="pdf" className="cursor-pointer">📄 Solo con PDF</Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">Idioma:</span>
+          <Select value={language} onValueChange={setLanguage}>
+            <SelectTrigger className="w-[120px] h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="ingles">Inglés</SelectItem>
+              <SelectItem value="español">Español</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-1 ml-auto bg-muted/50 rounded-md p-0.5">
+          {([
+            ["relevancia", "⭐ Relevancia"],
+            ["citaciones", "📊 Más citados"],
+            ["recientes", "📅 Más recientes"],
+          ] as const).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => setSortBy(v)}
+              className={cn(
+                "px-2.5 py-1 rounded text-xs font-medium",
+                sortBy === v ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-auto">
+        {!results && !loading && (
+          <div className="p-20 text-center text-muted-foreground text-sm">
+            Escribe un término clínico arriba y presiona Buscar.
+          </div>
+        )}
+        {loading && (
+          <div className="p-6 space-y-2">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+          </div>
+        )}
+        {results && (
+          <div>
+            <div className="px-6 py-2 text-xs text-muted-foreground border-b bg-muted/20">
+              {totalCount.toLocaleString()} resultados encontrados · Mostrando top {results.length} · Ordenado por {sortLabel}
+            </div>
+            {results.length === 0 ? (
+              <div className="p-20 text-center text-muted-foreground text-sm">No se encontraron resultados.</div>
+            ) : (
+              <table className="w-full text-xs table-fixed">
+                <thead className="bg-muted/40 text-[11px] text-muted-foreground sticky top-0">
+                  <tr>
+                    <th className="p-2" style={{ width: "3%" }}></th>
+                    <th className="p-2 text-left" style={{ width: "5%" }}>Score</th>
+                    <th className="p-2 text-left" style={{ width: "20%" }}>Título</th>
+                    <th className="p-2 text-left" style={{ width: "9%" }}>Autores</th>
+                    <th className="p-2 text-left" style={{ width: "9%" }}>Revista</th>
+                    <th className="p-2 text-left" style={{ width: "8%" }}>Institución</th>
+                    <th className="p-2 text-left" style={{ width: "4%" }}>Año</th>
+                    <th className="p-2 text-left" style={{ width: "7%" }}>Tipo</th>
+                    <th className="p-2 text-left" style={{ width: "9%" }}>Área clínica</th>
+                    <th className="p-2 text-left" style={{ width: "6%" }}>Evidencia</th>
+                    <th className="p-2 text-left" style={{ width: "4%" }}>Citas</th>
+                    <th className="p-2 text-left" style={{ width: "4%" }}>PDF</th>
+                    <th className="p-2 text-left" style={{ width: "12%" }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((a) => {
+                    const isExp = expanded.has(a.id);
+                    const types = a.pubTypeList?.pubType ?? [];
+                    const mesh = (a.meshHeadingList?.meshHeading ?? []).map((h) => h.descriptorName ?? "").filter(Boolean);
+                    const areas = detectClinicalAreas(mesh);
+                    const ev = detectEvidenceLevel(types);
+                    const aff = a.authorList?.author?.[0]?.authorAffiliationDetailsList?.authorAffiliation?.[0]?.affiliation ?? "";
+                    const pdf = pdfUrlOf(a);
+                    const already = isAlreadyImported(a);
+                    const isImporting = importing.has(a.id);
+                    const sc = a.relevance_score;
+                    const scColor = sc > 70 ? "bg-emerald-500" : sc >= 40 ? "bg-amber-400" : "bg-red-400";
+                    return (
+                      <Fragment key={a.id}>
+                        <tr className="border-t hover:bg-muted/20 align-top">
+                          <td className="p-2 pt-3">
+                            <input
+                              type="checkbox"
+                              disabled={already || !a.abstractText}
+                              checked={selected.has(a.id)}
+                              onChange={(e) => {
+                                setSelected((s) => {
+                                  const n = new Set(s);
+                                  if (e.target.checked) n.add(a.id); else n.delete(a.id);
+                                  return n;
+                                });
+                              }}
+                            />
+                          </td>
+                          <td className="p-2 pt-3">
+                            <div className={cn("inline-flex items-center justify-center h-7 w-7 rounded-full text-white text-[10px] font-semibold", scColor)}>
+                              {sc}
+                            </div>
+                          </td>
+                          <td className="p-2 pt-3">
+                            <button
+                              className="text-left font-medium leading-snug line-clamp-2 hover:text-primary"
+                              onClick={() => setExpanded((s) => {
+                                const n = new Set(s);
+                                if (n.has(a.id)) n.delete(a.id); else n.add(a.id);
+                                return n;
+                              })}
+                            >
+                              {a.title}
+                            </button>
+                            {already && <Badge className="ml-1 text-[9px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30">✅ Ya importado</Badge>}
+                          </td>
+                          <td className="p-2 pt-3 text-muted-foreground truncate" title={a.authorString}>
+                            {(a.authorString ?? "").split(",")[0]}{(a.authorString ?? "").includes(",") && " et al."}
+                          </td>
+                          <td className="p-2 pt-3 text-muted-foreground truncate" title={a.journalTitle}>{a.journalTitle ?? "—"}</td>
+                          <td className="p-2 pt-3 text-muted-foreground truncate" title={aff}>{aff || "—"}</td>
+                          <td className="p-2 pt-3">{a.pubYear ?? "—"}</td>
+                          <td className="p-2 pt-3">
+                            <Badge variant="outline" className="text-[9px]">{shortLabel(types.join(" "))}</Badge>
+                          </td>
+                          <td className="p-2 pt-3">
+                            <div className="flex flex-wrap gap-0.5">
+                              {areas.slice(0, 2).map((ca) => (
+                                <span key={ca} className={cn("text-[9px] px-1 py-0.5 rounded", clinicalAreaColor(ca))}>
+                                  {clinicalAreaLabel(ca)}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="p-2 pt-3">
+                            <Badge variant="outline" className="text-[9px]">{EVIDENCE_LABELS[ev] ?? ev}</Badge>
+                          </td>
+                          <td className={cn("p-2 pt-3 tabular-nums", (a.citedByCount || 0) > 50 && "text-amber-600 font-semibold")}>
+                            {a.citedByCount ?? 0}
+                          </td>
+                          <td className="p-2 pt-3">
+                            {pdf ? <span title="PDF disponible">🟢</span> : <span title="Solo abstract">📝</span>}
+                          </td>
+                          <td className="p-2 pt-2">
+                            <div className="flex flex-wrap gap-1">
+                              <Button
+                                size="sm"
+                                disabled={already || isImporting || !a.abstractText}
+                                onClick={() => importOne(a)}
+                                className="h-7 px-2 text-[10px] bg-teal-600 hover:bg-teal-700 text-white"
+                              >
+                                {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : already ? "✅" : "➕ Importar"}
+                              </Button>
+                              <a
+                                href={a.doi ? `https://doi.org/${a.doi}` : (pdf ?? `https://europepmc.org/article/${a.source ?? "MED"}/${a.id}`)}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]">🔗 ↗</Button>
+                              </a>
+                            </div>
+                          </td>
+                        </tr>
+                        {isExp && (
+                          <tr className="bg-muted/10 border-t">
+                            <td colSpan={13} className="p-4">
+                              <div
+                                className="text-xs leading-relaxed whitespace-pre-wrap mb-3"
+                                dangerouslySetInnerHTML={{ __html: formatAbstract((a.abstractText ?? "").replace(/<[^>]*>/g, "")) }}
+                              />
+                              <div className="flex flex-wrap gap-2 items-center">
+                                {a.doi && (
+                                  <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+                                    DOI: {a.doi}
+                                  </a>
+                                )}
+                                <Button
+                                  size="sm"
+                                  disabled={already || isImporting || !a.abstractText}
+                                  onClick={() => importOne(a)}
+                                  className="h-7 px-3 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+                                >
+                                  {already ? "✅ Importado" : "➕ Importar abstract"}
+                                </Button>
+                                {pdf && (
+                                  <a href={pdf} target="_blank" rel="noreferrer">
+                                    <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1">
+                                      📄 Abrir PDF <ExternalLink className="h-3 w-3" />
+                                    </Button>
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="border-t px-6 py-3 flex items-center justify-between bg-background">
+          <div className="text-sm">{selected.size} abstracts seleccionados</div>
+          <Button onClick={importBulk} className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5">
+            <Plus className="h-4 w-4" /> Importar todos
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

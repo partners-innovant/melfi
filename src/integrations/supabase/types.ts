@@ -72,11 +72,13 @@ export type Database = {
           citations_count: number | null
           clinical_areas: string[]
           created_at: string
+          document_type: string | null
           doi: string | null
           europepmc_id: string | null
           evidence_level: string | null
           geographic_relevance: string | null
           id: string
+          impact_factor: number | null
           is_global: boolean
           journal: string | null
           language: string | null
@@ -84,7 +86,10 @@ export type Database = {
           psychologist_id: string
           publication_date: string | null
           pubmed_id: string | null
+          relevance_score: number | null
           repository: string | null
+          repository_id: string | null
+          source_institution: string | null
           source_url: string | null
           title: string
           year: number | null
@@ -95,11 +100,13 @@ export type Database = {
           citations_count?: number | null
           clinical_areas?: string[]
           created_at?: string
+          document_type?: string | null
           doi?: string | null
           europepmc_id?: string | null
           evidence_level?: string | null
           geographic_relevance?: string | null
           id?: string
+          impact_factor?: number | null
           is_global?: boolean
           journal?: string | null
           language?: string | null
@@ -107,7 +114,10 @@ export type Database = {
           psychologist_id: string
           publication_date?: string | null
           pubmed_id?: string | null
+          relevance_score?: number | null
           repository?: string | null
+          repository_id?: string | null
+          source_institution?: string | null
           source_url?: string | null
           title: string
           year?: number | null
@@ -118,11 +128,13 @@ export type Database = {
           citations_count?: number | null
           clinical_areas?: string[]
           created_at?: string
+          document_type?: string | null
           doi?: string | null
           europepmc_id?: string | null
           evidence_level?: string | null
           geographic_relevance?: string | null
           id?: string
+          impact_factor?: number | null
           is_global?: boolean
           journal?: string | null
           language?: string | null
@@ -130,7 +142,10 @@ export type Database = {
           psychologist_id?: string
           publication_date?: string | null
           pubmed_id?: string | null
+          relevance_score?: number | null
           repository?: string | null
+          repository_id?: string | null
+          source_institution?: string | null
           source_url?: string | null
           title?: string
           year?: number | null
