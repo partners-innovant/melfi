@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { DOC_TYPES, DOC_TYPE_LABELS, type DocType } from "@/lib/clinical";
+import { DOC_TYPES, DOC_TYPE_LABELS, formatAuthor, type DocType } from "@/lib/clinical";
 import {
   CLINICAL_AREAS_NICE, CLINICAL_AREAS_TRANSVERSAL, MAX_CLINICAL_AREAS,
   clinicalAreaLabel, clinicalAreaColor,
@@ -138,6 +138,20 @@ export default function AdminDocuments() {
   const [visionProgress, setVisionProgress] = useState<Record<string, { current: number; total: number }>>({});
   const [confirmVision, setConfirmVision] = useState<DocRow | null>(null);
   const [confirmVisionBulk, setConfirmVisionBulk] = useState(false);
+
+  // EuropePMC enrichment
+  type EnrichStatus = "pending" | "querying" | "done" | "skipped" | "error";
+  interface EnrichItem {
+    id: string;
+    title: string;
+    status: EnrichStatus;
+    fields?: string[];
+    error?: string;
+  }
+  const [enrichOpen, setEnrichOpen] = useState(false);
+  const [enrichItems, setEnrichItems] = useState<EnrichItem[]>([]);
+  const [enrichProgress, setEnrichProgress] = useState<{ current: number; total: number } | null>(null);
+  const [enrichSkippedNoId, setEnrichSkippedNoId] = useState(0);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -733,6 +747,115 @@ export default function AdminDocuments() {
   }
 
 
+  async function enrichOneFromEuropePMC(d: DocRow): Promise<{ ok: boolean; updatedFields?: string[]; error?: string; skipped?: boolean }> {
+    const rawId = d.pubmed_id || (d.pmc_id ? d.pmc_id.replace(/^PMC/i, "") : null);
+    if (!rawId) return { ok: false, skipped: true };
+    const source = d.pmc_id ? "PMC" : "MED";
+    const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:${encodeURIComponent(rawId)}%20AND%20SRC:${source}&format=json&resultType=core`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+      const json = await res.json();
+      const article = json?.resultList?.result?.[0];
+      if (!article) return { ok: false, error: "No encontrado en EuropePMC" };
+
+      const updates: Record<string, any> = {};
+      const updatedFields: string[] = [];
+      if (!d.journal && article.journalTitle) {
+        updates.journal = article.journalTitle;
+        updatedFields.push(`Revista: ${article.journalTitle}`);
+      }
+      if ((d.citations_count == null) && typeof article.citedByCount === "number") {
+        updates.citations_count = article.citedByCount;
+        updatedFields.push(`Citas: ${article.citedByCount}`);
+      }
+      if (!d.author && article.authorString) {
+        updates.author = formatAuthor(article.authorString);
+        updatedFields.push(`Autor`);
+      }
+      if (!d.publication_date && article.firstPublicationDate) {
+        updates.publication_date = article.firstPublicationDate;
+        updatedFields.push(`Fecha pub.`);
+      }
+      if (!d.abstract && article.abstractText) {
+        updates.abstract = article.abstractText;
+        updatedFields.push(`Abstract`);
+      }
+      if (!d.repository) {
+        updates.repository = "PubMed / EuropePMC";
+        updatedFields.push(`Repositorio`);
+      }
+      if (!d.repository_id) {
+        const rid = article.pmid || article.pmcid || rawId;
+        if (rid) {
+          updates.repository_id = String(rid);
+          updatedFields.push(`ID repo.`);
+        }
+      }
+      const journalForIF = updates.journal ?? d.journal;
+      if (d.impact_factor == null && journalForIF) {
+        const ifv = impactFactorForJournal(journalForIF);
+        if (ifv != null) {
+          updates.impact_factor = ifv;
+          updatedFields.push(`IF: ${ifv}`);
+        }
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return { ok: true, updatedFields: [] };
+      }
+
+      const { error } = await supabase.from("documents").update(updates as any).eq("id", d.id);
+      if (error) return { ok: false, error: error.message };
+
+      setRows((rs) => rs.map((r) => (r.id === d.id ? { ...r, ...updates } : r)));
+      return { ok: true, updatedFields };
+    } catch (e: any) {
+      return { ok: false, error: e?.message || "Error de red" };
+    }
+  }
+
+  async function runEnrichment(targets: DocRow[], skippedNoId = 0) {
+    if (targets.length === 0 && skippedNoId === 0) {
+      toast.info("No hay documentos con PubMed/PMC ID para enriquecer");
+      return;
+    }
+    setEnrichSkippedNoId(skippedNoId);
+    setEnrichItems(targets.map((d) => ({ id: d.id, title: d.title, status: "pending" as EnrichStatus })));
+    setEnrichProgress({ current: 0, total: targets.length });
+    setEnrichOpen(true);
+
+    for (let i = 0; i < targets.length; i++) {
+      const d = targets[i];
+      setEnrichProgress({ current: i + 1, total: targets.length });
+      setEnrichItems((items) => items.map((it) => it.id === d.id ? { ...it, status: "querying" } : it));
+      const res = await enrichOneFromEuropePMC(d);
+      setEnrichItems((items) => items.map((it) => {
+        if (it.id !== d.id) return it;
+        if (res.skipped) return { ...it, status: "skipped" };
+        if (!res.ok) return { ...it, status: "error", error: res.error };
+        return { ...it, status: "done", fields: res.updatedFields };
+      }));
+      if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 1000));
+    }
+    setEnrichProgress(null);
+  }
+
+  function enrichSelected() {
+    const sel = rows.filter((r) => selected.has(r.id));
+    const withId = sel.filter((r) => r.pubmed_id || r.pmc_id);
+    const skipped = sel.length - withId.length;
+    runEnrichment(withId, skipped);
+  }
+
+  function enrichAllMissing() {
+    const targets = rows.filter((r) =>
+      (r.pubmed_id || r.pmc_id) &&
+      (r.citations_count == null || !r.journal || r.impact_factor == null || !r.author || !r.publication_date)
+    );
+    runEnrichment(targets, 0);
+  }
+
   async function openViewer(d: DocRow) {
     setViewDoc(d);
     if (d.storage_path) {
@@ -817,6 +940,15 @@ export default function AdminDocuments() {
             </span>
           )}
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={enrichAllMissing}
+          disabled={enrichOpen}
+          className="h-8 rounded-full text-xs border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-500/10"
+        >
+          🔄 Enriquecer desde EuropePMC
+        </Button>
         {noChunksSearchAt && (
           <span className="text-[11px] text-muted-foreground">
             {noChunksSnapshot?.size ?? 0} resultado(s) · {formatRelative(noChunksSearchAt)}
@@ -867,6 +999,10 @@ export default function AdminDocuments() {
             className="border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10"
           >
             <ScanEye className="h-4 w-4 mr-1" /> Re-procesar seleccionados con visión
+          </Button>
+          <Button size="sm" variant="outline" onClick={enrichSelected} disabled={enrichOpen}
+            className="border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-500/10">
+            🔄 Enriquecer desde EuropePMC
           </Button>
           <Button size="sm" variant="destructive" onClick={() => setConfirmBulkDelete(true)}>
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar seleccionados
@@ -1350,6 +1486,74 @@ export default function AdminDocuments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* EuropePMC enrichment progress */}
+      <Dialog open={enrichOpen} onOpenChange={(o) => { if (!o && !enrichProgress) { setEnrichOpen(false); load(); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>🔄 Enriqueciendo desde EuropePMC</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {enrichProgress && (
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Procesando {enrichProgress.current} de {enrichProgress.total}...
+              </div>
+            )}
+            {enrichSkippedNoId > 0 && (
+              <div className="text-xs text-amber-600 dark:text-amber-400">
+                {enrichSkippedNoId} documento(s) omitido(s) por no tener PubMed ID
+              </div>
+            )}
+            <div className="max-h-[50vh] overflow-y-auto border rounded-md divide-y">
+              {enrichItems.map((it) => (
+                <div key={it.id} className="px-3 py-2 text-xs">
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0">
+                      {it.status === "pending" && "⏸"}
+                      {it.status === "querying" && "⏳"}
+                      {it.status === "done" && "✅"}
+                      {it.status === "skipped" && "⚪"}
+                      {it.status === "error" && "❌"}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="truncate font-medium">{it.title}</div>
+                      {it.status === "done" && it.fields && it.fields.length > 0 && (
+                        <div className="text-muted-foreground mt-0.5">
+                          {it.fields.map((f) => `✓ ${f}`).join(" · ")}
+                        </div>
+                      )}
+                      {it.status === "done" && (!it.fields || it.fields.length === 0) && (
+                        <div className="text-muted-foreground mt-0.5">Sin campos nuevos para enriquecer</div>
+                      )}
+                      {it.status === "error" && <div className="text-destructive mt-0.5">{it.error}</div>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {enrichItems.length === 0 && (
+                <div className="px-3 py-4 text-xs text-muted-foreground">Sin documentos con PubMed/PMC ID</div>
+              )}
+            </div>
+            {!enrichProgress && enrichItems.length > 0 && (
+              <div className="text-sm pt-1">
+                ✅ {enrichItems.filter((i) => i.status === "done").length} enriquecidos
+                {" · "}⚪ {enrichItems.filter((i) => i.status === "skipped").length + enrichSkippedNoId} sin PubMed ID
+                {" · "}❌ {enrichItems.filter((i) => i.status === "error").length} error(es)
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={!!enrichProgress}
+              onClick={() => { setEnrichOpen(false); load(); }}
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
