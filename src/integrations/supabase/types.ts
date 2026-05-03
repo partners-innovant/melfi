@@ -565,6 +565,8 @@ export type Database = {
           document_id: string
           document_type: string | null
           embedding: string | null
+          evidence_level: string | null
+          geographic_relevance: string | null
           id: string
           is_global: boolean
           language: string | null
@@ -581,6 +583,8 @@ export type Database = {
           document_id: string
           document_type?: string | null
           embedding?: string | null
+          evidence_level?: string | null
+          geographic_relevance?: string | null
           id?: string
           is_global?: boolean
           language?: string | null
@@ -597,6 +601,8 @@ export type Database = {
           document_id?: string
           document_type?: string | null
           embedding?: string | null
+          evidence_level?: string | null
+          geographic_relevance?: string | null
           id?: string
           is_global?: boolean
           language?: string | null
@@ -619,12 +625,16 @@ export type Database = {
         Row: {
           abstract: string | null
           author: string | null
+          citations_count: number | null
           clinical_areas: string[]
           created_at: string
           document_type: string
           europepmc_id: string | null
           europepmc_source: string | null
+          evidence_level: string | null
+          geographic_relevance: string | null
           id: string
+          impact_factor: number | null
           import_source: string | null
           is_global: boolean
           journal: string | null
@@ -646,12 +656,16 @@ export type Database = {
         Insert: {
           abstract?: string | null
           author?: string | null
+          citations_count?: number | null
           clinical_areas?: string[]
           created_at?: string
           document_type: string
           europepmc_id?: string | null
           europepmc_source?: string | null
+          evidence_level?: string | null
+          geographic_relevance?: string | null
           id?: string
+          impact_factor?: number | null
           import_source?: string | null
           is_global?: boolean
           journal?: string | null
@@ -673,12 +687,16 @@ export type Database = {
         Update: {
           abstract?: string | null
           author?: string | null
+          citations_count?: number | null
           clinical_areas?: string[]
           created_at?: string
           document_type?: string
           europepmc_id?: string | null
           europepmc_source?: string | null
+          evidence_level?: string | null
+          geographic_relevance?: string | null
           id?: string
+          impact_factor?: number | null
           import_source?: string | null
           is_global?: boolean
           journal?: string | null
