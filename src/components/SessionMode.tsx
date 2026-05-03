@@ -39,9 +39,8 @@ type AnalyzedSuggestion = {
 };
 type SummaryBlock = { t: number; bullets: string[] };
 type TopicSuggestion = { id: string; text: string; addressed: boolean };
-const HAIKU_USD = 0.02;
+const WHISPER_USD_PER_MIN = 0.006;
 const SONNET_USD = 0.08;
-const TRANSCRIPTION_USD = HAIKU_USD + SONNET_USD;
 
 interface Props {
   open: boolean;
