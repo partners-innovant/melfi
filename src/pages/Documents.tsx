@@ -1144,6 +1144,7 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
           title: finalTitle,
           author: item.author || null,
           year: item.year || null,
+          publication_date: item.publicationDate || null,
           document_type: item.docType,
           is_global: item.isGlobal && isAdmin,
           storage_path: storagePath,
