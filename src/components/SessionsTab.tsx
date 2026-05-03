@@ -153,6 +153,18 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
                     </div>
                     {s.what_happened && <p className="text-sm text-muted-foreground mt-1 truncate">{firstLine(s.what_happened)}</p>}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteId(s.id);
+                      setDeleteDate(new Date(s.session_date).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" }));
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />Eliminar
+                  </Button>
                 </div>
               </Card>
             );
@@ -167,6 +179,37 @@ export function SessionsTab({ kind, patientId, onProfileUpdated }: {
         patientId={patientId}
         onSaved={(sid) => { setNewOpen(false); load(); setActiveId(sid); }}
       />
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará permanentemente la sesión del {deleteDate}. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deleteId) return;
+                setDeleting(true);
+                const { error } = await supabase.from("sessions").delete().eq("id", deleteId);
+                setDeleting(false);
+                if (error) { toast.error(error.message); return; }
+                toast.success("✅ Sesión eliminada");
+                setDeleteId(null);
+                load();
+              }}
+            >
+              {deleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
