@@ -790,16 +790,20 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
 
       // After analysis, override fields with PubMed prefill (user picks them as canonical).
       if (consumedPrefill && prefillTargetId) {
+        const aiAreas = (consumedPrefill.clinical_areas ?? [])
+          .filter((a) => (CLINICAL_AREAS as readonly string[]).includes(a))
+          .slice(0, MAX_CLINICAL_AREAS);
         update(prefillTargetId, {
           title: consumedPrefill.title || undefined,
           author: consumedPrefill.author || undefined,
           year: consumedPrefill.year || undefined,
           sourceInstitution: consumedPrefill.source_institution,
           sourceInstitutionType: consumedPrefill.source_institution_type,
+          ...(aiAreas.length > 0 ? { clinicalAreas: aiAreas } : {}),
           pubmedPrefill: consumedPrefill,
           autoFilled: {
             title: true, author: !!consumedPrefill.author, year: !!consumedPrefill.year,
-            docType: true, clinicalAreas: false, sourceInstitution: true,
+            docType: true, clinicalAreas: aiAreas.length > 0, sourceInstitution: true,
           },
         });
       }
