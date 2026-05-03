@@ -1008,14 +1008,14 @@ function CommsTab({ childId }: { childId: string }) {
             <SelectTrigger className="h-8 w-36 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos los tipos</SelectItem>
-              {CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              {CONTACT_TYPES.map((t) => <SelectItem key={t} value={t}>{capitalize(t)}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={filterWith} onValueChange={setFilterWith}>
             <SelectTrigger className="h-8 w-44 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">Todos los contactos</SelectItem>
-              {CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{w.replace(/_/g, " ")}</SelectItem>)}
+              {CONTACT_WITH.map((w) => <SelectItem key={w} value={w}>{capitalize(w.replace(/_/g, " "))}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
