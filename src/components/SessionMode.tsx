@@ -888,9 +888,6 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
             <div className="px-4 py-2 border-b flex items-center justify-between gap-2">
               <TabsList>
-                <TabsTrigger value="support" className="gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" /> 💬 Apoyo Sesión
-                </TabsTrigger>
                 <TabsTrigger value="topics" className="gap-1.5">
                   <Lightbulb className="h-3.5 w-3.5" /> 💡 Sugerencias
                   {topicSuggestions.length > 0 && (
@@ -925,112 +922,142 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               ) : null}
             </div>
 
-            <TabsContent value="support" className="flex-1 min-h-0 mt-0">
-              <div className="h-full overflow-y-auto p-4 space-y-3">
-                {sessionInsight && (
-                  <div className="rounded-md border border-teal-400/40 bg-teal-500/10 p-3 text-sm">
-                    <div className="font-semibold mb-1">💡 Insight de sesión</div>
-                    <div className="text-muted-foreground">{sessionInsight}</div>
-                    {lastAnalyzedAt && (
-                      <div className="text-[10px] text-muted-foreground/80 mt-1">
-                        Última transcripción: {clockFromTimestamp(lastAnalyzedAt)}
-                      </div>
-                    )}
+            <TabsContent value="topics" className="flex-1 min-h-0 mt-0">
+              <div className="h-full overflow-y-auto p-4 space-y-5">
+                {/* Section 1: Checklist de temas */}
+                <section>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+                    ✅ Checklist de temas
                   </div>
-                )}
+                  {loadingSuggestions && (
+                    <div className="text-sm text-muted-foreground flex items-center gap-2 mb-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {topicSuggestions.length === 0 ? "Cargando sugerencias iniciales…" : "Generando sugerencias…"}
+                    </div>
+                  )}
+                  {topicSuggestions.length === 0 && !loadingSuggestions ? (
+                    <div className="text-sm text-muted-foreground text-center py-6 border rounded-md border-dashed">
+                      Pulsa "✨ Pedir sugerencias" para generar tópicos a abordar.
+                    </div>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {topicSuggestions.map((t) => (
+                        <li
+                          key={t.id}
+                          className={`flex items-start gap-2 p-2 rounded-md border text-sm ${
+                            t.addressed ? "bg-emerald-500/10 border-emerald-400/40" : "bg-card"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={t.addressed}
+                            onCheckedChange={(v) =>
+                              setTopicSuggestions((prev) =>
+                                prev.map((x) => (x.id === t.id ? { ...x, addressed: !!v } : x)),
+                              )
+                            }
+                            className="mt-0.5"
+                          />
+                          <span className={t.addressed ? "line-through text-muted-foreground" : ""}>{t.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
 
-                {analyzedSuggestions.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
-                    Las sugerencias aparecerán aquí tras pulsar "✨ Transcribir y analizar".
+                {/* Section 2: Apoyo sesión */}
+                <section>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+                    💬 Apoyo sesión
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {analyzedSuggestions.map((s) => {
-                      const tone =
-                        s.type === "question" ? "border-blue-400/40 bg-blue-500/10"
-                        : s.type === "pattern" ? "border-purple-400/40 bg-purple-500/10"
-                        : s.type === "alert" ? "border-amber-400/40 bg-amber-500/10"
-                        : "border-teal-400/40 bg-teal-500/10";
-                      const addressedClass = s.addressed ? "ring-2 ring-amber-400 bg-amber-500/15 border-amber-400/60" : "";
-                      const kind: UsedSuggestion["kind"] =
-                        s.type === "question" ? "question"
-                        : s.type === "pattern" ? "pattern"
-                        : s.type === "alert" ? "unexplored"
-                        : "intervention";
-                      return (
-                        <div key={s.id} className={`p-2.5 rounded-md border text-sm ${tone} ${addressedClass}`}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <div className="text-[10px] uppercase tracking-wide font-semibold opacity-70 mb-0.5">
-                                {s.type}
-                                {s.addressed && (
-                                  <Badge variant="outline" className="ml-2 border-amber-500 text-amber-700 text-[10px]">
-                                    🎙️ Detectado en conversación
-                                  </Badge>
+                  {sessionInsight && (
+                    <div className="rounded-md border border-teal-400/40 bg-teal-500/10 p-3 text-sm mb-2">
+                      <div className="font-semibold mb-1">💡 Insight de sesión</div>
+                      <div className="text-muted-foreground">{sessionInsight}</div>
+                      {lastAnalyzedAt && (
+                        <div className="text-[10px] text-muted-foreground/80 mt-1">
+                          Última transcripción: {clockFromTimestamp(lastAnalyzedAt)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {analyzedSuggestions.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-6 border rounded-md border-dashed">
+                      Las sugerencias aparecerán aquí tras pulsar "✨ Transcribir y analizar".
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {analyzedSuggestions.map((s) => {
+                        const tone =
+                          s.type === "question" ? "border-blue-400/40 bg-blue-500/10"
+                          : s.type === "pattern" ? "border-purple-400/40 bg-purple-500/10"
+                          : s.type === "alert" ? "border-amber-400/40 bg-amber-500/10"
+                          : "border-teal-400/40 bg-teal-500/10";
+                        const addressedClass = s.addressed ? "ring-2 ring-amber-400 bg-amber-500/15 border-amber-400/60" : "";
+                        const kind: UsedSuggestion["kind"] =
+                          s.type === "question" ? "question"
+                          : s.type === "pattern" ? "pattern"
+                          : s.type === "alert" ? "unexplored"
+                          : "intervention";
+                        return (
+                          <div key={s.id} className={`p-2.5 rounded-md border text-sm ${tone} ${addressedClass}`}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="text-[10px] uppercase tracking-wide font-semibold opacity-70 mb-0.5">
+                                  {s.type}
+                                  {s.addressed && (
+                                    <Badge variant="outline" className="ml-2 border-amber-500 text-amber-700 text-[10px]">
+                                      🎙️ Detectado en conversación
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div>{s.text}</div>
+                                {s.rationale && (
+                                  <div className="text-[11px] text-muted-foreground mt-1 italic">{s.rationale}</div>
                                 )}
                               </div>
-                              <div>{s.text}</div>
-                              {s.rationale && (
-                                <div className="text-[11px] text-muted-foreground mt-1 italic">{s.rationale}</div>
-                              )}
-                            </div>
-                          </div>
-                          {s.addressed && (
-                            <div className="mt-2">
                               <Button
                                 size="sm"
+                                variant="outline"
                                 onClick={() => {
                                   markUsed(kind, s.text);
                                   setAnalyzedSuggestions((prev) => prev.filter((x) => x.id !== s.id));
                                 }}
-                                className="gap-1.5 h-7"
+                                className="gap-1.5 h-7 shrink-0"
                               >
-                                <Check className="h-3.5 w-3.5" /> Marcar como usado
+                                <Check className="h-3.5 w-3.5" /> Usar
                               </Button>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
 
-            <TabsContent value="topics" className="flex-1 min-h-0 mt-0">
-              <div className="h-full overflow-y-auto p-4 space-y-2">
-                {loadingSuggestions && (
-                  <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> {topicSuggestions.length === 0 ? "Cargando sugerencias iniciales…" : "Generando sugerencias…"}
+                {/* Section 3: Sugerencias usadas */}
+                <section>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
+                    🏷️ Sugerencias usadas ({usedSuggestions.length})
                   </div>
-                )}
-                {topicSuggestions.length === 0 && !loadingSuggestions ? (
-                  <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
-                    Pulsa "✨ Pedir sugerencias" para generar tópicos a abordar en esta sesión.
-                  </div>
-                ) : (
-                  <ul className="space-y-1.5">
-                    {topicSuggestions.map((t) => (
-                      <li
-                        key={t.id}
-                        className={`flex items-start gap-2 p-2 rounded-md border text-sm ${
-                          t.addressed ? "bg-emerald-500/10 border-emerald-400/40" : "bg-card"
-                        }`}
-                      >
-                        <Checkbox
-                          checked={t.addressed}
-                          onCheckedChange={(v) =>
-                            setTopicSuggestions((prev) =>
-                              prev.map((x) => (x.id === t.id ? { ...x, addressed: !!v } : x)),
-                            )
-                          }
-                          className="mt-0.5"
-                        />
-                        <span className={t.addressed ? "line-through text-muted-foreground" : ""}>{t.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                  {usedSuggestions.length === 0 ? (
+                    <div className="text-xs text-muted-foreground italic">
+                      Aún no has marcado sugerencias como usadas.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {usedSuggestions.map((u, i) => (
+                        <Badge
+                          key={i}
+                          variant="secondary"
+                          className="text-[11px] font-normal py-1 px-2 max-w-full"
+                          title={u.text}
+                        >
+                          <span className="truncate max-w-[260px]">{u.text}</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </section>
               </div>
             </TabsContent>
 
