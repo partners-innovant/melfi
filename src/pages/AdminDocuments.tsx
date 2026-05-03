@@ -805,7 +805,7 @@ export default function AdminDocuments() {
         return { ok: true, updatedFields: [] };
       }
 
-      const { error } = await supabase.from("documents").update(updates).eq("id", d.id);
+      const { error } = await supabase.from("documents").update(updates as any).eq("id", d.id);
       if (error) return { ok: false, error: error.message };
 
       setRows((rs) => rs.map((r) => (r.id === d.id ? { ...r, ...updates } : r)));
