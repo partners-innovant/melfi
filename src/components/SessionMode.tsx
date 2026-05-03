@@ -1276,7 +1276,26 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   return createPortal(overlay, document.body);
 }
 
-function SuggestionGroup({
+function BulletList({ bullets, emptyText, tone }: { bullets: string[]; emptyText: string; tone: "blue" | "teal" }) {
+  const dot = tone === "blue" ? "text-blue-500" : "text-teal-500";
+  if (!bullets.length) {
+    return <div className="text-[11px] text-muted-foreground italic border-t pt-2 mt-1">{emptyText}</div>;
+  }
+  return (
+    <div className="border-t pt-2 mt-1 max-h-40 overflow-y-auto">
+      <ul className="space-y-0.5 text-xs">
+        {bullets.map((b, i) => (
+          <li key={i} className="leading-snug">
+            <span className={`${dot} mr-1`}>•</span>
+            {b}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
   icon, title, tone, items, onUse,
 }: {
   icon: React.ReactNode; title: string; tone: "blue" | "purple" | "teal" | "amber";
