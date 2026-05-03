@@ -497,7 +497,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       liveStreamRef.current = stream;
       const mime = pickMimeType();
       const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      liveMimeRef.current = mr.mimeType || mime || "audio/webm";
+      liveMimeRef.current = (mr.mimeType || mime || "audio/webm").split(";")[0];
       liveChunksRef.current = [];
       unprocessedChunksRef.current = [];
       mr.ondataavailable = (e) => {
