@@ -173,8 +173,8 @@ function PubMedSection({ onImport, onSeeMore }: {
     try {
       const today = new Date().toISOString().split("T")[0];
       const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const q = `(psychology OR psychiatry OR psychotherapy OR "cognitive behavioral" OR "mental health") AND OPEN_ACCESS:y AND FIRST_PDATE:[${twoWeeksAgo} TO ${today}]`;
-      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=6&sort=CITED&resultType=core`;
+      const q = `(MeSH_TERM:"Mental Disorders" OR MeSH_TERM:"Psychotherapy" OR MeSH_TERM:"Psychiatry" OR MeSH_TERM:"Psychology, Clinical") AND OPEN_ACCESS:y AND FIRST_PDATE:[${twoWeeksAgo} TO ${today}]`;
+      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=8&sort=CITED&resultType=core`;
       const res = await fetch(url);
       const data = await res.json();
       const mapped: PubMedItem[] = (data.resultList?.result ?? []).map((a: any) => {
