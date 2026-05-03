@@ -192,11 +192,22 @@ export function ClassifyPreviewDialog({
             if (typeof ai.source_institution_type === "string" && ai.source_institution_type) {
               next.sourceInstitutionType = ai.source_institution_type as SourceInstitutionType;
             } else {
-              // try to match a known source
               const m = SOURCE_INSTITUTIONS.find((s) => s.name.toLowerCase() === next.sourceInstitution.toLowerCase());
               next.sourceInstitutionType = (m?.type as SourceInstitutionType) ?? "otro";
             }
             next.ai.sourceInstitution = true;
+          }
+          // evidence_level
+          if (!(t as any).evidence_level && typeof ai.evidence_level === "string" &&
+              (EVIDENCE_LEVELS as readonly string[]).includes(ai.evidence_level)) {
+            next.evidenceLevel = ai.evidence_level as EvidenceLevel;
+            next.ai.evidenceLevel = true;
+          }
+          // geographic_relevance
+          if (!(t as any).geographic_relevance && typeof ai.geographic_relevance === "string" &&
+              (GEOGRAPHIC_RELEVANCES as readonly string[]).includes(ai.geographic_relevance)) {
+            next.geographicRelevance = ai.geographic_relevance as GeographicRelevance;
+            next.ai.geographicRelevance = true;
           }
           return next;
         }),
