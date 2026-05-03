@@ -631,12 +631,12 @@ function DocList({
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={9} className="p-4">
+              <tr><td colSpan={8} className="p-4">
                 <div className="space-y-2">{[0, 1].map((i) => <div key={i} className="h-10 bg-muted/40 rounded animate-pulse" />)}</div>
               </td></tr>
             )}
             {!loading && docs.length === 0 && (
-              <tr><td colSpan={9} className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</td></tr>
+              <tr><td colSpan={8} className="p-6 text-center text-sm text-muted-foreground">Sin documentos en esta sección.</td></tr>
             )}
             {!loading && docs.map((d) => {
               const canDelete = canDeleteDoc(d);
