@@ -327,7 +327,7 @@ export default function AdminDocuments() {
       colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, colRepository, colCitations, colRegion, sortDate, sortCitations]);
 
   // Reset to page 1 when column filters change
-  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin]);
+  useEffect(() => { setPage(1); }, [colTitleDebounced, colAuthorDebounced, colYearFrom, colYearTo, colType, colAreas, colSourceCol, colChunks, colOrigin, colRepository, colCitations, colRegion]);
 
   // Active column filter count + clear-all
   const activeColFilterCount = useMemo(() => {
