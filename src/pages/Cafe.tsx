@@ -468,9 +468,38 @@ export default function Cafe() {
       </header>
 
       <PatientsSection patients={patients} />
-      <PubMedSection
+      <PubFeedSection
+        kind="recent"
+        title="Publicaciones recientes"
+        icon={<FlaskConical className="h-5 w-5 text-primary" />}
+        subtitle="📅 Últimos 30 días"
+        cacheKey="cafe-pubmed-recent:v2"
+        buildUrl={(pdf) => {
+          const today = new Date().toISOString().split("T")[0];
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+          const base = `psychotherapy AND NOT SRC:PPR AND FIRST_PDATE:[${thirtyDaysAgo} TO ${today}]`;
+          const q = pdf ? `${base} AND OPEN_ACCESS:y AND HAS_FT:y` : base;
+          return `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=8&resultType=core`;
+        }}
         onImport={(it) => { setPubmedQuery(it.title); setPubmedDialogOpen(true); }}
-        onSeeMore={() => { setPubmedQuery("psychology psychiatry"); setPubmedDialogOpen(true); }}
+      />
+      <PubFeedSection
+        kind="top"
+        title="Más citados"
+        icon={<span className="text-lg">⭐</span>}
+        subtitle="Últimos 6 meses"
+        cacheKey="cafe-pubmed-top:v2"
+        buildUrl={(pdf) => {
+          const today = new Date().toISOString().split("T")[0];
+          const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+          const base = `psychotherapy AND NOT SRC:PPR AND FIRST_PDATE:[${sixMonthsAgo} TO ${today}]`;
+          const q = pdf ? `${base} AND OPEN_ACCESS:y AND HAS_FT:y` : base;
+          return `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=20&resultType=core`;
+        }}
+        postProcess={(items) =>
+          [...items].sort((a, b) => (b.citedByCount ?? 0) - (a.citedByCount ?? 0)).slice(0, 6)
+        }
+        onImport={(it) => { setPubmedQuery(it.title); setPubmedDialogOpen(true); }}
       />
       <NewsSection />
 
