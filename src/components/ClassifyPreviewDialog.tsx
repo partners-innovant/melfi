@@ -127,8 +127,8 @@ export function ClassifyPreviewDialog({
         clinicalAreas: t.clinical_areas ?? [],
         sourceInstitution: t.source_institution ?? "",
         sourceInstitutionType: (t.source_institution_type as SourceInstitutionType | null) ?? null,
-        evidenceLevel: "",
-        geographicRelevance: "",
+        evidenceLevel: ((t as any).evidence_level ?? "") as CardState["evidenceLevel"],
+        geographicRelevance: ((t as any).geographic_relevance ?? "") as CardState["geographicRelevance"],
         ai: { docType: false, year: false, language: false, clinicalAreas: false, sourceInstitution: false, evidenceLevel: false, geographicRelevance: false },
       })),
     );
