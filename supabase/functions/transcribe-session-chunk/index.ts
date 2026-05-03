@@ -11,14 +11,30 @@ const corsHeaders = {
 const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 const SONNET_MODEL = "claude-sonnet-4-5-20250929";
 
-const TRANSCRIBE_PROMPT = `Transcribe este audio de una sesión terapéutica. Identifica quién habla: "Terapeuta" o "Paciente" basándote en los patrones de conversación (el terapeuta pregunta e interviene, el paciente narra y responde). Si no puedes identificar al hablante usa "Hablante".
+const DIARIZE_PROMPT = `Recibirás la transcripción de un fragmento de una sesión terapéutica, ya segmentada con timestamps por Whisper. Tu tarea es identificar quién habla en cada segmento: "Terapeuta" o "Paciente" basándote en los patrones de conversación (el terapeuta pregunta e interviene, el paciente narra y responde). Si no puedes identificarlo usa "Hablante".
 
-Responde SOLO con JSON:
+NO modifiques el texto ni los timestamps, solo asigna el speaker. Conserva el mismo orden y la misma cantidad de segmentos.
+
+Responde SOLO con JSON válido (sin markdown, sin \`\`\`):
 {
   "segments": [
-    {"speaker": "Terapeuta|Paciente|Hablante", "text": "transcripción"}
+    {"speaker": "Terapeuta|Paciente|Hablante", "timestamp": "[MM:SS]", "text": "..."}
   ]
 }`;
+
+function fmtTimestamp(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const mm = String(Math.floor(s / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `[${mm}:${ss}]`;
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
 
 // Bullets-only prompt (Haiku) — pure summarization, no clinical reasoning required
 const BULLETS_SYSTEM = `Eres un asistente clínico que resume una sesión terapéutica en curso.
