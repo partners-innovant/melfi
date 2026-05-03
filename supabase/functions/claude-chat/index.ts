@@ -164,11 +164,10 @@ Deno.serve(async (req) => {
     }
 
     // 1. Match chunks
-    const { data: chunks, error: matchErr } = await supabase.rpc("match_chunks", {
+    const { data: chunks, error: matchErr } = await supabase.rpc("match_all_chunks", {
       query_embedding,
       match_count: 5,
       p_psychologist_id: user.id,
-      p_document_type: document_type || null,
       p_clinical_area: clinical_area || null,
       p_source_institution: source_institution || null,
       p_year_from: typeof year_from === "number" ? year_from : null,
@@ -183,13 +182,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Doc metadata
-    const docIds = [...new Set((chunks ?? []).map((c: any) => c.document_id))];
-    const { data: docs } = await supabase
-      .from("documents")
-      .select("id, title, author, year, document_type, source_institution, source_institution_type, journal, clinical_areas")
-      .in("id", docIds);
+    // 2. Doc + abstract metadata
+    const docIds = [...new Set((chunks ?? []).filter((c: any) => c.source_type !== "abstract" && c.document_id).map((c: any) => c.document_id))];
+    const absIds = [...new Set((chunks ?? []).filter((c: any) => c.source_type === "abstract" && c.abstract_id).map((c: any) => c.abstract_id))];
+    const [{ data: docs }, { data: abs }] = await Promise.all([
+      docIds.length ? supabase.from("documents").select("id, title, author, year, document_type, source_institution, source_institution_type, journal, clinical_areas").in("id", docIds) : Promise.resolve({ data: [] as any[] }),
+      absIds.length ? supabase.from("abstracts").select("id, title, authors, year, journal, doi, source_url, clinical_areas, evidence_level").in("id", absIds) : Promise.resolve({ data: [] as any[] }),
+    ]);
     const docMap = new Map((docs ?? []).map((d: any) => [d.id, d]));
+    const absMap = new Map((abs ?? []).map((d: any) => [d.id, d]));
 
     // 3. Patient context
     let patientCtx = "";
@@ -307,10 +308,15 @@ ${(team ?? []).map((t: any) => `- ${t.professional_name} (${t.professional_role}
       chunksCtx += "(no se encontraron fragmentos relevantes)\n";
     } else {
       chunks.forEach((c: any, i: number) => {
-        const d = docMap.get(c.document_id) as any;
-        const inst = d?.source_institution ? ` — Institución: ${d.source_institution}` : "";
-        const jrn = d?.journal ? ` — Revista: ${d.journal}` : "";
-        chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${jrn}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
+        if (c.source_type === "abstract") {
+          const a = absMap.get(c.abstract_id) as any;
+          chunksCtx += `\n[${i + 1}] Abstract: ${a?.title ?? "Desconocido"} (${a?.authors ?? "s/a"}, ${a?.year ?? "s/f"})${a?.journal ? ` — Revista: ${a.journal}` : ""} — Tipo: Abstract científico\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
+        } else {
+          const d = docMap.get(c.document_id) as any;
+          const inst = d?.source_institution ? ` — Institución: ${d.source_institution}` : "";
+          const jrn = d?.journal ? ` — Revista: ${d.journal}` : "";
+          chunksCtx += `\n[${i + 1}] Documento: ${d?.title ?? "Desconocido"} (${d?.author ?? "s/a"}, ${d?.year ?? "s/f"}) — Tipo: ${DOC_TYPE_LABELS[d?.document_type] ?? "Otro"}${jrn}${inst} — Página ~${c.page_number ?? "?"}\nChunk ID: ${c.id}\nContenido: ${c.content}\n`;
+        }
       });
     }
 

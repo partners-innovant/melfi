@@ -14,6 +14,137 @@ export type Database = {
   }
   public: {
     Tables: {
+      abstract_chunks: {
+        Row: {
+          abstract_id: string
+          clinical_areas: string[]
+          content: string
+          created_at: string
+          embedding: string | null
+          evidence_level: string | null
+          id: string
+          is_global: boolean
+          psychologist_id: string | null
+        }
+        Insert: {
+          abstract_id: string
+          clinical_areas?: string[]
+          content: string
+          created_at?: string
+          embedding?: string | null
+          evidence_level?: string | null
+          id?: string
+          is_global?: boolean
+          psychologist_id?: string | null
+        }
+        Update: {
+          abstract_id?: string
+          clinical_areas?: string[]
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          evidence_level?: string | null
+          id?: string
+          is_global?: boolean
+          psychologist_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abstract_chunks_abstract_id_fkey"
+            columns: ["abstract_id"]
+            isOneToOne: false
+            referencedRelation: "abstracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abstract_chunks_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      abstracts: {
+        Row: {
+          abstract_text: string
+          authors: string | null
+          citations_count: number | null
+          clinical_areas: string[]
+          created_at: string
+          doi: string | null
+          europepmc_id: string | null
+          evidence_level: string | null
+          geographic_relevance: string | null
+          id: string
+          is_global: boolean
+          journal: string | null
+          language: string | null
+          pmc_id: string | null
+          psychologist_id: string
+          publication_date: string | null
+          pubmed_id: string | null
+          repository: string | null
+          source_url: string | null
+          title: string
+          year: number | null
+        }
+        Insert: {
+          abstract_text: string
+          authors?: string | null
+          citations_count?: number | null
+          clinical_areas?: string[]
+          created_at?: string
+          doi?: string | null
+          europepmc_id?: string | null
+          evidence_level?: string | null
+          geographic_relevance?: string | null
+          id?: string
+          is_global?: boolean
+          journal?: string | null
+          language?: string | null
+          pmc_id?: string | null
+          psychologist_id: string
+          publication_date?: string | null
+          pubmed_id?: string | null
+          repository?: string | null
+          source_url?: string | null
+          title: string
+          year?: number | null
+        }
+        Update: {
+          abstract_text?: string
+          authors?: string | null
+          citations_count?: number | null
+          clinical_areas?: string[]
+          created_at?: string
+          doi?: string | null
+          europepmc_id?: string | null
+          evidence_level?: string | null
+          geographic_relevance?: string | null
+          id?: string
+          is_global?: boolean
+          journal?: string | null
+          language?: string | null
+          pmc_id?: string | null
+          psychologist_id?: string
+          publication_date?: string | null
+          pubmed_id?: string | null
+          repository?: string | null
+          source_url?: string | null
+          title?: string
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abstracts_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adult_documents: {
         Row: {
           created_at: string
@@ -1767,6 +1898,31 @@ export type Database = {
       get_user_id_by_email: { Args: { _email: string }; Returns: string }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_email_allowed: { Args: { _email: string }; Returns: boolean }
+      match_all_chunks: {
+        Args: {
+          match_count?: number
+          p_clinical_area?: string
+          p_clinical_areas?: string[]
+          p_psychologist_id?: string
+          p_source_institution?: string
+          p_source_institutions?: string[]
+          p_year_from?: number
+          query_embedding: string
+        }
+        Returns: {
+          abstract_id: string
+          clinical_areas: string[]
+          content: string
+          document_id: string
+          document_type: string
+          id: string
+          is_global: boolean
+          page_number: number
+          similarity: number
+          source_institution: string
+          source_type: string
+        }[]
+      }
       match_chunks: {
         Args: {
           match_count?: number
