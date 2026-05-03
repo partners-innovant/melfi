@@ -290,17 +290,14 @@ export default function AbstractsPage() {
         </SheetContent>
       </Sheet>
 
-      {/* PubMed search */}
-      <Dialog open={pubmedOpen} onOpenChange={setPubmedOpen}>
-        <DialogContent className="w-[90vw] max-w-[1100px] max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FlaskConical className="h-5 w-5 text-primary" /> Buscar abstracts en PubMed
-            </DialogTitle>
-          </DialogHeader>
-          <PubMedAbstractImporter onImported={load} />
-        </DialogContent>
-      </Dialog>
+      {/* PubMed fullscreen search */}
+      {pubmedOpen && (
+        <PubMedFullscreenSearch
+          existingIds={list}
+          onClose={() => setPubmedOpen(false)}
+          onImported={load}
+        />
+      )}
 
       {/* Manual entry */}
       <ManualAbstractDialog
