@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Plus, Baby, Search, Trash2 } from "lucide-react";
 import {
   calcAge, ageRangeColor, CHILD_SEX, MODALITIES, REFERRAL_SOURCES,
-  RELATIONSHIPS, INVOLVEMENT_LEVELS,
+  RELATIONSHIPS, INVOLVEMENT_LEVELS, capitalize,
 } from "@/lib/clinical";
 
 interface ChildRow {
