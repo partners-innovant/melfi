@@ -114,6 +114,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
   const [sessionInsight, setSessionInsight] = useState<string>("");
   const [transcriptionCount, setTranscriptionCount] = useState(0);
+  const [lastAudioSec, setLastAudioSec] = useState(0);
+  const [totalAudioSec, setTotalAudioSec] = useState(0);
+  const processedAudioSecRef = useRef(0);
   const [lastAnalyzedAt, setLastAnalyzedAt] = useState<number | null>(null);
   const unprocessedChunksRef = useRef<Blob[]>([]);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
