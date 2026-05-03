@@ -1296,36 +1296,7 @@ function BulletList({ bullets, emptyText, tone }: { bullets: string[]; emptyText
 }
 
 
-  icon, title, tone, items, onUse,
-}: {
-  icon: React.ReactNode; title: string; tone: "blue" | "purple" | "teal" | "amber";
-  items: string[]; onUse: (text: string) => void;
-}) {
-  if (!items || items.length === 0) return null;
-  const toneClasses: Record<string, string> = {
-    blue: "border-blue-400/40 bg-blue-500/10",
-    purple: "border-purple-400/40 bg-purple-500/10",
-    teal: "border-teal-400/40 bg-teal-500/10",
-    amber: "border-amber-400/40 bg-amber-500/10",
-  };
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wide font-semibold mb-1.5 flex items-center gap-1.5 text-muted-foreground">
-        {icon} {title}
-      </div>
-      <div className="space-y-1.5">
-        {items.map((t, i) => (
-          <div key={i} className={`p-2.5 rounded-md border text-sm flex items-start justify-between gap-2 ${toneClasses[tone]}`}>
-            <div className="flex-1">{t}</div>
-            <Button size="sm" variant="ghost" className="h-7 px-2 gap-1 shrink-0" onClick={() => onUse(t)}>
-              <Check className="h-3 w-3" /> Usado
-            </Button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+
 
 function SummarySection({
   title, value, onChange, editing,
