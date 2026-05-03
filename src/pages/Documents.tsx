@@ -1162,6 +1162,10 @@ function UploadDialog({ onClose, isAdmin, prefill }: { onClose: () => void; isAd
             journal: item.pubmedPrefill.journal ?? item.pubmedPrefill.source_institution ?? null,
             repository: item.pubmedPrefill.repository ?? "PubMed / EuropePMC",
             repository_id: item.pubmedPrefill.repository_id ?? item.pubmedPrefill.pubmed_id ?? item.pubmedPrefill.pmc_id ?? null,
+            citations_count: item.pubmedPrefill.citations_count ?? null,
+            impact_factor: item.pubmedPrefill.impact_factor ?? null,
+            evidence_level: item.pubmedPrefill.evidence_level ?? null,
+            geographic_relevance: item.pubmedPrefill.geographic_relevance ?? null,
             ...(item.pubmedPrefill.language ? { language: item.pubmedPrefill.language } : {}),
           } : {
             repository: "Subida manual",
