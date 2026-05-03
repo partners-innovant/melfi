@@ -38,6 +38,7 @@ type AnalyzedSuggestion = {
   addressed?: boolean;
 };
 type SummaryBlock = { t: number; bullets: string[] };
+type TopicSuggestion = { id: string; text: string; addressed: boolean };
 const HAIKU_USD = 0.02;
 const SONNET_USD = 0.08;
 const TRANSCRIPTION_USD = HAIKU_USD + SONNET_USD;
