@@ -456,6 +456,37 @@ export default function Cafe() {
     })();
   }, []);
 
+  const importAbstract = useCallback(async (it: PubMedItem) => {
+    const tId = (await import("sonner")).toast.loading("Importando abstract...");
+    try {
+      const { error } = await supabase.functions.invoke("import-abstract", {
+        body: {
+          title: it.title,
+          authors: it.authors,
+          journal: it.journal,
+          year: it.year ? parseInt(it.year) : null,
+          publication_date: it.date || null,
+          abstract_text: it.abstractText ?? "",
+          doi: it.doi ?? null,
+          pubmed_id: it.pmid ?? null,
+          pmc_id: it.pmcid ?? null,
+          europepmc_id: it.id,
+          source_url: it.doiUrl,
+          citations_count: it.citedByCount ?? 0,
+        },
+      });
+      const { toast } = await import("sonner");
+      toast.dismiss(tId);
+      if (error) throw error;
+      if (!it.abstractText) toast.warning("Importado sin texto de abstract");
+      else toast.success("✅ Abstract importado");
+    } catch (e: any) {
+      const { toast } = await import("sonner");
+      toast.dismiss(tId);
+      toast.error(e?.message ?? "Error al importar");
+    }
+  }, []);
+
   return (
     <div className="px-4 md:px-6 py-6 max-w-[1400px] mx-auto space-y-5">
       <header>
@@ -481,7 +512,7 @@ export default function Cafe() {
           const q = pdf ? `${base} AND OPEN_ACCESS:y AND HAS_FT:y` : base;
           return `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=8&resultType=core`;
         }}
-        onImport={(it) => { setPubmedQuery(it.title); setPubmedDialogOpen(true); }}
+        onImport={importAbstract}
       />
       <PubFeedSection
         kind="top"
@@ -499,7 +530,7 @@ export default function Cafe() {
         postProcess={(items) =>
           [...items].sort((a, b) => (b.citedByCount ?? 0) - (a.citedByCount ?? 0)).slice(0, 6)
         }
-        onImport={(it) => { setPubmedQuery(it.title); setPubmedDialogOpen(true); }}
+        onImport={importAbstract}
       />
       <NewsSection />
 
