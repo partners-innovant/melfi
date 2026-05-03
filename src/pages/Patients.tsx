@@ -58,14 +58,19 @@ const empty = {
 };
 
 export default function Patients() {
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [sortMode, setSortMode] = useState<"recent" | "schedule">("recent");
-  const [transferredMap, setTransferredMap] = useState<Record<string, string>>({}); // patientId -> ISO date received
+  const [transferredMap, setTransferredMap] = useState<Record<string, string>>({});
   const [incoming, setIncoming] = useState<IncomingTransfer[]>([]);
+  const [editPatient, setEditPatient] = useState<Patient | null>(null);
+  const [editForm, setEditForm] = useState<any>(empty);
+  const [editSaving, setEditSaving] = useState(false);
+  const [transferPatient, setTransferPatient] = useState<Patient | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
     try {
       return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? "[]"));
@@ -73,6 +78,42 @@ export default function Patients() {
       return new Set();
     }
   });
+
+  function openEdit(p: Patient) {
+    setEditForm({
+      first_name: p.first_name,
+      last_name: p.last_name,
+      birth_date: p.birth_date ?? "",
+      sex: p.sex ?? "",
+      marital_status: p.marital_status ?? "",
+      occupation: p.occupation ?? "",
+      start_date: p.start_date ?? "",
+      diagnosis: p.diagnosis ?? "",
+      notes: p.notes ?? "",
+    });
+    setEditPatient(p);
+  }
+
+  async function saveEdit() {
+    if (!editPatient) return;
+    setEditSaving(true);
+    const payload = {
+      ...editForm,
+      birth_date: editForm.birth_date || null,
+      sex: editForm.sex || null,
+      marital_status: editForm.marital_status || null,
+      start_date: editForm.start_date || null,
+      occupation: editForm.occupation || null,
+      diagnosis: editForm.diagnosis || null,
+      notes: editForm.notes || null,
+    };
+    const { error } = await supabase.from("patients").update(payload).eq("id", editPatient.id);
+    setEditSaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("Paciente actualizado");
+    setEditPatient(null);
+    load();
+  }
 
   async function load() {
     const { data: { user } } = await supabase.auth.getUser();
