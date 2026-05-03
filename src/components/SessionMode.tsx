@@ -38,6 +38,7 @@ type AnalyzedSuggestion = {
   addressed?: boolean;
 };
 type SummaryBlock = { t: number; bullets: string[] };
+type TopicSuggestion = { id: string; text: string; addressed: boolean };
 const HAIKU_USD = 0.02;
 const SONNET_USD = 0.08;
 const TRANSCRIPTION_USD = HAIKU_USD + SONNET_USD;
@@ -102,12 +103,15 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   const [transcript, setTranscript] = useState<TranscriptSegment[]>([]);
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptEditable, setTranscriptEditable] = useState(false);
-  const [activeTab, setActiveTab] = useState<"suggestions" | "transcript">("suggestions");
+  const [activeTab, setActiveTab] = useState<"support" | "topics" | "transcript">("support");
   const [chunkCount, setChunkCount] = useState(0);
   // Manual on-demand transcription + analysis
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeStage, setAnalyzeStage] = useState<"idle" | "transcribing" | "analyzing">("idle");
-  const [summaryBlocks, setSummaryBlocks] = useState<SummaryBlock[]>([]);
+  const [summaryBullets, setSummaryBullets] = useState<string[]>([]);
+  const [patientBullets, setPatientBullets] = useState<string[]>([]);
+  const [therapistBullets, setTherapistBullets] = useState<string[]>([]);
+  const [topicSuggestions, setTopicSuggestions] = useState<TopicSuggestion[]>([]);
   const [analyzedSuggestions, setAnalyzedSuggestions] = useState<AnalyzedSuggestion[]>([]);
   const [sessionInsight, setSessionInsight] = useState<string>("");
   const [transcriptionCount, setTranscriptionCount] = useState(0);
@@ -207,9 +211,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   }
 
   const transcriptSummaryText = useMemo(() => {
-    if (!summaryBlocks.length) return "";
-    return summaryBlocks[0].bullets.map((b) => `• ${b}`).join("\n");
-  }, [summaryBlocks]);
+    if (!summaryBullets.length) return "";
+    return summaryBullets.map((b) => `• ${b}`).join("\n");
+  }, [summaryBullets]);
 
   async function requestSuggestions() {
     if (!sessionId) return;
@@ -227,11 +231,21 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       const s = (data as any)?.suggestions ?? { questions: [], patterns: [], interventions: [], unexplored: [] };
       // Filter out already-used
       const usedSet = new Set(usedSuggestions.map((u) => u.text.toLowerCase().trim()));
-      setSuggestions({
+      const next = {
         questions: (s.questions ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
         patterns: (s.patterns ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
         interventions: (s.interventions ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
         unexplored: (s.unexplored ?? []).filter((x: string) => !usedSet.has(x.toLowerCase().trim())),
+      };
+      setSuggestions(next);
+      // Also build a flat topic checklist (all suggestion types are "topics" to address)
+      setTopicSuggestions((prev) => {
+        const existingTexts = new Set(prev.map((t) => t.text.toLowerCase().trim()));
+        const all = [...next.questions, ...next.patterns, ...next.interventions, ...next.unexplored];
+        const fresh = all
+          .filter((t) => !existingTexts.has(t.toLowerCase().trim()))
+          .map((t, i) => ({ id: `topic-${Date.now()}-${i}`, text: t, addressed: false }));
+        return [...prev, ...fresh];
       });
     } catch (e: any) {
       toast.error("Claude: " + (e?.message ?? "error"));
@@ -397,7 +411,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
             ...suggestions.patterns.map((t, i) => ({ id: `p-${i}`, type: "pattern", text: t })),
             ...suggestions.unexplored.map((t, i) => ({ id: `u-${i}`, type: "alert", text: t })),
           ];
-      const recentBullets = (summaryBlocks[0]?.bullets ?? []).slice(0, 3);
+      const recentBullets = summaryBullets.slice(-10);
 
       setAnalyzeStage("analyzing");
       const { data: ad, error: aerr } = await supabase.functions.invoke("transcribe-session-chunk", {
@@ -408,16 +422,20 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           therapist_notes: therapistNotesText,
           patient_notes: patientNotesText,
           active_suggestions: activeWithIds.map(({ id, type, text }) => ({ id, type, text })),
+          topic_suggestions: topicSuggestions.filter((t) => !t.addressed).map(({ id, text }) => ({ id, text })),
           recent_summary_bullets: recentBullets,
         },
       });
       if (aerr) throw aerr;
       const bullets: string[] = Array.isArray((ad as any)?.summary_bullets) ? (ad as any).summary_bullets : [];
+      const pBullets: string[] = Array.isArray((ad as any)?.patient_bullets) ? (ad as any).patient_bullets : [];
+      const tBullets: string[] = Array.isArray((ad as any)?.therapist_bullets) ? (ad as any).therapist_bullets : [];
       const newSugs: any[] = Array.isArray((ad as any)?.suggestions) ? (ad as any).suggestions : [];
       const addressed: string[] = Array.isArray((ad as any)?.suggestions_addressed) ? (ad as any).suggestions_addressed : [];
+      const topicsAddressed: string[] = Array.isArray((ad as any)?.topics_addressed) ? (ad as any).topics_addressed : [];
       const insight: string = typeof (ad as any)?.session_insights === "string" ? (ad as any).session_insights : "";
 
-      // Mark addressed on previous active set so therapist sees what was detected
+      // Apoyo Sesión: replace with newest suggestions (short-term guidance for next minutes)
       const addressedSet = new Set(addressed.map(String));
       const refreshed: AnalyzedSuggestion[] = newSugs.map((s, i) => ({
         id: `n-${Date.now()}-${i}`,
@@ -426,17 +444,23 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
         rationale: s.rationale ? String(s.rationale) : undefined,
         addressed: false,
       })).filter((s) => s.text);
-      // Also keep any prior addressed ones flagged at the top
       const flaggedPrior = activeWithIds
         .filter((s) => addressedSet.has(s.id))
         .map((s) => ({ ...s, addressed: true }));
-
       setAnalyzedSuggestions([...flaggedPrior, ...refreshed]);
       setSessionInsight(insight);
 
-      if (bullets.length) {
-        setSummaryBlocks((prev) => [{ t: Date.now(), bullets }, ...prev]);
+      // Auto-check addressed topics
+      if (topicsAddressed.length) {
+        const tset = new Set(topicsAddressed.map(String));
+        setTopicSuggestions((prev) => prev.map((t) => tset.has(t.id) ? { ...t, addressed: true } : t));
       }
+
+      // Append (accumulate, never clear) bullets
+      if (bullets.length) setSummaryBullets((prev) => [...prev, ...bullets]);
+      if (pBullets.length) setPatientBullets((prev) => [...prev, ...pBullets]);
+      if (tBullets.length) setTherapistBullets((prev) => [...prev, ...tBullets]);
+
       setTranscriptionCount((n) => n + 1);
       setLastAnalyzedAt(Date.now());
       toast.success("✨ Transcripción y análisis listos");
@@ -650,8 +674,10 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
     checkedSuggestionsRef.current = new Set();
     setRecState("idle"); setRecElapsed(0);
     setSuppressRecDisclaimer(false);
-    setActiveTab("suggestions"); setTranscriptEditable(false);
-    setSummaryBlocks([]); setAnalyzedSuggestions([]); setSessionInsight("");
+    setActiveTab("support"); setTranscriptEditable(false);
+    setSummaryBullets([]); setPatientBullets([]); setTherapistBullets([]);
+    setTopicSuggestions([]);
+    setAnalyzedSuggestions([]); setSessionInsight("");
     setTranscriptionCount(0); setLastAnalyzedAt(null); setChunkCount(0);
     unprocessedChunksRef.current = [];
   }
@@ -792,7 +818,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 value={patientText}
                 onChange={(e) => setPatientText(e.target.value)}
                 placeholder="Anota intervenciones, frases clave, conductas observadas del paciente..."
-                className="min-h-[110px] resize-none"
+                className="min-h-[90px] resize-none"
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); addPatientEntry(); }
                 }}
@@ -802,6 +828,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <Send className="h-3.5 w-3.5" /> Registrar
                 </Button>
               </div>
+              <BulletList bullets={patientBullets} emptyText="Los bullets auto-generados aparecerán aquí tras transcribir." tone="blue" />
             </Card>
 
             {/* Therapist input */}
@@ -813,7 +840,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                 value={therapistText}
                 onChange={(e) => setTherapistText(e.target.value)}
                 placeholder="Anota tus intervenciones, preguntas realizadas, observaciones..."
-                className="min-h-[110px] resize-none"
+                className="min-h-[90px] resize-none"
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); addTherapistEntry(); }
                 }}
@@ -823,6 +850,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <Send className="h-3.5 w-3.5" /> Registrar
                 </Button>
               </div>
+              <BulletList bullets={therapistBullets} emptyText="Los bullets auto-generados aparecerán aquí tras transcribir." tone="teal" />
             </Card>
           </div>
 
@@ -853,16 +881,16 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               </div>
             )}
 
-            {summaryBlocks.length > 0 && (
+            {summaryBullets.length > 0 && (
               <div className="mt-6">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-2">
-                  📝 Resumen de lo conversado
+                  📝 Resumen de lo conversado · solo cambios e inconsistencias ({summaryBullets.length})
                 </div>
-                <div className="space-y-2">
-                  {summaryBlocks.map((block, idx) => (
-                    <SummaryBlockCard key={block.t} block={block} defaultOpen={idx === 0} />
+                <ul className="list-disc pl-6 pr-3 pb-3 text-sm space-y-1 border rounded-md bg-card py-3">
+                  {summaryBullets.map((b, i) => (
+                    <li key={i}>{b}</li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
           </div>
@@ -873,22 +901,30 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
             <div className="px-4 py-2 border-b flex items-center justify-between gap-2">
               <TabsList>
-                <TabsTrigger value="suggestions" className="gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5" /> Apoyo clínico
+                <TabsTrigger value="support" className="gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> 💬 Apoyo Sesión
+                </TabsTrigger>
+                <TabsTrigger value="topics" className="gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5" /> 💡 Sugerencias
+                  {topicSuggestions.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">
+                      {topicSuggestions.filter((t) => t.addressed).length}/{topicSuggestions.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="transcript" className="gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Transcripción
+                  <FileText className="h-3.5 w-3.5" /> 📝 Transcripción
                   {transcript.length > 0 && (
                     <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">{transcript.length}</Badge>
                   )}
                 </TabsTrigger>
               </TabsList>
-              {activeTab === "suggestions" ? (
+              {activeTab === "topics" ? (
                 <Button size="sm" onClick={requestSuggestions} disabled={loadingSuggestions || !sessionId} className="gap-2">
                   {loadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   Pedir sugerencias
                 </Button>
-              ) : (
+              ) : activeTab === "transcript" ? (
                 <Button
                   size="sm"
                   variant="outline"
@@ -899,17 +935,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   <Pencil className="h-3.5 w-3.5" />
                   {transcriptEditable ? "Listo" : "Editar"}
                 </Button>
-              )}
+              ) : null}
             </div>
 
-            <TabsContent value="suggestions" className="flex-1 min-h-0 mt-0">
-              <div className="h-full overflow-y-auto p-4 space-y-4">
-                {loadingSuggestions && (
-                  <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Claude analizando...
-                  </div>
-                )}
-
+            <TabsContent value="support" className="flex-1 min-h-0 mt-0">
+              <div className="h-full overflow-y-auto p-4 space-y-3">
                 {sessionInsight && (
                   <div className="rounded-md border border-teal-400/40 bg-teal-500/10 p-3 text-sm">
                     <div className="font-semibold mb-1">💡 Insight de sesión</div>
@@ -922,7 +952,11 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                   </div>
                 )}
 
-                {analyzedSuggestions.length > 0 ? (
+                {analyzedSuggestions.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
+                    Las sugerencias aparecerán aquí tras pulsar "✨ Transcribir y analizar".
+                  </div>
+                ) : (
                   <div className="space-y-2">
                     {analyzedSuggestions.map((s) => {
                       const tone =
@@ -972,50 +1006,43 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
                       );
                     })}
                   </div>
-                ) : (
-                  <>
-                    <SuggestionGroup
-                      icon={<MessageCircle className="h-4 w-4" />}
-                      title="Preguntas sugeridas"
-                      tone="blue"
-                      items={suggestions.questions}
-                      onUse={(t) => markUsed("question", t)}
-                    />
-                    <SuggestionGroup
-                      icon={<Eye className="h-4 w-4" />}
-                      title="Patrones observados"
-                      tone="purple"
-                      items={suggestions.patterns}
-                      onUse={(t) => markUsed("pattern", t)}
-                    />
-                    <SuggestionGroup
-                      icon={<Lightbulb className="h-4 w-4" />}
-                      title="Intervenciones"
-                      tone="teal"
-                      items={suggestions.interventions}
-                      onUse={(t) => markUsed("intervention", t)}
-                    />
-                    <SuggestionGroup
-                      icon={<AlertTriangle className="h-4 w-4" />}
-                      title="No explorado"
-                      tone="amber"
-                      items={suggestions.unexplored}
-                      onUse={(t) => markUsed("unexplored", t)}
-                    />
-                  </>
                 )}
+              </div>
+            </TabsContent>
 
-                {usedSuggestions.length > 0 && (
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1.5 mt-4">
-                      Sugerencias usadas ({usedSuggestions.length})
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {usedSuggestions.map((u, i) => (
-                        <Badge key={i} variant="secondary" className="text-[11px]">✓ {u.text}</Badge>
-                      ))}
-                    </div>
+            <TabsContent value="topics" className="flex-1 min-h-0 mt-0">
+              <div className="h-full overflow-y-auto p-4 space-y-2">
+                {loadingSuggestions && (
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Generando sugerencias…
                   </div>
+                )}
+                {topicSuggestions.length === 0 && !loadingSuggestions ? (
+                  <div className="text-sm text-muted-foreground text-center py-10 border rounded-md border-dashed">
+                    Pulsa "✨ Pedir sugerencias" para generar tópicos a abordar en esta sesión.
+                  </div>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {topicSuggestions.map((t) => (
+                      <li
+                        key={t.id}
+                        className={`flex items-start gap-2 p-2 rounded-md border text-sm ${
+                          t.addressed ? "bg-emerald-500/10 border-emerald-400/40" : "bg-card"
+                        }`}
+                      >
+                        <Checkbox
+                          checked={t.addressed}
+                          onCheckedChange={(v) =>
+                            setTopicSuggestions((prev) =>
+                              prev.map((x) => (x.id === t.id ? { ...x, addressed: !!v } : x)),
+                            )
+                          }
+                          className="mt-0.5"
+                        />
+                        <span className={t.addressed ? "line-through text-muted-foreground" : ""}>{t.text}</span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </TabsContent>
@@ -1249,37 +1276,27 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   return createPortal(overlay, document.body);
 }
 
-function SuggestionGroup({
-  icon, title, tone, items, onUse,
-}: {
-  icon: React.ReactNode; title: string; tone: "blue" | "purple" | "teal" | "amber";
-  items: string[]; onUse: (text: string) => void;
-}) {
-  if (!items || items.length === 0) return null;
-  const toneClasses: Record<string, string> = {
-    blue: "border-blue-400/40 bg-blue-500/10",
-    purple: "border-purple-400/40 bg-purple-500/10",
-    teal: "border-teal-400/40 bg-teal-500/10",
-    amber: "border-amber-400/40 bg-amber-500/10",
-  };
+function BulletList({ bullets, emptyText, tone }: { bullets: string[]; emptyText: string; tone: "blue" | "teal" }) {
+  const dot = tone === "blue" ? "text-blue-500" : "text-teal-500";
+  if (!bullets.length) {
+    return <div className="text-[11px] text-muted-foreground italic border-t pt-2 mt-1">{emptyText}</div>;
+  }
   return (
-    <div>
-      <div className="text-xs uppercase tracking-wide font-semibold mb-1.5 flex items-center gap-1.5 text-muted-foreground">
-        {icon} {title}
-      </div>
-      <div className="space-y-1.5">
-        {items.map((t, i) => (
-          <div key={i} className={`p-2.5 rounded-md border text-sm flex items-start justify-between gap-2 ${toneClasses[tone]}`}>
-            <div className="flex-1">{t}</div>
-            <Button size="sm" variant="ghost" className="h-7 px-2 gap-1 shrink-0" onClick={() => onUse(t)}>
-              <Check className="h-3 w-3" /> Usado
-            </Button>
-          </div>
+    <div className="border-t pt-2 mt-1 max-h-40 overflow-y-auto">
+      <ul className="space-y-0.5 text-xs">
+        {bullets.map((b, i) => (
+          <li key={i} className="leading-snug">
+            <span className={`${dot} mr-1`}>•</span>
+            {b}
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }
+
+
+
 
 function SummarySection({
   title, value, onChange, editing,
