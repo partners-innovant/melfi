@@ -78,7 +78,7 @@ export default function Patients() {
     const { data: { user } } = await supabase.auth.getUser();
     const { data } = await supabase
       .from("patients")
-      .select("id, first_name, last_name, birth_date, diagnosis, session_day, session_time")
+      .select("id, first_name, last_name, birth_date, diagnosis, start_date, sex, marital_status, occupation, notes, session_day, session_time")
       .order("created_at", { ascending: false });
     setPatients((data as Patient[]) ?? []);
 
