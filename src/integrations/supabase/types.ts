@@ -631,6 +631,7 @@ export type Database = {
           pmc_id: string | null
           processing_mode: string | null
           psychologist_id: string
+          publication_date: string | null
           pubmed_id: string | null
           source_institution: string | null
           source_institution_type: string | null
@@ -654,6 +655,7 @@ export type Database = {
           pmc_id?: string | null
           processing_mode?: string | null
           psychologist_id: string
+          publication_date?: string | null
           pubmed_id?: string | null
           source_institution?: string | null
           source_institution_type?: string | null
@@ -677,6 +679,7 @@ export type Database = {
           pmc_id?: string | null
           processing_mode?: string | null
           psychologist_id?: string
+          publication_date?: string | null
           pubmed_id?: string | null
           source_institution?: string | null
           source_institution_type?: string | null
