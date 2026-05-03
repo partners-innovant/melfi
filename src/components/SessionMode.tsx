@@ -793,11 +793,17 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
               <Loader2 className="h-3 w-3 animate-spin" /> ✍️ Transcribiendo…
             </span>
           )}
-          {transcriptionCount > 0 && (
-            <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
-              Transcripción (Haiku): ~${HAIKU_USD.toFixed(2)} · Análisis (Sonnet): ~${SONNET_USD.toFixed(2)} · Total esta vez: ~${TRANSCRIPTION_USD.toFixed(2)} · Acumulado sesión: ~${(TRANSCRIPTION_USD * transcriptionCount).toFixed(2)} ({transcriptionCount}×)
-            </span>
-          )}
+          {transcriptionCount > 0 && (() => {
+            const lastWhisper = (lastAudioSec / 60) * WHISPER_USD_PER_MIN;
+            const lastTotal = lastWhisper + SONNET_USD;
+            const cumWhisper = (totalAudioSec / 60) * WHISPER_USD_PER_MIN;
+            const cumTotal = cumWhisper + SONNET_USD * transcriptionCount;
+            return (
+              <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
+                Transcripción (Whisper): ~$0.006/min · Análisis (Sonnet): ~${SONNET_USD.toFixed(2)} · Total esta vez: ~${lastTotal.toFixed(3)} · Acumulado sesión: ~${cumTotal.toFixed(3)} ({transcriptionCount}×)
+              </span>
+            );
+          })()}
           {recState !== "idle" && (
             <span className="text-[11px] text-muted-foreground ml-1 px-2 py-0.5 rounded bg-muted/50 border border-dashed">
               Fragmentos: {chunkCount}
