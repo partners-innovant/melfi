@@ -319,7 +319,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
   });
 
   function pickMimeType(): string {
-    const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+    const candidates = ["audio/webm", "audio/mp4", "audio/ogg"];
     if (typeof MediaRecorder === "undefined") return "audio/webm";
     for (const c of candidates) {
       try { if ((MediaRecorder as any).isTypeSupported?.(c)) return c; } catch { /* ignore */ }
@@ -342,9 +342,9 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       // 1) Transcribe accumulated chunks (if any)
       let transcribeFailed = false;
       if (pending.length) {
-        const blobMime = liveMimeRef.current || "audio/webm";
-        const baseMime = blobMime.split(";")[0];
-        const blob = new Blob(pending, { type: blobMime });
+        const rawMime = liveMimeRef.current || "audio/webm";
+        const baseMime = rawMime.split(";")[0] || "audio/webm";
+        const blob = new Blob(pending, { type: baseMime });
         console.log("Blob mimeType:", blob.type, "size:", blob.size);
         unprocessedChunksRef.current = [];
         if (blob.size >= 1000) {
@@ -352,7 +352,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
           try {
             const audio = await blobToBase64(blob);
             const { data, error } = await supabase.functions.invoke("transcribe-session-chunk", {
-              body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: blob.type || baseMime },
+              body: { action: "transcribe", audio, mime_type: baseMime, audioMediaType: baseMime },
             });
             console.log("Transcription response:", data, error);
             if (error) throw error;
@@ -497,7 +497,7 @@ export default function SessionMode({ open, onClose, patientId, patientName, onS
       liveStreamRef.current = stream;
       const mime = pickMimeType();
       const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      liveMimeRef.current = mr.mimeType || mime || "audio/webm";
+      liveMimeRef.current = (mr.mimeType || mime || "audio/webm").split(";")[0];
       liveChunksRef.current = [];
       unprocessedChunksRef.current = [];
       mr.ondataavailable = (e) => {
