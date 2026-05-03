@@ -60,6 +60,8 @@ interface CardState {
   clinicalAreas: string[];
   sourceInstitution: string;
   sourceInstitutionType: SourceInstitutionType | null;
+  evidenceLevel: EvidenceLevel | "";
+  geographicRelevance: GeographicRelevance | "";
   // AI flags
   ai: {
     docType: boolean;
@@ -67,6 +69,8 @@ interface CardState {
     language: boolean;
     clinicalAreas: boolean;
     sourceInstitution: boolean;
+    evidenceLevel: boolean;
+    geographicRelevance: boolean;
   };
 }
 
