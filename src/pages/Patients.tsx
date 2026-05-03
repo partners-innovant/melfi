@@ -258,7 +258,7 @@ export default function Patients() {
                       )}
                     </div>
                     {(() => {
-                      const line = `${age !== null ? `${age} años` : ""}${age !== null && p.diagnosis ? " · " : ""}${p.diagnosis ?? (age === null ? "Sin información" : "")}`;
+                      const line = age !== null ? `${age} años` : "";
                       return (
                         <div
                           className="text-sm text-muted-foreground max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
