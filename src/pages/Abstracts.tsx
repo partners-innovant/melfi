@@ -995,7 +995,7 @@ function PubMedFullscreenSearch({
                               >
                                 {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : already ? "✅" : "➕ Importar"}
                               </Button>
-                              
+                              <a
                                 href={a.doi ? `https://doi.org/${a.doi}` : (pdf ?? `https://europepmc.org/article/${a.source ?? "MED"}/${a.id}`)}
                                 target="_blank"
                                 rel="noreferrer"
