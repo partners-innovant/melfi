@@ -589,23 +589,6 @@ function DocList({
               </th>
               <th className="px-2 py-2 text-left">
                 <HeaderFilter
-                  label="Chunks"
-                  active={f.filterChunks !== "all"}
-                  activeText={f.filterChunks === "none" ? "0" : f.filterChunks === "some" ? "1+" : undefined}
-                  onClear={() => f.setFilterChunks("all")}
-                >
-                  <Select value={f.filterChunks} onValueChange={(v: any) => f.setFilterChunks(v)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="none">Sin chunks (0)</SelectItem>
-                      <SelectItem value="some">Con chunks (1+)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </HeaderFilter>
-              </th>
-              <th className="px-2 py-2 text-left">
-                <HeaderFilter
                   label="Origen"
                   active={f.filterOrigin !== ANY}
                   activeText={f.filterOrigin !== ANY ? IMPORT_SOURCE_META[f.filterOrigin as ImportSource]?.label : undefined}
