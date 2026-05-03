@@ -756,54 +756,63 @@ export default function AdminDocuments() {
         <StatCard label="Total chunks indexados" value={stats.totalChunks} />
       </div>
 
-      {/* Filters */}
+      {/* Filter pills */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium inline-flex items-center gap-1.5">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          Filtros
-          {activeColFilterCount > 0 && (
-            <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{activeColFilterCount}</Badge>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => { setUnclassifiedOnly((v) => !v); setPage(1); }}
+          className={cn(
+            "h-8 rounded-full text-xs",
+            unclassifiedOnly && "bg-teal-500/10 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/20",
           )}
-        </span>
-        {activeColFilterCount > 0 && (
-          <Button size="sm" variant="ghost" onClick={clearAllColFilters} className="h-7 text-xs">
-            <X className="h-3 w-3 mr-1" /> Limpiar todos los filtros
-          </Button>
-        )}
-        <label className="flex items-center gap-2 text-sm ml-2">
-          <Checkbox
-            checked={unclassifiedOnly}
-            onCheckedChange={(v) => { setUnclassifiedOnly(!!v); setPage(1); }}
-          />
+        >
           Sin clasificar
-        </label>
-        <div className="flex flex-col gap-1 ml-2">
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={noChunksSnapshot ? "default" : "outline"}
-              onClick={runNoChunksSearch}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={runNoChunksSearch}
+          className={cn(
+            "h-8 rounded-full text-xs",
+            noChunksSnapshot && "bg-teal-500/10 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/20",
+          )}
+        >
+          <Search className="h-3.5 w-3.5 mr-1" />
+          Sin chunks
+          {noChunksSnapshot && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                setNoChunksSnapshot(null);
+                setNoChunksSearchAt(null);
+                setPage(1);
+              }}
+              className="ml-1 hover:text-foreground inline-flex items-center"
+              aria-label="Limpiar"
             >
-              <Search className="h-3.5 w-3.5 mr-1" />
-              {noChunksSnapshot ? "Actualizar búsqueda sin chunks" : "Buscar documentos sin chunks"}
-            </Button>
-            {noChunksSnapshot && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setNoChunksSnapshot(null); setNoChunksSearchAt(null); setPage(1); }}
-                title="Limpiar filtro"
-              >
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-          {noChunksSearchAt && (
-            <span className="text-[11px] text-muted-foreground">
-              Última búsqueda: {formatRelative(noChunksSearchAt)} · {noChunksSnapshot?.size ?? 0} resultado(s)
+              <X className="h-3 w-3" />
             </span>
           )}
-        </div>
+        </Button>
+        {noChunksSearchAt && (
+          <span className="text-[11px] text-muted-foreground">
+            {noChunksSnapshot?.size ?? 0} resultado(s) · {formatRelative(noChunksSearchAt)}
+          </span>
+        )}
+        {activeColFilterCount > 0 && (
+          <div className="ml-auto flex items-center gap-3 text-xs">
+            <span className="text-muted-foreground">
+              <Filter className="inline h-3 w-3 mr-1" />
+              Filtros activos: <span className="font-medium text-foreground">{activeColFilterCount}</span>
+            </span>
+            <button type="button" onClick={clearAllColFilters} className="text-primary hover:underline">
+              Limpiar todos
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Bulk action bar */}
