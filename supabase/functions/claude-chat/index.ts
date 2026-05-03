@@ -23,11 +23,12 @@ Responde SIEMPRE con este JSON exacto, sin texto adicional fuera del JSON:
     {
       "chunk_id": "el id exacto del chunk usado",
       "document_title": "título del documento",
-      "author": "autor si está disponible",
+      "author": "autor si está disponible (primer autor + et al. si corresponde)",
       "year": "año si está disponible",
+      "journal": "revista científica si está disponible o null",
+      "source_institution": "institución exacta o null",
       "page_number": "número de página aproximado",
       "document_type": "tipo de documento (clave, ej. guia_clinica)",
-      "source_institution": "institución exacta o null",
       "excerpt": "el fragmento exacto del texto original en el idioma del paper que respalda la afirmación"
     }
   ]
