@@ -204,12 +204,21 @@ Deno.serve(async (req) => {
         const text: string = claudeJson?.content?.[0]?.text ?? "";
         const parsed = tryParseJson(text);
         const arr = Array.isArray(parsed?.segments) ? parsed.segments : [];
-        if (arr.length === timestampedSegments.length) {
-          diarizedSegments = arr.map((s: any, i: number) => ({
-            speaker: typeof s.speaker === "string" ? s.speaker : "Hablante",
-            timestamp: timestampedSegments[i].timestamp,
-            text: timestampedSegments[i].text,
-          }));
+        const normalize = (sp: any): string => {
+          const v = String(sp ?? "").toUpperCase();
+          if (v.includes("TERAP")) return "Terapeuta";
+          if (v.includes("PACI")) return "Paciente";
+          return "";
+        };
+        if (arr.length) {
+          diarizedSegments = timestampedSegments.map((seg, i) => {
+            const sp = normalize(arr[i]?.speaker);
+            return {
+              speaker: sp || (i % 2 === 0 ? "Terapeuta" : "Paciente"),
+              timestamp: seg.timestamp,
+              text: seg.text,
+            };
+          });
         }
       } catch (e) {
         console.error("Diarization failed, returning segments without speaker:", e);
@@ -217,7 +226,7 @@ Deno.serve(async (req) => {
 
       const finalSegments = diarizedSegments.length
         ? diarizedSegments
-        : timestampedSegments.map((s) => ({ speaker: "Hablante", ...s }));
+        : timestampedSegments.map((s, i) => ({ speaker: i % 2 === 0 ? "Terapeuta" : "Paciente", ...s }));
 
       return new Response(JSON.stringify({ success: true, segments: finalSegments, full_text: fullText }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
