@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, clinicalAreaColor, clinicalAreaLabel } from "@/lib/clinical-areas";
-import { PubMedPanel, type PubMedArticle } from "@/components/PubMedSearchDialog";
+import { X, Search as SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const EVIDENCE_LEVELS = [
