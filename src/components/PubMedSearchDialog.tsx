@@ -113,12 +113,10 @@ export function PubMedPanel({
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [onlyPdf, setOnlyPdf] = useState(true);
-
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [minCitations, setMinCitations] = useState("");
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PubMedArticle[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -235,7 +233,6 @@ export function PubMedPanel({
       citations_count: a.citations_count ?? null,
       impact_factor: impactFactorForJournal(a.journal),
     };
-    // Fire-and-forget AI classification using title + abstract
     const classifyPromise = (async () => {
       try {
         const text = `Título: ${a.title}\n\nAbstract: ${a.abstract || "(sin abstract)"}`;
@@ -335,7 +332,6 @@ export function PubMedPanel({
             </div>
           )}
         </div>
-
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
           {!results && !loading && !error && (
             <div className="text-sm text-muted-foreground text-center py-10">
@@ -392,7 +388,7 @@ function ArticleCard({
     <Card className="p-3 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <a
+          
             href={titleHref}
             target="_blank"
             rel="noopener noreferrer"
@@ -418,7 +414,6 @@ function ArticleCard({
           </Badge>
         )}
       </div>
-
       {article.abstract && (
         <button
           type="button"
@@ -434,7 +429,6 @@ function ArticleCard({
           {article.abstract}
         </div>
       )}
-
       <div className="flex items-center justify-end gap-2 pt-1">
         {pdfUrl && (
           <Tooltip>
