@@ -168,6 +168,34 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
+          <div className={cn("pt-1 pb-1", collapsed ? "px-2" : "px-3")}>
+            {(() => {
+              const desarrolloLink = (
+                <NavLink
+                  to="/desarrollo"
+                  className={({ isActive }) =>
+                    cn(
+                      "relative flex items-center rounded-lg text-sm font-medium transition-colors",
+                      collapsed ? "justify-center h-10 w-10 mx-auto" : "gap-3 px-3 py-2",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                    )
+                  }
+                >
+                  <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                  {!collapsed && <span className="flex-1 truncate">Desarrollo profesional</span>}
+                </NavLink>
+              );
+              return collapsed ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>{desarrolloLink}</TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>📈 Desarrollo profesional</TooltipContent>
+                </Tooltip>
+              ) : desarrolloLink;
+            })()}
+          </div>
+
           <div className={cn("border-t border-sidebar-border pt-2 pb-1", collapsed ? "px-2" : "px-3")}>
             {(() => {
               const claudeLink = (
