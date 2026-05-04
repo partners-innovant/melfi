@@ -641,16 +641,17 @@ function PubMedFullscreenSearch({
   onImported: () => void;
 }) {
   const [term, setTerm] = useState("");
-  const [years, setYears] = useState<string>("5");
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
   const [minCitations, setMinCitations] = useState("");
-  const [language, setLanguage] = useState<string>("all");
-  const [onlyPDF, setOnlyPDF] = useState(false);
   const [sortBy, setSortBy] = useState<"relevancia" | "citaciones" | "recientes">("relevancia");
+  const [citationSort, setCitationSort] = useState<"none" | "asc" | "desc">("none");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState<ScoredArticle[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [lastQuery, setLastQuery] = useState<string>("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState<Set<string>>(new Set());
