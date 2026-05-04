@@ -825,35 +825,12 @@ function PubMedFullscreenSearch({
       </div>
 
       <div className="border-b px-6 py-2 flex flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">Período:</span>
-          <Select value={years} onValueChange={setYears}>
-            <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="1">Último año</SelectItem>
-              <SelectItem value="2">Últimos 2 años</SelectItem>
-              <SelectItem value="5">Últimos 5 años</SelectItem>
-              <SelectItem value="10">Últimos 10 años</SelectItem>
-              <SelectItem value="custom">Personalizado</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch id="pdf" checked={onlyPDF} onCheckedChange={setOnlyPDF} />
-          <Label htmlFor="pdf" className="cursor-pointer">📄 Solo con PDF</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">Idioma:</span>
-          <Select value={language} onValueChange={setLanguage}>
-            <SelectTrigger className="w-[120px] h-8"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="ingles">Inglés</SelectItem>
-              <SelectItem value="español">Español</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <button
+          onClick={() => setAdvancedOpen((v) => !v)}
+          className="text-muted-foreground hover:text-foreground font-medium"
+        >
+          {advancedOpen ? "▼" : "▶"} Búsqueda avanzada
+        </button>
         <div className="flex items-center gap-1 ml-auto bg-muted/50 rounded-md p-0.5">
           {([
             ["relevancia", "⭐ Relevancia"],
@@ -874,13 +851,27 @@ function PubMedFullscreenSearch({
         </div>
       </div>
 
-      <div className="border-b px-6 py-2 text-xs">
-        <button
-          onClick={() => setAdvancedOpen((v) => !v)}
-          className="text-muted-foreground hover:text-foreground font-medium"
-        >
-          {advancedOpen ? "▼" : "▶"} Búsqueda avanzada
-        </button>
+      {advancedOpen && (
+        <div className="border-b px-6 py-2 text-xs">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <Label className="text-[10px] text-muted-foreground">Desde año</Label>
+              <Input type="number" placeholder="2015" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-[100px] h-8" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[10px] text-muted-foreground">Hasta año</Label>
+              <Input type="number" placeholder="2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-[100px] h-8" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[10px] text-muted-foreground">Mínimo de citas</Label>
+              <Input type="number" placeholder="Ej: 50" value={minCitations} onChange={(e) => setMinCitations(e.target.value)} className="w-[120px] h-8" />
+            </div>
+            <Button onClick={() => runSearch()} disabled={loading} size="sm" className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} Buscar
+            </Button>
+          </div>
+        </div>
+      )}
         {advancedOpen && (
           <div className="mt-2 flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
