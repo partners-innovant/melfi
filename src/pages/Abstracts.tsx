@@ -816,7 +816,7 @@ function PubMedFullscreenSearch({
               onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
               className="flex-1"
             />
-            <Button onClick={runSearch} disabled={loading} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+            <Button onClick={() => runSearch()} disabled={loading} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchIcon className="h-4 w-4" />} Buscar
             </Button>
           </div>
