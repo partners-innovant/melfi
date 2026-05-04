@@ -677,40 +677,45 @@ function PubMedFullscreenSearch({
     return false;
   }
 
-  async function runSearch() {
-    setLoading(true);
+  async function runSearch(append = false, cursor: string | null = null) {
+    if (append) setLoadingMore(true); else setLoading(true);
     try {
-      const currentYear = new Date().getFullYear();
       const t = term.trim();
       let q = t ? t : "*";
       q += " AND NOT SRC:PPR";
-      if (yearFrom && yearTo) {
-        q += ` AND PUB_YEAR:[${yearFrom} TO ${yearTo}]`;
-      } else if (years && years !== "all") {
-        const fromY = currentYear - parseInt(years);
-        q += ` AND PUB_YEAR:[${fromY} TO ${currentYear}]`;
+      if (advancedOpen) {
+        if (yearFrom && yearTo) q += ` AND PUB_YEAR:[${yearFrom} TO ${yearTo}]`;
+        else if (yearFrom) q += ` AND PUB_YEAR:[${yearFrom} TO ${new Date().getFullYear()}]`;
+        else if (yearTo) q += ` AND PUB_YEAR:[1900 TO ${yearTo}]`;
+        if (minCitations) q += ` AND CITED_BY_COUNT:[${minCitations} TO *]`;
       }
-      if (language === "español") q += " AND LANG:spa";
-      if (language === "ingles") q += " AND LANG:eng";
-      if (onlyPDF) q += " AND OPEN_ACCESS:y AND HAS_FT:y";
-      if (minCitations) q += ` AND CITED_BY_COUNT:[${minCitations} TO *]`;
 
-      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=50&resultType=core`;
+      const cursorParam = cursor ? `&cursorMark=${encodeURIComponent(cursor)}` : "&cursorMark=*";
+      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=100&resultType=core&sort=relevance${cursorParam}`;
       const r = await fetch(url);
       const d = await r.json();
       const list: EpmcArticle[] = d.resultList?.result ?? [];
       setTotalCount(d.hitCount ?? list.length);
+      setNextCursor(d.nextCursorMark && d.nextCursorMark !== cursor ? d.nextCursorMark : null);
+      setLastQuery(q);
       const withScores: ScoredArticle[] = list.map((a) => ({ ...a, relevance_score: previewScore(a) }));
-      let sorted = withScores;
-      if (sortBy === "citaciones") sorted = [...withScores].sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
-      else if (sortBy === "recientes") sorted = [...withScores].sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
-      else sorted = [...withScores].sort((a, b) => b.relevance_score - a.relevance_score);
-      setResults(sorted.slice(0, 15));
+      const merged = append && results ? [...results, ...withScores] : withScores;
+      let sorted = merged;
+      if (sortBy === "citaciones") sorted = [...merged].sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
+      else if (sortBy === "recientes") sorted = [...merged].sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
+      setResults(sorted);
+      setCitationSort("none");
     } catch (e: any) {
       toast.error(e?.message ?? "Error al buscar");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  }
+
+  async function loadMore() {
+    if (!nextCursor) return;
+    await runSearch(true, nextCursor);
   }
 
   useEffect(() => {
