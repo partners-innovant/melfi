@@ -723,10 +723,20 @@ function PubMedFullscreenSearch({
     let sorted = [...results];
     if (sortBy === "citaciones") sorted.sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
     else if (sortBy === "recientes") sorted.sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
-    else sorted.sort((a, b) => b.relevance_score - a.relevance_score);
     setResults(sorted);
+    setCitationSort("none");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy]);
+
+  function toggleCitationSort() {
+    if (!results) return;
+    const next = citationSort === "desc" ? "asc" : "desc";
+    const sorted = [...results].sort((a, b) =>
+      next === "desc" ? (b.citedByCount || 0) - (a.citedByCount || 0) : (a.citedByCount || 0) - (b.citedByCount || 0)
+    );
+    setResults(sorted);
+    setCitationSort(next);
+  }
 
   function buildImportBody(a: ScoredArticle) {
     const types = a.pubTypeList?.pubType ?? [];
