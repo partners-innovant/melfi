@@ -641,16 +641,17 @@ function PubMedFullscreenSearch({
   onImported: () => void;
 }) {
   const [term, setTerm] = useState("");
-  const [years, setYears] = useState<string>("5");
   const [yearFrom, setYearFrom] = useState("");
   const [yearTo, setYearTo] = useState("");
   const [minCitations, setMinCitations] = useState("");
-  const [language, setLanguage] = useState<string>("all");
-  const [onlyPDF, setOnlyPDF] = useState(false);
   const [sortBy, setSortBy] = useState<"relevancia" | "citaciones" | "recientes">("relevancia");
+  const [citationSort, setCitationSort] = useState<"none" | "asc" | "desc">("none");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState<ScoredArticle[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [lastQuery, setLastQuery] = useState<string>("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState<Set<string>>(new Set());
@@ -676,40 +677,45 @@ function PubMedFullscreenSearch({
     return false;
   }
 
-  async function runSearch() {
-    setLoading(true);
+  async function runSearch(append = false, cursor: string | null = null) {
+    if (append) setLoadingMore(true); else setLoading(true);
     try {
-      const currentYear = new Date().getFullYear();
       const t = term.trim();
       let q = t ? t : "*";
       q += " AND NOT SRC:PPR";
-      if (yearFrom && yearTo) {
-        q += ` AND PUB_YEAR:[${yearFrom} TO ${yearTo}]`;
-      } else if (years && years !== "all") {
-        const fromY = currentYear - parseInt(years);
-        q += ` AND PUB_YEAR:[${fromY} TO ${currentYear}]`;
+      if (advancedOpen) {
+        if (yearFrom && yearTo) q += ` AND PUB_YEAR:[${yearFrom} TO ${yearTo}]`;
+        else if (yearFrom) q += ` AND PUB_YEAR:[${yearFrom} TO ${new Date().getFullYear()}]`;
+        else if (yearTo) q += ` AND PUB_YEAR:[1900 TO ${yearTo}]`;
+        if (minCitations) q += ` AND CITED_BY_COUNT:[${minCitations} TO *]`;
       }
-      if (language === "español") q += " AND LANG:spa";
-      if (language === "ingles") q += " AND LANG:eng";
-      if (onlyPDF) q += " AND OPEN_ACCESS:y AND HAS_FT:y";
-      if (minCitations) q += ` AND CITED_BY_COUNT:[${minCitations} TO *]`;
 
-      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=50&resultType=core`;
+      const cursorParam = cursor ? `&cursorMark=${encodeURIComponent(cursor)}` : "&cursorMark=*";
+      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=100&resultType=core&sort=relevance${cursorParam}`;
       const r = await fetch(url);
       const d = await r.json();
       const list: EpmcArticle[] = d.resultList?.result ?? [];
       setTotalCount(d.hitCount ?? list.length);
+      setNextCursor(d.nextCursorMark && d.nextCursorMark !== cursor ? d.nextCursorMark : null);
+      setLastQuery(q);
       const withScores: ScoredArticle[] = list.map((a) => ({ ...a, relevance_score: previewScore(a) }));
-      let sorted = withScores;
-      if (sortBy === "citaciones") sorted = [...withScores].sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
-      else if (sortBy === "recientes") sorted = [...withScores].sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
-      else sorted = [...withScores].sort((a, b) => b.relevance_score - a.relevance_score);
-      setResults(sorted.slice(0, 15));
+      const merged = append && results ? [...results, ...withScores] : withScores;
+      let sorted = merged;
+      if (sortBy === "citaciones") sorted = [...merged].sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
+      else if (sortBy === "recientes") sorted = [...merged].sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
+      setResults(sorted);
+      setCitationSort("none");
     } catch (e: any) {
       toast.error(e?.message ?? "Error al buscar");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
+  }
+
+  async function loadMore() {
+    if (!nextCursor) return;
+    await runSearch(true, nextCursor);
   }
 
   useEffect(() => {
@@ -717,10 +723,20 @@ function PubMedFullscreenSearch({
     let sorted = [...results];
     if (sortBy === "citaciones") sorted.sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
     else if (sortBy === "recientes") sorted.sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
-    else sorted.sort((a, b) => b.relevance_score - a.relevance_score);
     setResults(sorted);
+    setCitationSort("none");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy]);
+
+  function toggleCitationSort() {
+    if (!results) return;
+    const next = citationSort === "desc" ? "asc" : "desc";
+    const sorted = [...results].sort((a, b) =>
+      next === "desc" ? (b.citedByCount || 0) - (a.citedByCount || 0) : (a.citedByCount || 0) - (b.citedByCount || 0)
+    );
+    setResults(sorted);
+    setCitationSort(next);
+  }
 
   function buildImportBody(a: ScoredArticle) {
     const types = a.pubTypeList?.pubType ?? [];
@@ -800,7 +816,7 @@ function PubMedFullscreenSearch({
               onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
               className="flex-1"
             />
-            <Button onClick={runSearch} disabled={loading} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+            <Button onClick={() => runSearch()} disabled={loading} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchIcon className="h-4 w-4" />} Buscar
             </Button>
           </div>
@@ -809,35 +825,12 @@ function PubMedFullscreenSearch({
       </div>
 
       <div className="border-b px-6 py-2 flex flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">Período:</span>
-          <Select value={years} onValueChange={setYears}>
-            <SelectTrigger className="w-[160px] h-8"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="1">Último año</SelectItem>
-              <SelectItem value="2">Últimos 2 años</SelectItem>
-              <SelectItem value="5">Últimos 5 años</SelectItem>
-              <SelectItem value="10">Últimos 10 años</SelectItem>
-              <SelectItem value="custom">Personalizado</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2">
-          <Switch id="pdf" checked={onlyPDF} onCheckedChange={setOnlyPDF} />
-          <Label htmlFor="pdf" className="cursor-pointer">📄 Solo con PDF</Label>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">Idioma:</span>
-          <Select value={language} onValueChange={setLanguage}>
-            <SelectTrigger className="w-[120px] h-8"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="ingles">Inglés</SelectItem>
-              <SelectItem value="español">Español</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <button
+          onClick={() => setAdvancedOpen((v) => !v)}
+          className="text-muted-foreground hover:text-foreground font-medium"
+        >
+          {advancedOpen ? "▼" : "▶"} Búsqueda avanzada
+        </button>
         <div className="flex items-center gap-1 ml-auto bg-muted/50 rounded-md p-0.5">
           {([
             ["relevancia", "⭐ Relevancia"],
@@ -858,15 +851,9 @@ function PubMedFullscreenSearch({
         </div>
       </div>
 
-      <div className="border-b px-6 py-2 text-xs">
-        <button
-          onClick={() => setAdvancedOpen((v) => !v)}
-          className="text-muted-foreground hover:text-foreground font-medium"
-        >
-          {advancedOpen ? "▼" : "▶"} Búsqueda avanzada
-        </button>
-        {advancedOpen && (
-          <div className="mt-2 flex flex-wrap items-end gap-3">
+      {advancedOpen && (
+        <div className="border-b px-6 py-2 text-xs">
+          <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <Label className="text-[10px] text-muted-foreground">Desde año</Label>
               <Input type="number" placeholder="2015" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-[100px] h-8" />
@@ -879,12 +866,12 @@ function PubMedFullscreenSearch({
               <Label className="text-[10px] text-muted-foreground">Mínimo de citas</Label>
               <Input type="number" placeholder="Ej: 50" value={minCitations} onChange={(e) => setMinCitations(e.target.value)} className="w-[120px] h-8" />
             </div>
-            <Button onClick={runSearch} disabled={loading} size="sm" className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+            <Button onClick={() => runSearch()} disabled={loading} size="sm" className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} Buscar
             </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto">
         {!results && !loading && (
@@ -900,7 +887,7 @@ function PubMedFullscreenSearch({
         {results && (
           <div>
             <div className="px-6 py-2 text-xs text-muted-foreground border-b bg-muted/20">
-              {totalCount.toLocaleString()} resultados encontrados · Mostrando top {results.length} · Ordenado por {sortLabel}
+              {totalCount.toLocaleString()} resultados encontrados · Mostrando {results.length} · Ordenado por {citationSort !== "none" ? `citas ${citationSort === "desc" ? "↓" : "↑"}` : sortLabel}
             </div>
             {results.length === 0 ? (
               <div className="p-20 text-center text-muted-foreground text-sm">No se encontraron resultados.</div>
@@ -918,7 +905,9 @@ function PubMedFullscreenSearch({
                     <th className="p-2 text-left" style={{ width: "7%" }}>Tipo</th>
                     <th className="p-2 text-left" style={{ width: "9%" }}>Área clínica</th>
                     <th className="p-2 text-left" style={{ width: "6%" }}>Evidencia</th>
-                    <th className="p-2 text-left" style={{ width: "4%" }}>Citas</th>
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "4%" }} onClick={toggleCitationSort}>
+                      Citas {citationSort === "desc" ? "↓" : citationSort === "asc" ? "↑" : "↕"}
+                    </th>
                     <th className="p-2 text-left" style={{ width: "4%" }}>PDF</th>
                     <th className="p-2 text-left" style={{ width: "12%" }}>Acciones</th>
                   </tr>
@@ -1055,6 +1044,14 @@ function PubMedFullscreenSearch({
                   })}
                 </tbody>
               </table>
+            )}
+            {results.length > 0 && nextCursor && (
+              <div className="p-4 flex justify-center border-t">
+                <Button onClick={loadMore} disabled={loadingMore} variant="outline" size="sm" className="gap-1.5">
+                  {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Cargar más
+                </Button>
+              </div>
             )}
           </div>
         )}
