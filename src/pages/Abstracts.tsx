@@ -1045,6 +1045,14 @@ function PubMedFullscreenSearch({
                 </tbody>
               </table>
             )}
+            {results.length > 0 && nextCursor && (
+              <div className="p-4 flex justify-center border-t">
+                <Button onClick={loadMore} disabled={loadingMore} variant="outline" size="sm" className="gap-1.5">
+                  {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  Cargar más
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
