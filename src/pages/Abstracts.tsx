@@ -872,26 +872,6 @@ function PubMedFullscreenSearch({
           </div>
         </div>
       )}
-        {advancedOpen && (
-          <div className="mt-2 flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] text-muted-foreground">Desde año</Label>
-              <Input type="number" placeholder="2015" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-[100px] h-8" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] text-muted-foreground">Hasta año</Label>
-              <Input type="number" placeholder="2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-[100px] h-8" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] text-muted-foreground">Mínimo de citas</Label>
-              <Input type="number" placeholder="Ej: 50" value={minCitations} onChange={(e) => setMinCitations(e.target.value)} className="w-[120px] h-8" />
-            </div>
-            <Button onClick={runSearch} disabled={loading} size="sm" className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} Buscar
-            </Button>
-          </div>
-        )}
-      </div>
 
       <div className="flex-1 overflow-auto">
         {!results && !loading && (
