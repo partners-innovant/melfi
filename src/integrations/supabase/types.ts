@@ -1473,6 +1473,77 @@ export type Database = {
         }
         Relationships: []
       }
+      professional_feedback: {
+        Row: {
+          analysis_input: Json | null
+          child_patient_id: string | null
+          created_at: string
+          date_from: string | null
+          date_to: string | null
+          feedback_content: Json | null
+          feedback_type: string
+          id: string
+          patient_id: string | null
+          psychologist_id: string
+          session_id: string | null
+        }
+        Insert: {
+          analysis_input?: Json | null
+          child_patient_id?: string | null
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          feedback_content?: Json | null
+          feedback_type: string
+          id?: string
+          patient_id?: string | null
+          psychologist_id: string
+          session_id?: string | null
+        }
+        Update: {
+          analysis_input?: Json | null
+          child_patient_id?: string | null
+          created_at?: string
+          date_from?: string | null
+          date_to?: string | null
+          feedback_content?: Json | null
+          feedback_type?: string
+          id?: string
+          patient_id?: string | null
+          psychologist_id?: string
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "professional_feedback_child_patient_id_fkey"
+            columns: ["child_patient_id"]
+            isOneToOne: false
+            referencedRelation: "child_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_feedback_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_feedback_psychologist_id_fkey"
+            columns: ["psychologist_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "professional_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
