@@ -905,7 +905,9 @@ function PubMedFullscreenSearch({
                     <th className="p-2 text-left" style={{ width: "7%" }}>Tipo</th>
                     <th className="p-2 text-left" style={{ width: "9%" }}>Área clínica</th>
                     <th className="p-2 text-left" style={{ width: "6%" }}>Evidencia</th>
-                    <th className="p-2 text-left" style={{ width: "4%" }}>Citas</th>
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "4%" }} onClick={toggleCitationSort}>
+                      Citas {citationSort === "desc" ? "↓" : citationSort === "asc" ? "↑" : "↕"}
+                    </th>
                     <th className="p-2 text-left" style={{ width: "4%" }}>PDF</th>
                     <th className="p-2 text-left" style={{ width: "12%" }}>Acciones</th>
                   </tr>
