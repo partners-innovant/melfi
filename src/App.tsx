@@ -55,6 +55,7 @@ const App = () => (
             <Route path="/claude" element={<Shell><Claude /></Shell>} />
             <Route path="/cafe" element={<Shell><Cafe /></Shell>} />
             <Route path="/abstracts" element={<Shell><Abstracts /></Shell>} />
+            <Route path="/desarrollo" element={<Shell><ProfessionalDevelopment /></Shell>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
