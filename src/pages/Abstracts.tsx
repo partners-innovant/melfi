@@ -887,7 +887,7 @@ function PubMedFullscreenSearch({
         {results && (
           <div>
             <div className="px-6 py-2 text-xs text-muted-foreground border-b bg-muted/20">
-              {totalCount.toLocaleString()} resultados encontrados · Mostrando top {results.length} · Ordenado por {sortLabel}
+              {totalCount.toLocaleString()} resultados encontrados · Mostrando {results.length} · Ordenado por {citationSort !== "none" ? `citas ${citationSort === "desc" ? "↓" : "↑"}` : sortLabel}
             </div>
             {results.length === 0 ? (
               <div className="p-20 text-center text-muted-foreground text-sm">No se encontraron resultados.</div>
