@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { FileText, Eye, Pencil, Check, Loader2, Sparkles, Plus } from "lucide-react";
+import { FileText, Eye, Pencil, Check, Loader2, Sparkles, Plus, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
+import { useAudioTranscriber } from "@/hooks/useAudioTranscriber";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
