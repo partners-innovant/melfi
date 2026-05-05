@@ -8,8 +8,9 @@ import { PubMedSearchDialog } from "@/components/PubMedSearchDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Play, ChevronLeft, ChevronRight, FileText, Brain, RefreshCw,
-  ExternalLink, FlaskConical, Newspaper, Coffee, Plus,
+  ExternalLink, FlaskConical, Newspaper, Coffee, Plus, Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const DAY_KEYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
