@@ -762,6 +762,20 @@ function SuggestionChips({
   onAutoSend: (text: string, mode?: string) => void;
   onRefresh: () => void;
 }) {
+  const deriveTitle = (q: string) => {
+    const words = q.replace(/[¿?¡!]/g, "").trim().split(/\s+/);
+    const slice = words.slice(0, 5).join(" ");
+    return slice + (words.length > 5 ? "…" : "");
+  };
+  const ChipContent = ({ q }: { q: string }) => (
+    <span className="flex flex-col items-start gap-0.5 leading-tight">
+      <span className="text-[11px] font-bold text-teal-700 dark:text-teal-300 uppercase tracking-wide">
+        {deriveTitle(q)}
+      </span>
+      <span className="text-xs font-normal text-foreground/80">{q}</span>
+    </span>
+  );
+
   const hasPatient = patientId !== NONE;
 
   if (hasPatient) {
