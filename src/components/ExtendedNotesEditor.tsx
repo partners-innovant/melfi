@@ -10,6 +10,7 @@ import {
 import { FileText, Eye, Pencil, Check, Loader2, Sparkles, Plus, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { useAudioTranscriber } from "@/hooks/useAudioTranscriber";
+import { cn } from "@/lib/utils";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
