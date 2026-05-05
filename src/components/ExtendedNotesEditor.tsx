@@ -139,6 +139,28 @@ export default function ExtendedNotesEditor({
             type="button"
             size="sm"
             variant="outline"
+            disabled={transcribing}
+            onClick={toggleRec}
+            className={cn(
+              "h-8 gap-1.5",
+              recording
+                ? "border-red-500 text-red-600 dark:text-red-400 bg-red-500/10"
+                : "border-border",
+            )}
+            title={recording ? "Detener grabación" : "Grabar audio (Whisper)"}
+          >
+            {recording ? (
+              <><span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /><Square className="h-3.5 w-3.5" />Detener</>
+            ) : transcribing ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" />Transcribiendo...</>
+            ) : (
+              <><Mic className="h-3.5 w-3.5" />🎤 Grabar</>
+            )}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
             disabled={!hasContent || improving}
             onClick={handleImprove}
             className="h-8 gap-1.5 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
