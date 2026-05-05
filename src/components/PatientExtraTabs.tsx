@@ -56,6 +56,9 @@ export function PatientProfileBuilderTab({
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const { recording: audioRec, transcribing: audioTr, toggle: toggleAudio } = useAudioTranscriber((text) => {
+    setInput((prev) => (prev.trim() ? prev.replace(/\s+$/, "") + " " + text : text));
+  });
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [patientName, setPatientName] = useState<string>("");
