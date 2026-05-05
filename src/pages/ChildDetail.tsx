@@ -171,13 +171,14 @@ export default function ChildDetail() {
                 <p className="text-sm whitespace-pre-wrap">{child.referral_reason}</p>
               </div>
             )}
-            {child.notes && (
-              <div className="mt-4 pt-4 border-t border-border">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold mb-1">Notas</div>
-                <p className="text-sm whitespace-pre-wrap">{child.notes}</p>
-              </div>
-            )}
           </Card>
+
+          <EditableNotesCard
+            table="child_patients"
+            rowId={child.id}
+            notes={child.notes ?? null}
+            onNotesUpdated={(newNotes) => setChild((c: any) => c ? { ...c, notes: newNotes } : c)}
+          />
 
           <ExtendedNotesEditor
             table="child_patients"
