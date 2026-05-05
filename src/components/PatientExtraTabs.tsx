@@ -13,8 +13,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw, Paperclip,
+  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw, Paperclip, Mic, Square,
 } from "lucide-react";
+import { useAudioTranscriber } from "@/hooks/useAudioTranscriber";
+import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { extractPdfText, extractTxtText } from "@/lib/pdf";
 
@@ -54,6 +56,9 @@ export function PatientProfileBuilderTab({
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const { recording: audioRec, transcribing: audioTr, toggle: toggleAudio } = useAudioTranscriber((text) => {
+    setInput((prev) => (prev.trim() ? prev.replace(/\s+$/, "") + " " + text : text));
+  });
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [patientName, setPatientName] = useState<string>("");
@@ -539,6 +544,22 @@ export function PatientProfileBuilderTab({
               title="Adjuntar archivo (PDF, imagen, audio)"
             >
               <Paperclip className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              onClick={toggleAudio}
+              disabled={sending || analyzingFile || audioTr}
+              size="icon"
+              variant="ghost"
+              className={cn(
+                "h-7 w-7 shrink-0",
+                audioRec
+                  ? "text-red-600 dark:text-red-400 bg-red-500/10 animate-pulse"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title={audioRec ? "Detener grabación" : "Grabar audio (Whisper)"}
+            >
+              {audioRec ? <Square className="h-4 w-4" /> : audioTr ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
             </Button>
             <div className="flex items-center gap-2 ml-auto">
               <ImprovePromptButton

@@ -7,8 +7,10 @@ import { Card } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { FileText, Eye, Pencil, Check, Loader2, Sparkles, Plus } from "lucide-react";
+import { FileText, Eye, Pencil, Check, Loader2, Sparkles, Plus, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
+import { useAudioTranscriber } from "@/hooks/useAudioTranscriber";
+import { cn } from "@/lib/utils";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -34,6 +36,10 @@ export default function ExtendedNotesEditor({
   const [originalSnapshot, setOriginalSnapshot] = useState("");
   const [suggestion, setSuggestion] = useState("");
   const [appending, setAppending] = useState(false);
+
+  const { recording, transcribing, toggle: toggleRec } = useAudioTranscriber((text) => {
+    setValue((prev) => (prev.trim() ? prev.replace(/\s+$/, "") + " " + text : text));
+  });
 
   useEffect(() => {
     setValue(initialValue ?? "");
@@ -130,6 +136,28 @@ export default function ExtendedNotesEditor({
         </h2>
         <div className="flex items-center gap-2 flex-wrap">
           <SaveIndicator status={status} />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={transcribing}
+            onClick={toggleRec}
+            className={cn(
+              "h-8 gap-1.5",
+              recording
+                ? "border-red-500 text-red-600 dark:text-red-400 bg-red-500/10"
+                : "border-border",
+            )}
+            title={recording ? "Detener grabación" : "Grabar audio (Whisper)"}
+          >
+            {recording ? (
+              <><span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" /><Square className="h-3.5 w-3.5" />Detener</>
+            ) : transcribing ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" />Transcribiendo...</>
+            ) : (
+              <><Mic className="h-3.5 w-3.5" />🎤 Grabar</>
+            )}
+          </Button>
           <Button
             type="button"
             size="sm"
