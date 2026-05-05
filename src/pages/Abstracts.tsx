@@ -859,14 +859,38 @@ function PubMedFullscreenSearch({
     out.sort((a, b) => {
       let av: any, bv: any;
       switch (key) {
-        case "score": av = a.relevance_score; bv = b.relevance_score; break;
-        case "title": av = (a.title ?? "").toLowerCase(); bv = (b.title ?? "").toLowerCase(); break;
-        case "authors": av = (a.authorString ?? "").toLowerCase(); bv = (b.authorString ?? "").toLowerCase(); break;
-        case "journal": av = (a.journalTitle ?? "").toLowerCase(); bv = (b.journalTitle ?? "").toLowerCase(); break;
-        case "year": av = new Date(a.firstPublicationDate || a.pubYear || 0).getTime(); bv = new Date(b.firstPublicationDate || b.pubYear || 0).getTime(); break;
-        case "type": av = (a.pubTypeList?.pubType ?? []).join(" "); bv = (b.pubTypeList?.pubType ?? []).join(" "); break;
-        case "evidence": av = detectEvidenceLevel(a.pubTypeList?.pubType ?? []); bv = detectEvidenceLevel(b.pubTypeList?.pubType ?? []); break;
-        case "citations": av = a.citedByCount || 0; bv = b.citedByCount || 0; break;
+        case "score":
+          av = a.relevance_score;
+          bv = b.relevance_score;
+          break;
+        case "title":
+          av = (a.title ?? "").toLowerCase();
+          bv = (b.title ?? "").toLowerCase();
+          break;
+        case "authors":
+          av = (a.authorString ?? "").toLowerCase();
+          bv = (b.authorString ?? "").toLowerCase();
+          break;
+        case "journal":
+          av = (a.journalTitle ?? "").toLowerCase();
+          bv = (b.journalTitle ?? "").toLowerCase();
+          break;
+        case "year":
+          av = new Date(a.firstPublicationDate || a.pubYear || 0).getTime();
+          bv = new Date(b.firstPublicationDate || b.pubYear || 0).getTime();
+          break;
+        case "type":
+          av = (a.pubTypeList?.pubType ?? []).join(" ");
+          bv = (b.pubTypeList?.pubType ?? []).join(" ");
+          break;
+        case "evidence":
+          av = detectEvidenceLevel(a.pubTypeList?.pubType ?? []);
+          bv = detectEvidenceLevel(b.pubTypeList?.pubType ?? []);
+          break;
+        case "citations":
+          av = a.citedByCount || 0;
+          bv = b.citedByCount || 0;
+          break;
       }
       if (av < bv) return -1 * sign;
       if (av > bv) return 1 * sign;
@@ -919,8 +943,7 @@ function PubMedFullscreenSearch({
       const merged = append && results ? [...results, ...withScores] : withScores;
 
       // Map top sort buttons to column sort
-      const initialKey: SortKey =
-        sortBy === "citaciones" ? "citations" : sortBy === "recientes" ? "year" : "score";
+      const initialKey: SortKey = sortBy === "citaciones" ? "citations" : sortBy === "recientes" ? "year" : "score";
       setSortKey(initialKey);
       setSortDir("desc");
       setResults(applySort(merged, initialKey, "desc"));
@@ -1141,8 +1164,8 @@ function PubMedFullscreenSearch({
         {results && (
           <div>
             <div className="px-6 py-2 text-xs text-muted-foreground border-b bg-muted/20">
-              {totalCount.toLocaleString()} resultados encontrados · Mostrando {results.length} · Ordenado por{" "}
-              {sortKey} {sortDir === "desc" ? "↓" : "↑"}
+              {totalCount.toLocaleString()} resultados encontrados · Mostrando {results.length} · Ordenado por {sortKey}{" "}
+              {sortDir === "desc" ? "↓" : "↑"}
             </div>
             {results.length === 0 ? (
               <div className="p-20 text-center text-muted-foreground text-sm">No se encontraron resultados.</div>
@@ -1151,34 +1174,66 @@ function PubMedFullscreenSearch({
                 <thead className="bg-muted/40 text-[11px] text-muted-foreground sticky top-0">
                   <tr>
                     <th className="p-2" style={{ width: "3%" }}></th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "5%" }} onClick={() => toggleColumn("score")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "5%" }}
+                      onClick={() => toggleColumn("score")}
+                    >
                       Score {sortIndicator("score")}
                     </th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "20%" }} onClick={() => toggleColumn("title")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "20%" }}
+                      onClick={() => toggleColumn("title")}
+                    >
                       Título {sortIndicator("title")}
                     </th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "9%" }} onClick={() => toggleColumn("authors")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "9%" }}
+                      onClick={() => toggleColumn("authors")}
+                    >
                       Autores {sortIndicator("authors")}
                     </th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "9%" }} onClick={() => toggleColumn("journal")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "9%" }}
+                      onClick={() => toggleColumn("journal")}
+                    >
                       Revista {sortIndicator("journal")}
                     </th>
                     <th className="p-2 text-left" style={{ width: "8%" }}>
                       Institución
                     </th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "5%" }} onClick={() => toggleColumn("year")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "5%" }}
+                      onClick={() => toggleColumn("year")}
+                    >
                       Año {sortIndicator("year")}
                     </th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "7%" }} onClick={() => toggleColumn("type")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "7%" }}
+                      onClick={() => toggleColumn("type")}
+                    >
                       Tipo {sortIndicator("type")}
                     </th>
                     <th className="p-2 text-left" style={{ width: "8%" }}>
                       Área clínica
                     </th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "6%" }} onClick={() => toggleColumn("evidence")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "6%" }}
+                      onClick={() => toggleColumn("evidence")}
+                    >
                       Evidencia {sortIndicator("evidence")}
                     </th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "4%" }} onClick={() => toggleColumn("citations")}>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "4%" }}
+                      onClick={() => toggleColumn("citations")}
+                    >
                       Citas {sortIndicator("citations")}
                     </th>
                     <th className="p-2 text-left" style={{ width: "4%" }}>
