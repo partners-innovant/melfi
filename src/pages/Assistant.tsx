@@ -825,9 +825,9 @@ function SuggestionChips({
                   key={s}
                   type="button"
                   onClick={() => onPick(s)}
-                  className="text-left text-sm border border-border rounded-full px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
+                  className="text-left border border-border rounded-2xl px-3.5 py-2 hover:bg-accent hover:border-primary/40 transition-colors"
                 >
-                  {s}
+                  <ChipContent q={s} />
                 </button>
               ))
             )}
