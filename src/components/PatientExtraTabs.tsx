@@ -13,8 +13,10 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw, Paperclip,
+  Plus, FileText, Trash2, Eye, Sparkles, Send, Loader2, Check, X, Wand2, RotateCcw, Paperclip, Mic, Square,
 } from "lucide-react";
+import { useAudioTranscriber } from "@/hooks/useAudioTranscriber";
+import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { extractPdfText, extractTxtText } from "@/lib/pdf";
 
