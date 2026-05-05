@@ -11,28 +11,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Eye, ExternalLink, Trash2, Plus, FlaskConical, Copy, Sparkles, Loader2,
-} from "lucide-react";
+import { Eye, ExternalLink, Trash2, Plus, FlaskConical, Copy, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { CLINICAL_AREAS, CLINICAL_AREA_LABELS, clinicalAreaColor, clinicalAreaLabel } from "@/lib/clinical-areas";
 import { X, Search as SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const EVIDENCE_LEVELS = [
-  "meta_analisis","revision_sistematica","ensayo_clinico_rct",
-  "estudio_cohorte","guia_practica_clinica","consenso_expertos",
-  "reporte_caso","opinion_experto","otro",
+  "meta_analisis",
+  "revision_sistematica",
+  "ensayo_clinico_rct",
+  "estudio_cohorte",
+  "guia_practica_clinica",
+  "consenso_expertos",
+  "reporte_caso",
+  "opinion_experto",
+  "otro",
 ] as const;
 const EVIDENCE_LABELS: Record<string, string> = {
   meta_analisis: "Meta-análisis",
@@ -94,10 +100,12 @@ export default function AbstractsPage() {
       .select("*")
       .order("created_at", { ascending: false });
     if (error) toast.error(error.message);
-    setList(((data ?? []) as unknown) as Abstract[]);
+    setList((data ?? []) as unknown as Abstract[]);
     setLoading(false);
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -126,8 +134,14 @@ export default function AbstractsPage() {
   }, [list, user?.id]);
 
   async function handleDelete(id: string) {
-    const { error } = await supabase.from("abstracts" as any).delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    const { error } = await supabase
+      .from("abstracts" as any)
+      .delete()
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Abstract eliminado");
     setConfirmDelete(null);
     if (viewing?.id === id) setViewing(null);
@@ -166,25 +180,35 @@ export default function AbstractsPage() {
           className="max-w-md"
         />
         <Select value={filterArea} onValueChange={setFilterArea}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Área clínica" /></SelectTrigger>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Área clínica" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ANY}>Todas las áreas</SelectItem>
             {CLINICAL_AREAS.map((a) => (
-              <SelectItem key={a} value={a}>{clinicalAreaLabel(a)}</SelectItem>
+              <SelectItem key={a} value={a}>
+                {clinicalAreaLabel(a)}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={filterEvidence} onValueChange={setFilterEvidence}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Evidencia" /></SelectTrigger>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Evidencia" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ANY}>Cualquier evidencia</SelectItem>
             {EVIDENCE_LEVELS.map((e) => (
-              <SelectItem key={e} value={e}>{EVIDENCE_LABELS[e]}</SelectItem>
+              <SelectItem key={e} value={e}>
+                {EVIDENCE_LABELS[e]}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={filterYear} onValueChange={setFilterYear}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Año" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Año" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ANY}>Cualquier año</SelectItem>
             <SelectItem value="2024">≥ 2024</SelectItem>
@@ -194,7 +218,9 @@ export default function AbstractsPage() {
           </SelectContent>
         </Select>
         <Select value={filterLang} onValueChange={setFilterLang}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Idioma" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Idioma" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ANY}>Cualquiera</SelectItem>
             <SelectItem value="español">Español</SelectItem>
@@ -209,75 +235,117 @@ export default function AbstractsPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs text-muted-foreground">
               <tr>
-                <th className="text-left p-3" style={{ width: "30%" }}>Título</th>
-                <th className="text-left p-3" style={{ width: "12%" }}>Autores</th>
-                <th className="text-left p-3" style={{ width: "12%" }}>Revista</th>
-                <th className="text-left p-3" style={{ width: "5%" }}>Año</th>
-                <th className="text-left p-3" style={{ width: "18%" }}>Áreas</th>
-                <th className="text-left p-3" style={{ width: "8%" }}>Evidencia</th>
-                <th className="text-left p-3" style={{ width: "5%" }}>Citas</th>
-                <th className="text-left p-3" style={{ width: "10%" }}>Acciones</th>
+                <th className="text-left p-3" style={{ width: "30%" }}>
+                  Título
+                </th>
+                <th className="text-left p-3" style={{ width: "12%" }}>
+                  Autores
+                </th>
+                <th className="text-left p-3" style={{ width: "12%" }}>
+                  Revista
+                </th>
+                <th className="text-left p-3" style={{ width: "5%" }}>
+                  Año
+                </th>
+                <th className="text-left p-3" style={{ width: "18%" }}>
+                  Áreas
+                </th>
+                <th className="text-left p-3" style={{ width: "8%" }}>
+                  Evidencia
+                </th>
+                <th className="text-left p-3" style={{ width: "5%" }}>
+                  Citas
+                </th>
+                <th className="text-left p-3" style={{ width: "10%" }}>
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-t"><td colSpan={8} className="p-3"><Skeleton className="h-8 w-full" /></td></tr>
+                  <tr key={i} className="border-t">
+                    <td colSpan={8} className="p-3">
+                      <Skeleton className="h-8 w-full" />
+                    </td>
+                  </tr>
                 ))
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">
-                  No hay abstracts. Importa desde PubMed o agrega uno manualmente.
-                </td></tr>
-              ) : filtered.map((a) => (
-                <tr key={a.id} className="border-t hover:bg-muted/30">
-                  <td className="p-3">
-                    <button
-                      onClick={() => setViewing(a)}
-                      className="text-left font-medium line-clamp-2 hover:text-primary"
-                    >
-                      {a.title}
-                    </button>
-                    {a.is_global && <Badge variant="secondary" className="ml-1 text-[9px]">Global</Badge>}
-                  </td>
-                  <td className="p-3 text-xs text-muted-foreground truncate">{a.authors ?? "—"}</td>
-                  <td className="p-3 text-xs text-muted-foreground truncate">{a.journal ?? "—"}</td>
-                  <td className="p-3 text-xs">{a.year ?? "—"}</td>
-                  <td className="p-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(a.clinical_areas ?? []).slice(0, 3).map((ca) => (
-                        <span key={ca} className={cn("text-[10px] px-1.5 py-0.5 rounded", clinicalAreaColor(ca))}>
-                          {clinicalAreaLabel(ca)}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    {a.evidence_level && (
-                      <Badge variant="outline" className="text-[10px]">{EVIDENCE_LABELS[a.evidence_level] ?? a.evidence_level}</Badge>
-                    )}
-                  </td>
-                  <td className="p-3 text-xs tabular-nums">{a.citations_count ?? 0}</td>
-                  <td className="p-3">
-                    <div className="flex gap-1">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setViewing(a)} title="Ver abstract">
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      {(a.source_url || a.doi) && (
-                        <a href={a.source_url ?? `https://doi.org/${a.doi}`} target="_blank" rel="noreferrer">
-                          <Button size="icon" variant="ghost" className="h-7 w-7" title="Fuente">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                        </a>
-                      )}
-                      {(a.psychologist_id === user?.id || profile?.is_admin) && (
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => setConfirmDelete(a.id)} title="Eliminar">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
+                <tr>
+                  <td colSpan={8} className="p-10 text-center text-muted-foreground">
+                    No hay abstracts. Importa desde PubMed o agrega uno manualmente.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filtered.map((a) => (
+                  <tr key={a.id} className="border-t hover:bg-muted/30">
+                    <td className="p-3">
+                      <button
+                        onClick={() => setViewing(a)}
+                        className="text-left font-medium line-clamp-2 hover:text-primary"
+                      >
+                        {a.title}
+                      </button>
+                      {a.is_global && (
+                        <Badge variant="secondary" className="ml-1 text-[9px]">
+                          Global
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground truncate">{a.authors ?? "—"}</td>
+                    <td className="p-3 text-xs text-muted-foreground truncate">{a.journal ?? "—"}</td>
+                    <td className="p-3 text-xs">{a.year ?? "—"}</td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(a.clinical_areas ?? []).slice(0, 3).map((ca) => (
+                          <span key={ca} className={cn("text-[10px] px-1.5 py-0.5 rounded", clinicalAreaColor(ca))}>
+                            {clinicalAreaLabel(ca)}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      {a.evidence_level && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {EVIDENCE_LABELS[a.evidence_level] ?? a.evidence_level}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-3 text-xs tabular-nums">{a.citations_count ?? 0}</td>
+                    <td className="p-3">
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => setViewing(a)}
+                          title="Ver abstract"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        {(a.source_url || a.doi) && (
+                          <a href={a.source_url ?? `https://doi.org/${a.doi}`} target="_blank" rel="noreferrer">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" title="Fuente">
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          </a>
+                        )}
+                        {(a.psychologist_id === user?.id || profile?.is_admin) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => setConfirmDelete(a.id)}
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -285,23 +353,31 @@ export default function AbstractsPage() {
 
       <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <SheetContent side="right" className="w-full sm:max-w-[450px] overflow-y-auto">
-          {viewing && <ReaderContent a={viewing} onAssistant={() => navigate(`/assistant?q=${encodeURIComponent(`Analiza este abstract: ${viewing.title}\n\n${viewing.abstract_text}`)}`)} />}
+          {viewing && (
+            <ReaderContent
+              a={viewing}
+              onAssistant={() =>
+                navigate(
+                  `/assistant?q=${encodeURIComponent(`Analiza este abstract: ${viewing.title}\n\n${viewing.abstract_text}`)}`,
+                )
+              }
+            />
+          )}
         </SheetContent>
       </Sheet>
 
       {pubmedOpen && (
-        <PubMedFullscreenSearch
-          existingIds={list}
-          onClose={() => setPubmedOpen(false)}
-          onImported={load}
-        />
+        <PubMedFullscreenSearch existingIds={list} onClose={() => setPubmedOpen(false)} onImported={load} />
       )}
 
       <ManualAbstractDialog
         open={manualOpen}
         onOpenChange={setManualOpen}
         isAdmin={!!profile?.is_admin}
-        onSaved={() => { setManualOpen(false); load(); }}
+        onSaved={() => {
+          setManualOpen(false);
+          load();
+        }}
       />
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
@@ -312,7 +388,10 @@ export default function AbstractsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmDelete && handleDelete(confirmDelete)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={() => confirmDelete && handleDelete(confirmDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -344,7 +423,12 @@ function ReaderContent({ a, onAssistant }: { a: Abstract; onAssistant: () => voi
           {a.year && <span> · {a.year}</span>}
         </div>
         {a.doi && (
-          <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5 text-xs">
+          <a
+            href={`https://doi.org/${a.doi}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline inline-flex items-center gap-0.5 text-xs"
+          >
             DOI: {a.doi} <ExternalLink className="h-3 w-3" />
           </a>
         )}
@@ -364,14 +448,23 @@ function ReaderContent({ a, onAssistant }: { a: Abstract; onAssistant: () => voi
       </div>
       {sourceUrl && (
         <a href={sourceUrl} target="_blank" rel="noreferrer">
-          <Button variant="outline" className="gap-2 w-full"><ExternalLink className="h-4 w-4" /> Ver fuente original</Button>
+          <Button variant="outline" className="gap-2 w-full">
+            <ExternalLink className="h-4 w-4" /> Ver fuente original
+          </Button>
         </a>
       )}
       <div className="border-t pt-4">
         <div className="text-sm leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: formatted }} />
       </div>
       <div className="flex flex-col gap-2 sticky bottom-0 bg-background pt-3 border-t">
-        <Button variant="outline" className="gap-2" onClick={() => { navigator.clipboard.writeText(a.abstract_text); toast.success("Abstract copiado"); }}>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => {
+            navigator.clipboard.writeText(a.abstract_text);
+            toast.success("Abstract copiado");
+          }}
+        >
           <Copy className="h-4 w-4" /> Copiar abstract
         </Button>
         <Button className="gap-2" onClick={onAssistant}>
@@ -383,8 +476,26 @@ function ReaderContent({ a, onAssistant }: { a: Abstract; onAssistant: () => voi
 }
 
 function formatAbstract(text: string): string {
-  const headers = ["Objective", "Objectives", "Background", "Methods", "Method", "Results", "Conclusions", "Conclusion", "Discussion", "Aim", "Aims", "Findings", "Setting", "Participants", "Design", "Introduction", "Purpose"];
-  let html = text.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] ?? c));
+  const headers = [
+    "Objective",
+    "Objectives",
+    "Background",
+    "Methods",
+    "Method",
+    "Results",
+    "Conclusions",
+    "Conclusion",
+    "Discussion",
+    "Aim",
+    "Aims",
+    "Findings",
+    "Setting",
+    "Participants",
+    "Design",
+    "Introduction",
+    "Purpose",
+  ];
+  let html = text.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c] ?? c);
   for (const h of headers) {
     const re = new RegExp(`(^|\\n|\\s)(${h}s?:)`, "g");
     html = html.replace(re, '$1<strong class="text-teal-600 dark:text-teal-400">$2</strong>');
@@ -393,8 +504,16 @@ function formatAbstract(text: string): string {
 }
 
 function ManualAbstractDialog({
-  open, onOpenChange, isAdmin, onSaved,
-}: { open: boolean; onOpenChange: (o: boolean) => void; isAdmin: boolean; onSaved: () => void }) {
+  open,
+  onOpenChange,
+  isAdmin,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  isAdmin: boolean;
+  onSaved: () => void;
+}) {
   const [title, setTitle] = useState("");
   const [authors, setAuthors] = useState("");
   const [journal, setJournal] = useState("");
@@ -408,8 +527,16 @@ function ManualAbstractDialog({
   const [saving, setSaving] = useState(false);
 
   function reset() {
-    setTitle(""); setAuthors(""); setJournal(""); setYear(""); setDoi("");
-    setPubmedId(""); setAbstractText(""); setAreas([]); setEvidence(ANY); setIsGlobal(false);
+    setTitle("");
+    setAuthors("");
+    setJournal("");
+    setYear("");
+    setDoi("");
+    setPubmedId("");
+    setAbstractText("");
+    setAreas([]);
+    setEvidence(ANY);
+    setIsGlobal(false);
   }
 
   async function fetchFromPubmed() {
@@ -419,7 +546,10 @@ function ManualAbstractDialog({
       const r = await fetch(url);
       const d = await r.json();
       const a = d.resultList?.result?.[0];
-      if (!a) { toast.error("No se encontró el artículo"); return; }
+      if (!a) {
+        toast.error("No se encontró el artículo");
+        return;
+      }
       setTitle(a.title ?? "");
       setAuthors(a.authorString ?? "");
       setJournal(a.journalTitle ?? "");
@@ -434,7 +564,8 @@ function ManualAbstractDialog({
 
   async function save() {
     if (!title.trim() || !abstractText.trim()) {
-      toast.error("Título y abstract son obligatorios"); return;
+      toast.error("Título y abstract son obligatorios");
+      return;
     }
     setSaving(true);
     try {
@@ -465,41 +596,73 @@ function ManualAbstractDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) reset(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) reset();
+      }}
+    >
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Agregar abstract</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Agregar abstract</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
           <div>
             <Label>Título *</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Autores</Label><Input value={authors} onChange={(e) => setAuthors(e.target.value)} /></div>
-            <div><Label>Revista</Label><Input value={journal} onChange={(e) => setJournal(e.target.value)} /></div>
+            <div>
+              <Label>Autores</Label>
+              <Input value={authors} onChange={(e) => setAuthors(e.target.value)} />
+            </div>
+            <div>
+              <Label>Revista</Label>
+              <Input value={journal} onChange={(e) => setJournal(e.target.value)} />
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <div><Label>Año</Label><Input type="number" value={year} onChange={(e) => setYear(e.target.value)} /></div>
-            <div><Label>DOI / URL</Label><Input value={doi} onChange={(e) => setDoi(e.target.value)} /></div>
+            <div>
+              <Label>Año</Label>
+              <Input type="number" value={year} onChange={(e) => setYear(e.target.value)} />
+            </div>
+            <div>
+              <Label>DOI / URL</Label>
+              <Input value={doi} onChange={(e) => setDoi(e.target.value)} />
+            </div>
             <div>
               <Label>PubMed ID</Label>
               <div className="flex gap-1">
                 <Input value={pubmedId} onChange={(e) => setPubmedId(e.target.value)} />
-                <Button type="button" size="sm" variant="outline" onClick={fetchFromPubmed}>↓</Button>
+                <Button type="button" size="sm" variant="outline" onClick={fetchFromPubmed}>
+                  ↓
+                </Button>
               </div>
             </div>
           </div>
           <div>
             <Label>Abstract *</Label>
-            <Textarea value={abstractText} onChange={(e) => setAbstractText(e.target.value)} className="min-h-[200px]" />
+            <Textarea
+              value={abstractText}
+              onChange={(e) => setAbstractText(e.target.value)}
+              className="min-h-[200px]"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Nivel de evidencia</Label>
               <Select value={evidence} onValueChange={setEvidence}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ANY}>—</SelectItem>
-                  {EVIDENCE_LEVELS.map((e) => <SelectItem key={e} value={e}>{EVIDENCE_LABELS[e]}</SelectItem>)}
+                  {EVIDENCE_LEVELS.map((e) => (
+                    <SelectItem key={e} value={e}>
+                      {EVIDENCE_LABELS[e]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -509,9 +672,15 @@ function ManualAbstractDialog({
                 {CLINICAL_AREAS.map((ca) => {
                   const sel = areas.includes(ca);
                   return (
-                    <button key={ca} type="button"
-                      onClick={() => setAreas((s) => sel ? s.filter((x) => x !== ca) : [...s, ca])}
-                      className={cn("text-[10px] px-1.5 py-0.5 rounded border", sel ? clinicalAreaColor(ca) : "bg-muted text-muted-foreground border-transparent")}>
+                    <button
+                      key={ca}
+                      type="button"
+                      onClick={() => setAreas((s) => (sel ? s.filter((x) => x !== ca) : [...s, ca]))}
+                      className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded border",
+                        sel ? clinicalAreaColor(ca) : "bg-muted text-muted-foreground border-transparent",
+                      )}
+                    >
                       {clinicalAreaLabel(ca)}
                     </button>
                   );
@@ -527,7 +696,9 @@ function ManualAbstractDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
           <Button onClick={save} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Guardar
           </Button>
@@ -545,7 +716,9 @@ interface EpmcArticle {
   doi?: string;
   title?: string;
   authorString?: string;
-  authorList?: { author?: Array<{ authorAffiliationDetailsList?: { authorAffiliation?: Array<{ affiliation?: string }> } }> };
+  authorList?: {
+    author?: Array<{ authorAffiliationDetailsList?: { authorAffiliation?: Array<{ affiliation?: string }> } }>;
+  };
   journalTitle?: string;
   pubYear?: string;
   firstPublicationDate?: string;
@@ -566,7 +739,7 @@ const PUB_TYPE_EVIDENCE: Record<string, number> = {
   "Systematic Review": 90,
   "Practice Guideline": 75,
   "Randomized Controlled Trial": 80,
-  "Review": 70,
+  Review: 70,
   "Journal Article": 50,
 };
 
@@ -607,9 +780,7 @@ function detectClinicalAreas(mesh: string[]): string[] {
 
 function previewScore(a: EpmcArticle): number {
   const types = a.pubTypeList?.pubType ?? [];
-  const evidenceScore = types.length > 0
-    ? Math.max(...types.map((t) => PUB_TYPE_EVIDENCE[t] ?? 10))
-    : 10;
+  const evidenceScore = types.length > 0 ? Math.max(...types.map((t) => PUB_TYPE_EVIDENCE[t] ?? 10)) : 10;
   const citationsScore = Math.min((a.citedByCount || 0) / 10, 100);
   const yearDiff = new Date().getFullYear() - (parseInt(a.pubYear ?? "2000") || 2000);
   const recencyScore = Math.max(0, 100 - yearDiff * 10);
@@ -634,7 +805,9 @@ function pdfUrlOf(a: EpmcArticle): string | null {
 }
 
 function PubMedFullscreenSearch({
-  existingIds, onClose, onImported,
+  existingIds,
+  onClose,
+  onImported,
 }: {
   existingIds: Abstract[];
   onClose: () => void;
@@ -678,7 +851,8 @@ function PubMedFullscreenSearch({
   }
 
   async function runSearch(append = false, cursor: string | null = null) {
-    if (append) setLoadingMore(true); else setLoading(true);
+    if (append) setLoadingMore(true);
+    else setLoading(true);
     try {
       const t = term.trim();
       let q = t ? t : "*";
@@ -690,19 +864,24 @@ function PubMedFullscreenSearch({
         if (minCitations) q += ` AND CITED_BY_COUNT:[${minCitations} TO *]`;
       }
 
-      const cursorParam = cursor ? `&cursorMark=${encodeURIComponent(cursor)}` : "&cursorMark=*";
-      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=100&resultType=core&sort=relevance${cursorParam}`;
-      const r = await fetch(url);
-      const d = await r.json();
-      const list: EpmcArticle[] = d.resultList?.result ?? [];
-      setTotalCount(d.hitCount ?? list.length);
-      setNextCursor(d.nextCursorMark && d.nextCursorMark !== cursor ? d.nextCursorMark : null);
+      const { data, error: fnErr } = await supabase.functions.invoke("search-pubmed", {
+        body: { action: "search", query: q, onlyPdf: false },
+      });
+      if (fnErr) throw new Error(fnErr.message);
+      if (data?.error) throw new Error(data.error);
+      const list: EpmcArticle[] = data?.articles ?? [];
+      setTotalCount(list.length);
+      setNextCursor(null);
       setLastQuery(q);
+
       const withScores: ScoredArticle[] = list.map((a) => ({ ...a, relevance_score: previewScore(a) }));
       const merged = append && results ? [...results, ...withScores] : withScores;
       let sorted = merged;
       if (sortBy === "citaciones") sorted = [...merged].sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
-      else if (sortBy === "recientes") sorted = [...merged].sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
+      else if (sortBy === "recientes")
+        sorted = [...merged].sort(
+          (a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime(),
+        );
       setResults(sorted);
       setCitationSort("none");
     } catch (e: any) {
@@ -722,7 +901,10 @@ function PubMedFullscreenSearch({
     if (!results) return;
     let sorted = [...results];
     if (sortBy === "citaciones") sorted.sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
-    else if (sortBy === "recientes") sorted.sort((a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime());
+    else if (sortBy === "recientes")
+      sorted.sort(
+        (a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime(),
+      );
     setResults(sorted);
     setCitationSort("none");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -732,7 +914,7 @@ function PubMedFullscreenSearch({
     if (!results) return;
     const next = citationSort === "desc" ? "asc" : "desc";
     const sorted = [...results].sort((a, b) =>
-      next === "desc" ? (b.citedByCount || 0) - (a.citedByCount || 0) : (a.citedByCount || 0) - (b.citedByCount || 0)
+      next === "desc" ? (b.citedByCount || 0) - (a.citedByCount || 0) : (a.citedByCount || 0) - (b.citedByCount || 0),
     );
     setResults(sorted);
     setCitationSort(next);
@@ -767,7 +949,10 @@ function PubMedFullscreenSearch({
   }
 
   async function importOne(a: ScoredArticle) {
-    if (!a.abstractText) { toast.error("Este artículo no tiene abstract disponible"); return; }
+    if (!a.abstractText) {
+      toast.error("Este artículo no tiene abstract disponible");
+      return;
+    }
     setImporting((s) => new Set(s).add(a.id));
     try {
       const { error } = await supabase.functions.invoke("import-abstract", { body: buildImportBody(a) });
@@ -783,14 +968,21 @@ function PubMedFullscreenSearch({
     } catch (e: any) {
       toast.error(e?.message ?? "Error al importar");
     } finally {
-      setImporting((s) => { const n = new Set(s); n.delete(a.id); return n; });
+      setImporting((s) => {
+        const n = new Set(s);
+        n.delete(a.id);
+        return n;
+      });
     }
   }
 
   async function importBulk() {
     if (!results) return;
     const targets = results.filter((a) => selected.has(a.id) && !isAlreadyImported(a) && a.abstractText);
-    if (targets.length === 0) { toast.error("Nada para importar"); return; }
+    if (targets.length === 0) {
+      toast.error("Nada para importar");
+      return;
+    }
     toast.info(`Importando ${targets.length} abstracts...`);
     for (const a of targets) {
       await importOne(a);
@@ -813,15 +1005,23 @@ function PubMedFullscreenSearch({
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               placeholder="Tema, diagnóstico, técnica..."
-              onKeyDown={(e) => { if (e.key === "Enter") void runSearch(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void runSearch();
+              }}
               className="flex-1"
             />
-            <Button onClick={() => runSearch()} disabled={loading} className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
+            <Button
+              onClick={() => runSearch()}
+              disabled={loading}
+              className="gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+            >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchIcon className="h-4 w-4" />} Buscar
             </Button>
           </div>
         </div>
-        <Button variant="ghost" onClick={onClose} className="gap-1.5"><X className="h-4 w-4" /> Cerrar</Button>
+        <Button variant="ghost" onClick={onClose} className="gap-1.5">
+          <X className="h-4 w-4" /> Cerrar
+        </Button>
       </div>
 
       <div className="border-b px-6 py-2 flex flex-wrap items-center gap-3 text-xs">
@@ -832,11 +1032,13 @@ function PubMedFullscreenSearch({
           {advancedOpen ? "▼" : "▶"} Búsqueda avanzada
         </button>
         <div className="flex items-center gap-1 ml-auto bg-muted/50 rounded-md p-0.5">
-          {([
-            ["relevancia", "⭐ Relevancia"],
-            ["citaciones", "📊 Más citados"],
-            ["recientes", "📅 Más recientes"],
-          ] as const).map(([v, label]) => (
+          {(
+            [
+              ["relevancia", "⭐ Relevancia"],
+              ["citaciones", "📊 Más citados"],
+              ["recientes", "📅 Más recientes"],
+            ] as const
+          ).map(([v, label]) => (
             <button
               key={v}
               onClick={() => setSortBy(v)}
@@ -856,18 +1058,42 @@ function PubMedFullscreenSearch({
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <Label className="text-[10px] text-muted-foreground">Desde año</Label>
-              <Input type="number" placeholder="2015" value={yearFrom} onChange={(e) => setYearFrom(e.target.value)} className="w-[100px] h-8" />
+              <Input
+                type="number"
+                placeholder="2015"
+                value={yearFrom}
+                onChange={(e) => setYearFrom(e.target.value)}
+                className="w-[100px] h-8"
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-[10px] text-muted-foreground">Hasta año</Label>
-              <Input type="number" placeholder="2026" value={yearTo} onChange={(e) => setYearTo(e.target.value)} className="w-[100px] h-8" />
+              <Input
+                type="number"
+                placeholder="2026"
+                value={yearTo}
+                onChange={(e) => setYearTo(e.target.value)}
+                className="w-[100px] h-8"
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-[10px] text-muted-foreground">Mínimo de citas</Label>
-              <Input type="number" placeholder="Ej: 50" value={minCitations} onChange={(e) => setMinCitations(e.target.value)} className="w-[120px] h-8" />
+              <Input
+                type="number"
+                placeholder="Ej: 50"
+                value={minCitations}
+                onChange={(e) => setMinCitations(e.target.value)}
+                className="w-[120px] h-8"
+              />
             </div>
-            <Button onClick={() => runSearch()} disabled={loading} size="sm" className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white">
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />} Buscar
+            <Button
+              onClick={() => runSearch()}
+              disabled={loading}
+              size="sm"
+              className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SearchIcon className="h-3.5 w-3.5" />}{" "}
+              Buscar
             </Button>
           </div>
         </div>
@@ -881,13 +1107,16 @@ function PubMedFullscreenSearch({
         )}
         {loading && (
           <div className="p-6 space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
           </div>
         )}
         {results && (
           <div>
             <div className="px-6 py-2 text-xs text-muted-foreground border-b bg-muted/20">
-              {totalCount.toLocaleString()} resultados encontrados · Mostrando {results.length} · Ordenado por {citationSort !== "none" ? `citas ${citationSort === "desc" ? "↓" : "↑"}` : sortLabel}
+              {totalCount.toLocaleString()} resultados encontrados · Mostrando {results.length} · Ordenado por{" "}
+              {citationSort !== "none" ? `citas ${citationSort === "desc" ? "↓" : "↑"}` : sortLabel}
             </div>
             {results.length === 0 ? (
               <div className="p-20 text-center text-muted-foreground text-sm">No se encontraron resultados.</div>
@@ -896,30 +1125,60 @@ function PubMedFullscreenSearch({
                 <thead className="bg-muted/40 text-[11px] text-muted-foreground sticky top-0">
                   <tr>
                     <th className="p-2" style={{ width: "3%" }}></th>
-                    <th className="p-2 text-left" style={{ width: "5%" }}>Score</th>
-                    <th className="p-2 text-left" style={{ width: "20%" }}>Título</th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>Autores</th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>Revista</th>
-                    <th className="p-2 text-left" style={{ width: "8%" }}>Institución</th>
-                    <th className="p-2 text-left" style={{ width: "4%" }}>Año</th>
-                    <th className="p-2 text-left" style={{ width: "7%" }}>Tipo</th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>Área clínica</th>
-                    <th className="p-2 text-left" style={{ width: "6%" }}>Evidencia</th>
-                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "4%" }} onClick={toggleCitationSort}>
+                    <th className="p-2 text-left" style={{ width: "5%" }}>
+                      Score
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "20%" }}>
+                      Título
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "9%" }}>
+                      Autores
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "9%" }}>
+                      Revista
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "8%" }}>
+                      Institución
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "4%" }}>
+                      Año
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "7%" }}>
+                      Tipo
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "9%" }}>
+                      Área clínica
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "6%" }}>
+                      Evidencia
+                    </th>
+                    <th
+                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
+                      style={{ width: "4%" }}
+                      onClick={toggleCitationSort}
+                    >
                       Citas {citationSort === "desc" ? "↓" : citationSort === "asc" ? "↑" : "↕"}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "4%" }}>PDF</th>
-                    <th className="p-2 text-left" style={{ width: "12%" }}>Acciones</th>
+                    <th className="p-2 text-left" style={{ width: "4%" }}>
+                      PDF
+                    </th>
+                    <th className="p-2 text-left" style={{ width: "12%" }}>
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {results.map((a) => {
                     const isExp = expanded.has(a.id);
                     const types = a.pubTypeList?.pubType ?? [];
-                    const mesh = (a.meshHeadingList?.meshHeading ?? []).map((h) => h.descriptorName ?? "").filter(Boolean);
+                    const mesh = (a.meshHeadingList?.meshHeading ?? [])
+                      .map((h) => h.descriptorName ?? "")
+                      .filter(Boolean);
                     const areas = detectClinicalAreas(mesh);
                     const ev = detectEvidenceLevel(types);
-                    const aff = a.authorList?.author?.[0]?.authorAffiliationDetailsList?.authorAffiliation?.[0]?.affiliation ?? "";
+                    const aff =
+                      a.authorList?.author?.[0]?.authorAffiliationDetailsList?.authorAffiliation?.[0]?.affiliation ??
+                      "";
                     const pdf = pdfUrlOf(a);
                     const already = isAlreadyImported(a);
                     const isImporting = importing.has(a.id);
@@ -936,38 +1195,58 @@ function PubMedFullscreenSearch({
                               onChange={(e) => {
                                 setSelected((s) => {
                                   const n = new Set(s);
-                                  if (e.target.checked) n.add(a.id); else n.delete(a.id);
+                                  if (e.target.checked) n.add(a.id);
+                                  else n.delete(a.id);
                                   return n;
                                 });
                               }}
                             />
                           </td>
                           <td className="p-2 pt-3">
-                            <div className={cn("inline-flex items-center justify-center h-7 w-7 rounded-full text-white text-[10px] font-semibold", scColor)}>
+                            <div
+                              className={cn(
+                                "inline-flex items-center justify-center h-7 w-7 rounded-full text-white text-[10px] font-semibold",
+                                scColor,
+                              )}
+                            >
                               {sc}
                             </div>
                           </td>
                           <td className="p-2 pt-3">
                             <button
                               className="text-left font-medium leading-snug line-clamp-2 hover:text-primary"
-                              onClick={() => setExpanded((s) => {
-                                const n = new Set(s);
-                                if (n.has(a.id)) n.delete(a.id); else n.add(a.id);
-                                return n;
-                              })}
+                              onClick={() =>
+                                setExpanded((s) => {
+                                  const n = new Set(s);
+                                  if (n.has(a.id)) n.delete(a.id);
+                                  else n.add(a.id);
+                                  return n;
+                                })
+                              }
                             >
                               {a.title}
                             </button>
-                            {already && <Badge className="ml-1 text-[9px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30">✅ Ya importado</Badge>}
+                            {already && (
+                              <Badge className="ml-1 text-[9px] bg-emerald-500/15 text-emerald-700 border-emerald-500/30">
+                                ✅ Ya importado
+                              </Badge>
+                            )}
                           </td>
                           <td className="p-2 pt-3 text-muted-foreground truncate" title={a.authorString}>
-                            {(a.authorString ?? "").split(",")[0]}{(a.authorString ?? "").includes(",") && " et al."}
+                            {(a.authorString ?? "").split(",")[0]}
+                            {(a.authorString ?? "").includes(",") && " et al."}
                           </td>
-                          <td className="p-2 pt-3 text-muted-foreground truncate" title={a.journalTitle}>{a.journalTitle ?? "—"}</td>
-                          <td className="p-2 pt-3 text-muted-foreground truncate" title={aff}>{aff || "—"}</td>
+                          <td className="p-2 pt-3 text-muted-foreground truncate" title={a.journalTitle}>
+                            {a.journalTitle ?? "—"}
+                          </td>
+                          <td className="p-2 pt-3 text-muted-foreground truncate" title={aff}>
+                            {aff || "—"}
+                          </td>
                           <td className="p-2 pt-3">{a.pubYear ?? "—"}</td>
                           <td className="p-2 pt-3">
-                            <Badge variant="outline" className="text-[9px]">{shortLabel(types.join(" "))}</Badge>
+                            <Badge variant="outline" className="text-[9px]">
+                              {shortLabel(types.join(" "))}
+                            </Badge>
                           </td>
                           <td className="p-2 pt-3">
                             <div className="flex flex-wrap gap-0.5">
@@ -979,9 +1258,16 @@ function PubMedFullscreenSearch({
                             </div>
                           </td>
                           <td className="p-2 pt-3">
-                            <Badge variant="outline" className="text-[9px]">{EVIDENCE_LABELS[ev] ?? ev}</Badge>
+                            <Badge variant="outline" className="text-[9px]">
+                              {EVIDENCE_LABELS[ev] ?? ev}
+                            </Badge>
                           </td>
-                          <td className={cn("p-2 pt-3 tabular-nums", (a.citedByCount || 0) > 50 && "text-amber-600 font-semibold")}>
+                          <td
+                            className={cn(
+                              "p-2 pt-3 tabular-nums",
+                              (a.citedByCount || 0) > 50 && "text-amber-600 font-semibold",
+                            )}
+                          >
                             {a.citedByCount ?? 0}
                           </td>
                           <td className="p-2 pt-3">
@@ -995,14 +1281,26 @@ function PubMedFullscreenSearch({
                                 onClick={() => importOne(a)}
                                 className="h-7 px-2 text-[10px] bg-teal-600 hover:bg-teal-700 text-white"
                               >
-                                {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : already ? "✅" : "➕ Importar"}
+                                {isImporting ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : already ? (
+                                  "✅"
+                                ) : (
+                                  "➕ Importar"
+                                )}
                               </Button>
                               <a
-                                href={a.doi ? `https://doi.org/${a.doi}` : (pdf ?? `https://europepmc.org/article/${a.source ?? "MED"}/${a.id}`)}
+                                href={
+                                  a.doi
+                                    ? `https://doi.org/${a.doi}`
+                                    : (pdf ?? `https://europepmc.org/article/${a.source ?? "MED"}/${a.id}`)
+                                }
                                 target="_blank"
                                 rel="noreferrer"
                               >
-                                <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]">🔗 ↗</Button>
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]">
+                                  🔗 ↗
+                                </Button>
                               </a>
                             </div>
                           </td>
@@ -1012,11 +1310,18 @@ function PubMedFullscreenSearch({
                             <td colSpan={13} className="p-4">
                               <div
                                 className="text-xs leading-relaxed whitespace-pre-wrap mb-3"
-                                dangerouslySetInnerHTML={{ __html: formatAbstract((a.abstractText ?? "").replace(/<[^>]*>/g, "")) }}
+                                dangerouslySetInnerHTML={{
+                                  __html: formatAbstract((a.abstractText ?? "").replace(/<[^>]*>/g, "")),
+                                }}
                               />
                               <div className="flex flex-wrap gap-2 items-center">
                                 {a.doi && (
-                                  <a href={`https://doi.org/${a.doi}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+                                  <a
+                                    href={`https://doi.org/${a.doi}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs text-primary hover:underline"
+                                  >
                                     DOI: {a.doi}
                                   </a>
                                 )}
