@@ -1264,7 +1264,7 @@ function PubMedFullscreenSearch({
                           <td className="p-2 pt-3 text-muted-foreground truncate" title={aff}>
                             {aff || "—"}
                           </td>
-                          <td className="p-2 pt-3">{a.pubYear ?? "—"}</td>
+                          <td className="p-2 pt-3">{a.firstPublicationDate || a.pubYear || "—"}</td>
                           <td className="p-2 pt-3">
                             <Badge variant="outline" className="text-[9px]">
                               {shortLabel(types.join(" "))}
