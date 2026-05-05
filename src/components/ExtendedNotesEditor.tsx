@@ -36,6 +36,10 @@ export default function ExtendedNotesEditor({
   const [suggestion, setSuggestion] = useState("");
   const [appending, setAppending] = useState(false);
 
+  const { recording, transcribing, toggle: toggleRec } = useAudioTranscriber((text) => {
+    setValue((prev) => (prev.trim() ? prev.replace(/\s+$/, "") + " " + text : text));
+  });
+
   useEffect(() => {
     setValue(initialValue ?? "");
     lastSavedRef.current = initialValue ?? "";
