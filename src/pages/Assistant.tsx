@@ -887,7 +887,7 @@ function InputBox({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Pregunta clínica..."
-          className="min-h-[52px] max-h-40 resize-none rounded-2xl pb-8"
+          className="min-h-[88px] max-h-40 resize-none rounded-2xl pb-8"
           autoFocus={autoFocus}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
