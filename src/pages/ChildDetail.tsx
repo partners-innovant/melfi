@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import EditableNotesCard from "@/components/EditableNotesCard";
 import {
   ArrowLeft, Pencil, Sparkles, Plus, Phone, Mail, Users, Calendar,
   ChevronDown, ChevronRight, FileText, Filter, MessageCircle, Send,
