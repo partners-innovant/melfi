@@ -264,16 +264,19 @@ export default function ExtendedNotesEditor({
             <Button
               variant="outline"
               disabled={appending}
-              onClick={() => appendToProfile(originalSnapshot)}
+              onClick={() => setModalOpen(false)}
             >
               Usar texto original
             </Button>
             <Button
-              disabled={appending || !suggestion.trim()}
-              onClick={() => appendToProfile(suggestion)}
+              disabled={!suggestion.trim()}
+              onClick={() => {
+                setValue(suggestion);
+                setModalOpen(false);
+              }}
               className="bg-teal-600 hover:bg-teal-700 text-white"
             >
-              {appending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Usar redacción sugerida"}
+              Usar redacción sugerida
             </Button>
           </DialogFooter>
         </DialogContent>
