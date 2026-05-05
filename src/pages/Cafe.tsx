@@ -348,11 +348,31 @@ const CAT_EMOJI: Record<string, string> = {
   política_salud: "🟡", farmacología: "🟠", otro: "⚪",
 };
 
+const LOADING_MESSAGES = [
+  "🔍 Buscando en Psychiatric Times...",
+  "🔍 Buscando en APA News...",
+  "🔍 Buscando en NIMH...",
+  "🔍 Buscando en The Lancet Psychiatry...",
+  "⏳ Procesando resultados...",
+];
+const SOURCE_BADGES = ["Psychiatric Times", "APA", "NIMH", "Medscape", "Psychology Today", "The Lancet"];
+
 function NewsSection() {
   const [items, setItems] = useState<NewsItem[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+
+  useEffect(() => {
+    if (!loading) return;
+    setLoadingMsgIdx(0);
+    const id = setInterval(() => {
+      setLoadingMsgIdx((i) => (i + 1) % LOADING_MESSAGES.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [loading]);
 
   const load = useCallback(async (force = false) => {
     if (!force) {
@@ -384,36 +404,75 @@ function NewsSection() {
 
   useEffect(() => { load(); }, [load]);
 
+  const filtered = useMemo(() => {
+    if (!items) return items;
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((n) => {
+      const hay = [n.title, n.title_es, n.summary_es, n.summary, n.source]
+        .filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }, [items, search]);
+
   return (
     <Card className="rounded-xl p-5">
-      <div className="flex items-start justify-between mb-4 gap-3">
+      <div className="flex items-start justify-between mb-3 gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Newspaper className="h-5 w-5 text-primary" /> Noticias en psicología
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Fuentes científicas · Últimos 14 días{updatedAt ? ` · Actualizado ${relativeTime(updatedAt)}` : ""}
+            Fuentes científicas · Últimos 7 días{updatedAt ? ` · Actualizado ${relativeTime(updatedAt)}` : ""}
           </p>
         </div>
-        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => load(true)} disabled={loading}>
-          <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Actualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar noticias..."
+              className="h-8 pl-8 w-52 text-xs"
+            />
+          </div>
+          <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => load(true)} disabled={loading}>
+            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} /> Actualizar
+          </Button>
+        </div>
       </div>
+
+      {!loading && items && items.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          {SOURCE_BADGES.map((s) => (
+            <Badge key={s} variant="outline" className="text-[10px] py-0 px-1.5 font-normal">
+              {s}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-2.5">
         {loading && !items ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="border rounded-lg p-3 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-2/3" />
+          <>
+            <div className="text-xs text-muted-foreground italic mb-2 transition-opacity">
+              {LOADING_MESSAGES[loadingMsgIdx]}
             </div>
-          ))
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="border rounded-lg p-3 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </>
         ) : error ? (
           <p className="text-sm text-destructive">{error}</p>
         ) : items?.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin noticias disponibles.</p>
-        ) : items?.map((n, i) => {
+        ) : filtered?.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin resultados para tu búsqueda.</p>
+        ) : filtered?.map((n, i) => {
           const cat = n.category || "otro";
           const title = n.title_es || n.title;
           const summary = n.summary_es || n.summary || "";
@@ -441,6 +500,7 @@ function NewsSection() {
     </Card>
   );
 }
+
 
 /* ---------------- Page ---------------- */
 export default function Cafe() {
