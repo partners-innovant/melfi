@@ -542,7 +542,7 @@ function ManualAbstractDialog({
   async function fetchFromPubmed() {
     if (!pubmedId.trim()) return;
     try {
-      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=100&resultType=core&sort=citation${cursorParam}`;
+      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:${encodeURIComponent(pubmedId.trim())}%20AND%20SRC:MED&format=json&resultType=core`;
       const r = await fetch(url);
       const d = await r.json();
       const a = d.resultList?.result?.[0];
