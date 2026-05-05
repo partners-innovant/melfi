@@ -147,19 +147,12 @@ export default function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="profile" className="mt-4 space-y-4">
-          {patient.notes && (
-            <Card className="p-4">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Notas</div>
-                <ConsolidateNotesButton
-                  patientId={patient.id}
-                  notes={patient.notes}
-                  onConsolidated={(newNotes) => setPatient((p: any) => p ? { ...p, notes: newNotes } : p)}
-                />
-              </div>
-              <p className="text-sm whitespace-pre-wrap">{patient.notes}</p>
-            </Card>
-          )}
+          <EditableNotesCard
+            table="patients"
+            rowId={patient.id}
+            notes={patient.notes ?? null}
+            onNotesUpdated={(newNotes) => setPatient((p: any) => p ? { ...p, notes: newNotes } : p)}
+          />
           <LastSessionCard
             key={refreshKey}
             kind="adult"
