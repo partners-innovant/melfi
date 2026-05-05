@@ -734,6 +734,8 @@ interface ScoredArticle extends EpmcArticle {
   relevance_score: number;
 }
 
+type SortKey = "score" | "title" | "authors" | "journal" | "year" | "type" | "evidence" | "citations";
+
 const PUB_TYPE_EVIDENCE: Record<string, number> = {
   "Meta-Analysis": 100,
   "Systematic Review": 90,
