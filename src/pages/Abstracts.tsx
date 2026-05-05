@@ -1151,39 +1151,35 @@ function PubMedFullscreenSearch({
                 <thead className="bg-muted/40 text-[11px] text-muted-foreground sticky top-0">
                   <tr>
                     <th className="p-2" style={{ width: "3%" }}></th>
-                    <th className="p-2 text-left" style={{ width: "5%" }}>
-                      Score
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "5%" }} onClick={() => toggleColumn("score")}>
+                      Score {sortIndicator("score")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "20%" }}>
-                      Título
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "20%" }} onClick={() => toggleColumn("title")}>
+                      Título {sortIndicator("title")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>
-                      Autores
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "9%" }} onClick={() => toggleColumn("authors")}>
+                      Autores {sortIndicator("authors")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>
-                      Revista
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "9%" }} onClick={() => toggleColumn("journal")}>
+                      Revista {sortIndicator("journal")}
                     </th>
                     <th className="p-2 text-left" style={{ width: "8%" }}>
                       Institución
                     </th>
-                    <th className="p-2 text-left" style={{ width: "4%" }}>
-                      Año
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "5%" }} onClick={() => toggleColumn("year")}>
+                      Año {sortIndicator("year")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "7%" }}>
-                      Tipo
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "7%" }} onClick={() => toggleColumn("type")}>
+                      Tipo {sortIndicator("type")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>
+                    <th className="p-2 text-left" style={{ width: "8%" }}>
                       Área clínica
                     </th>
-                    <th className="p-2 text-left" style={{ width: "6%" }}>
-                      Evidencia
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "6%" }} onClick={() => toggleColumn("evidence")}>
+                      Evidencia {sortIndicator("evidence")}
                     </th>
-                    <th
-                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
-                      style={{ width: "4%" }}
-                      onClick={toggleCitationSort}
-                    >
-                      Citas {citationSort === "desc" ? "↓" : citationSort === "asc" ? "↑" : "↕"}
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "4%" }} onClick={() => toggleColumn("citations")}>
+                      Citas {sortIndicator("citations")}
                     </th>
                     <th className="p-2 text-left" style={{ width: "4%" }}>
                       PDF
