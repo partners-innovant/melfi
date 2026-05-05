@@ -167,10 +167,19 @@ export default function ExtendedNotesEditor({
             className="h-8 gap-1.5 border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
           >
             {improving ? (
-              <><Sparkles className="h-3.5 w-3.5 animate-pulse" />✨ Mejorando redacción...</>
+              <><Sparkles className="h-3.5 w-3.5 animate-pulse" />✨ Mejorando...</>
             ) : (
-              <><Plus className="h-3.5 w-3.5" />➕ Agregar al perfil clínico</>
+              <><Sparkles className="h-3.5 w-3.5" />✨ Mejorar redacción</>
             )}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!hasContent || appending}
+            onClick={() => appendToProfile(value)}
+            className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+          >
+            {appending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Plus className="h-3.5 w-3.5" />➕ Agregar al perfil clínico</>}
           </Button>
           <div className="flex border border-border rounded-md overflow-hidden">
             <Button
@@ -255,16 +264,19 @@ export default function ExtendedNotesEditor({
             <Button
               variant="outline"
               disabled={appending}
-              onClick={() => appendToProfile(originalSnapshot)}
+              onClick={() => setModalOpen(false)}
             >
               Usar texto original
             </Button>
             <Button
-              disabled={appending || !suggestion.trim()}
-              onClick={() => appendToProfile(suggestion)}
+              disabled={!suggestion.trim()}
+              onClick={() => {
+                setValue(suggestion);
+                setModalOpen(false);
+              }}
               className="bg-teal-600 hover:bg-teal-700 text-white"
             >
-              {appending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Usar redacción sugerida"}
+              Usar redacción sugerida
             </Button>
           </DialogFooter>
         </DialogContent>

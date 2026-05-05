@@ -542,7 +542,7 @@ function ManualAbstractDialog({
   async function fetchFromPubmed() {
     if (!pubmedId.trim()) return;
     try {
-      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=100&resultType=core&sort=citation${cursorParam}`;
+      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:${encodeURIComponent(pubmedId.trim())}%20AND%20SRC:MED&format=json&resultType=core`;
       const r = await fetch(url);
       const d = await r.json();
       const a = d.resultList?.result?.[0];
@@ -734,6 +734,8 @@ interface ScoredArticle extends EpmcArticle {
   relevance_score: number;
 }
 
+type SortKey = "score" | "title" | "authors" | "journal" | "year" | "type" | "evidence" | "citations";
+
 const PUB_TYPE_EVIDENCE: Record<string, number> = {
   "Meta-Analysis": 100,
   "Systematic Review": 90,
@@ -818,7 +820,8 @@ function PubMedFullscreenSearch({
   const [yearTo, setYearTo] = useState("");
   const [minCitations, setMinCitations] = useState("");
   const [sortBy, setSortBy] = useState<"relevancia" | "citaciones" | "recientes">("relevancia");
-  const [citationSort, setCitationSort] = useState<"none" | "asc" | "desc">("none");
+  const [sortKey, setSortKey] = useState<SortKey>("score");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState<ScoredArticle[] | null>(null);
@@ -850,6 +853,41 @@ function PubMedFullscreenSearch({
     return false;
   }
 
+  function applySort(list: ScoredArticle[], key: SortKey, dir: "asc" | "desc"): ScoredArticle[] {
+    const sign = dir === "desc" ? -1 : 1;
+    const out = [...list];
+    out.sort((a, b) => {
+      let av: any, bv: any;
+      switch (key) {
+        case "score": av = a.relevance_score; bv = b.relevance_score; break;
+        case "title": av = (a.title ?? "").toLowerCase(); bv = (b.title ?? "").toLowerCase(); break;
+        case "authors": av = (a.authorString ?? "").toLowerCase(); bv = (b.authorString ?? "").toLowerCase(); break;
+        case "journal": av = (a.journalTitle ?? "").toLowerCase(); bv = (b.journalTitle ?? "").toLowerCase(); break;
+        case "year": av = new Date(a.firstPublicationDate || a.pubYear || 0).getTime(); bv = new Date(b.firstPublicationDate || b.pubYear || 0).getTime(); break;
+        case "type": av = (a.pubTypeList?.pubType ?? []).join(" "); bv = (b.pubTypeList?.pubType ?? []).join(" "); break;
+        case "evidence": av = detectEvidenceLevel(a.pubTypeList?.pubType ?? []); bv = detectEvidenceLevel(b.pubTypeList?.pubType ?? []); break;
+        case "citations": av = a.citedByCount || 0; bv = b.citedByCount || 0; break;
+      }
+      if (av < bv) return -1 * sign;
+      if (av > bv) return 1 * sign;
+      return 0;
+    });
+    return out;
+  }
+
+  function toggleColumn(key: SortKey) {
+    if (!results) return;
+    const nextDir: "asc" | "desc" = sortKey === key ? (sortDir === "desc" ? "asc" : "desc") : "desc";
+    setSortKey(key);
+    setSortDir(nextDir);
+    setResults(applySort(results, key, nextDir));
+  }
+
+  function sortIndicator(key: SortKey): string {
+    if (sortKey !== key) return "↕";
+    return sortDir === "desc" ? "↓" : "↑";
+  }
+
   async function runSearch(append = false, cursor: string | null = null) {
     if (append) setLoadingMore(true);
     else setLoading(true);
@@ -864,26 +902,28 @@ function PubMedFullscreenSearch({
         if (minCitations) q += ` AND CITED_BY_COUNT:[${minCitations} TO *]`;
       }
 
-      const { data, error: fnErr } = await supabase.functions.invoke("search-pubmed", {
-        body: { action: "search", query: q, onlyPdf: false },
-      });
-      if (fnErr) throw new Error(fnErr.message);
-      if (data?.error) throw new Error(data.error);
-      const list: EpmcArticle[] = data?.articles ?? [];
-      setTotalCount(list.length);
-      setNextCursor(null);
+      const cursorParam = `&cursorMark=${encodeURIComponent(cursor ?? "*")}`;
+      const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=100&resultType=core&sort=citation&fields=citedByCount,authorString,journalTitle,pubYear,firstPublicationDate,abstractText,doi,pmid,pmcid,pubTypeList,meshHeadingList,fullTextUrlList,hasPDF,isOpenAccess,authorAffiliations${cursorParam}`;
+
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`EuropePMC error: ${res.status}`);
+      const data = await res.json();
+      const list: EpmcArticle[] = data?.resultList?.result ?? [];
+      const total: number = data?.hitCount ?? list.length;
+      const next: string | null = data?.nextCursorMark && data.nextCursorMark !== cursor ? data.nextCursorMark : null;
+      setTotalCount(total);
+      setNextCursor(next);
       setLastQuery(q);
 
       const withScores: ScoredArticle[] = list.map((a) => ({ ...a, relevance_score: previewScore(a) }));
       const merged = append && results ? [...results, ...withScores] : withScores;
-      let sorted = merged;
-      if (sortBy === "citaciones") sorted = [...merged].sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
-      else if (sortBy === "recientes")
-        sorted = [...merged].sort(
-          (a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime(),
-        );
-      setResults(sorted);
-      setCitationSort("none");
+
+      // Map top sort buttons to column sort
+      const initialKey: SortKey =
+        sortBy === "citaciones" ? "citations" : sortBy === "recientes" ? "year" : "score";
+      setSortKey(initialKey);
+      setSortDir("desc");
+      setResults(applySort(merged, initialKey, "desc"));
     } catch (e: any) {
       toast.error(e?.message ?? "Error al buscar");
     } finally {
@@ -899,26 +939,12 @@ function PubMedFullscreenSearch({
 
   useEffect(() => {
     if (!results) return;
-    let sorted = [...results];
-    if (sortBy === "citaciones") sorted.sort((a, b) => (b.citedByCount || 0) - (a.citedByCount || 0));
-    else if (sortBy === "recientes")
-      sorted.sort(
-        (a, b) => new Date(b.firstPublicationDate || 0).getTime() - new Date(a.firstPublicationDate || 0).getTime(),
-      );
-    setResults(sorted);
-    setCitationSort("none");
+    const key: SortKey = sortBy === "citaciones" ? "citations" : sortBy === "recientes" ? "year" : "score";
+    setSortKey(key);
+    setSortDir("desc");
+    setResults(applySort(results, key, "desc"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy]);
-
-  function toggleCitationSort() {
-    if (!results) return;
-    const next = citationSort === "desc" ? "asc" : "desc";
-    const sorted = [...results].sort((a, b) =>
-      next === "desc" ? (b.citedByCount || 0) - (a.citedByCount || 0) : (a.citedByCount || 0) - (b.citedByCount || 0),
-    );
-    setResults(sorted);
-    setCitationSort(next);
-  }
 
   function buildImportBody(a: ScoredArticle) {
     const types = a.pubTypeList?.pubType ?? [];
@@ -1116,7 +1142,7 @@ function PubMedFullscreenSearch({
           <div>
             <div className="px-6 py-2 text-xs text-muted-foreground border-b bg-muted/20">
               {totalCount.toLocaleString()} resultados encontrados · Mostrando {results.length} · Ordenado por{" "}
-              {citationSort !== "none" ? `citas ${citationSort === "desc" ? "↓" : "↑"}` : sortLabel}
+              {sortKey} {sortDir === "desc" ? "↓" : "↑"}
             </div>
             {results.length === 0 ? (
               <div className="p-20 text-center text-muted-foreground text-sm">No se encontraron resultados.</div>
@@ -1125,39 +1151,35 @@ function PubMedFullscreenSearch({
                 <thead className="bg-muted/40 text-[11px] text-muted-foreground sticky top-0">
                   <tr>
                     <th className="p-2" style={{ width: "3%" }}></th>
-                    <th className="p-2 text-left" style={{ width: "5%" }}>
-                      Score
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "5%" }} onClick={() => toggleColumn("score")}>
+                      Score {sortIndicator("score")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "20%" }}>
-                      Título
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "20%" }} onClick={() => toggleColumn("title")}>
+                      Título {sortIndicator("title")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>
-                      Autores
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "9%" }} onClick={() => toggleColumn("authors")}>
+                      Autores {sortIndicator("authors")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>
-                      Revista
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "9%" }} onClick={() => toggleColumn("journal")}>
+                      Revista {sortIndicator("journal")}
                     </th>
                     <th className="p-2 text-left" style={{ width: "8%" }}>
                       Institución
                     </th>
-                    <th className="p-2 text-left" style={{ width: "4%" }}>
-                      Año
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "5%" }} onClick={() => toggleColumn("year")}>
+                      Año {sortIndicator("year")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "7%" }}>
-                      Tipo
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "7%" }} onClick={() => toggleColumn("type")}>
+                      Tipo {sortIndicator("type")}
                     </th>
-                    <th className="p-2 text-left" style={{ width: "9%" }}>
+                    <th className="p-2 text-left" style={{ width: "8%" }}>
                       Área clínica
                     </th>
-                    <th className="p-2 text-left" style={{ width: "6%" }}>
-                      Evidencia
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "6%" }} onClick={() => toggleColumn("evidence")}>
+                      Evidencia {sortIndicator("evidence")}
                     </th>
-                    <th
-                      className="p-2 text-left cursor-pointer select-none hover:text-foreground"
-                      style={{ width: "4%" }}
-                      onClick={toggleCitationSort}
-                    >
-                      Citas {citationSort === "desc" ? "↓" : citationSort === "asc" ? "↑" : "↕"}
+                    <th className="p-2 text-left cursor-pointer select-none hover:text-foreground" style={{ width: "4%" }} onClick={() => toggleColumn("citations")}>
+                      Citas {sortIndicator("citations")}
                     </th>
                     <th className="p-2 text-left" style={{ width: "4%" }}>
                       PDF
@@ -1242,7 +1264,7 @@ function PubMedFullscreenSearch({
                           <td className="p-2 pt-3 text-muted-foreground truncate" title={aff}>
                             {aff || "—"}
                           </td>
-                          <td className="p-2 pt-3">{a.pubYear ?? "—"}</td>
+                          <td className="p-2 pt-3">{a.firstPublicationDate || a.pubYear || "—"}</td>
                           <td className="p-2 pt-3">
                             <Badge variant="outline" className="text-[9px]">
                               {shortLabel(types.join(" "))}
