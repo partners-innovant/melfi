@@ -545,6 +545,22 @@ export function PatientProfileBuilderTab({
             >
               <Paperclip className="h-4 w-4" />
             </Button>
+            <Button
+              type="button"
+              onClick={toggleAudio}
+              disabled={sending || analyzingFile || audioTr}
+              size="icon"
+              variant="ghost"
+              className={cn(
+                "h-7 w-7 shrink-0",
+                audioRec
+                  ? "text-red-600 dark:text-red-400 bg-red-500/10 animate-pulse"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              title={audioRec ? "Detener grabación" : "Grabar audio (Whisper)"}
+            >
+              {audioRec ? <Square className="h-4 w-4" /> : audioTr ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mic className="h-4 w-4" />}
+            </Button>
             <div className="flex items-center gap-2 ml-auto">
               <ImprovePromptButton
                 value={input}
