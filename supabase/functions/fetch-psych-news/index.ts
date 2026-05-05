@@ -3,7 +3,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PROMPT = `Search for the latest psychology and psychiatry news from the last 14 days from these scientific sources: Psychiatric Times (psychiatrictimes.com), APA News (apa.org/news), NIMH News (nimh.nih.gov/news), Medscape Psychiatry (medscape.com/psychiatry), Psychology Today (psychologytoday.com), The Lancet Psychiatry blog.
+const PROMPT = `Search for the latest psychology and psychiatry news from the last 7 days from these scientific sources: Psychiatric Times (psychiatrictimes.com), APA News (apa.org/news), NIMH News (nimh.nih.gov/news), Medscape Psychiatry (medscape.com/psychiatry), Psychology Today (psychologytoday.com), The Lancet Psychiatry blog.
 
 Return ONLY a raw JSON array with no markdown, no code fences, no explanation before or after. Start your response with [ and end with ]. Return the 8 most clinically relevant news items:
 [{
