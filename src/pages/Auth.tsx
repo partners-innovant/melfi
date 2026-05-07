@@ -120,15 +120,13 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#F8F6F1" }}>
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="h-11 w-11 rounded-xl bg-primary flex items-center justify-center">
-            <Brain className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Melfi</h1>
-            <p className="text-sm text-muted-foreground -mt-0.5">Asistente clínico para psicólogos</p>
+        <div className="flex flex-col items-center justify-center gap-3 mb-8">
+          <img src={melfiLogo} alt="Melfi" className="h-16 w-16" />
+          <div className="text-center">
+            <h1 className="text-3xl tracking-tight" style={{ fontFamily: 'Georgia, "Times New Roman", serif', color: "#1A1A1A" }}>Melfi</h1>
+            <p className="text-sm text-muted-foreground mt-1">IA para psicólogos que ponen al paciente primero.</p>
           </div>
         </div>
 
