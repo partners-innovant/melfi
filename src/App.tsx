@@ -24,6 +24,7 @@ import Cafe from "./pages/Cafe";
 import Abstracts from "./pages/Abstracts";
 import ProfessionalDevelopment from "./pages/ProfessionalDevelopment";
 import PatientMedicationTracker from "./pages/PatientMedicationTracker";
+import Medications from "./pages/Medications";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
             <Route path="/claude" element={<Shell><Claude /></Shell>} />
             <Route path="/cafe" element={<Shell><Cafe /></Shell>} />
             <Route path="/abstracts" element={<Shell><Abstracts /></Shell>} />
+            <Route path="/medications" element={<Shell><Medications /></Shell>} />
             <Route path="/desarrollo" element={<Shell><ProfessionalDevelopment /></Shell>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

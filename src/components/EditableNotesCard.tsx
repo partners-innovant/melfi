@@ -126,7 +126,9 @@ export default function EditableNotesCard({ table, rowId, notes, onNotesUpdated 
           </div>
         )
       ) : (
-        <p className="text-sm whitespace-pre-wrap">{notes}</p>
+        <article className="prose prose-sm dark:prose-invert max-w-none">
+          <ReactMarkdown>{notes ?? ""}</ReactMarkdown>
+        </article>
       )}
     </Card>
   );

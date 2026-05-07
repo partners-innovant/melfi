@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Baby, FileText, FileType, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog, Coffee, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Users, Baby, FileText, FileType, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog, Coffee, TrendingUp, Pill } from "lucide-react";
 import claudeLogo from "@/assets/claude-logo.png";
 import melfiLogo from "@/assets/melfi-logo.svg";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,7 @@ const baseItems = [
   { to: "/calendar", label: "Calendario", icon: Calendar },
   { to: "/documents", label: "Documentos", icon: FileText },
   { to: "/abstracts", label: "Abstracts", icon: FileType },
+  { to: "/medications", label: "Medicamentos", icon: Pill },
   { to: "/cafe", label: "Café", icon: Coffee },
 ];
 
