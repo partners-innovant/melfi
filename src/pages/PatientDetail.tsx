@@ -10,6 +10,7 @@ import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
+import PatientTrackerPanel from "@/components/PatientTrackerPanel";
 import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
 import PatientProfileBuilderPanel, { ProfileBuilderLauncher } from "@/components/PatientProfileBuilderPanel";
 import TreatmentTeamTab from "@/components/TreatmentTeamTab";
