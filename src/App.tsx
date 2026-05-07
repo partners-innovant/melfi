@@ -23,6 +23,7 @@ import Claude from "./pages/Claude";
 import Cafe from "./pages/Cafe";
 import Abstracts from "./pages/Abstracts";
 import ProfessionalDevelopment from "./pages/ProfessionalDevelopment";
+import PatientMedicationTracker from "./pages/PatientMedicationTracker";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/m/:token" element={<PatientMedicationTracker />} />
             <Route path="/" element={<Shell><Dashboard /></Shell>} />
             <Route path="/patients" element={<Shell><Patients /></Shell>} />
             <Route path="/patients/:id" element={<Shell><PatientDetail /></Shell>} />

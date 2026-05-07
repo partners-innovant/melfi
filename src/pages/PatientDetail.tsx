@@ -10,6 +10,7 @@ import { calcAge, timeInTherapy } from "@/lib/clinical";
 import { SessionsTab, LastSessionCard } from "@/components/SessionsTab";
 import ExtendedNotesEditor from "@/components/ExtendedNotesEditor";
 import MedicationsSection from "@/components/MedicationsSection";
+import PatientTrackerPanel from "@/components/PatientTrackerPanel";
 import { PatientDocumentsTab } from "@/components/PatientExtraTabs";
 import PatientProfileBuilderPanel, { ProfileBuilderLauncher } from "@/components/PatientProfileBuilderPanel";
 import TreatmentTeamTab from "@/components/TreatmentTeamTab";
@@ -174,8 +175,9 @@ export default function PatientDetail() {
           />
         </TabsContent>
 
-        <TabsContent value="medications" className="mt-4">
+        <TabsContent value="medications" className="mt-4 space-y-4">
           <MedicationsSection kind="adult" patientId={patient.id} />
+          <PatientTrackerPanel patientId={patient.id} />
         </TabsContent>
 
         <TabsContent value="sessions" className="mt-4">
