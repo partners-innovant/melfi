@@ -219,6 +219,7 @@ export default function Assistant() {
       .order("created_at", { ascending: false })
       .limit(200);
     if (!data) return;
+    const pMap = new Map(patients.map((p) => [p.id, `${p.first_name} ${p.last_name}`]));
     const seen = new Set<string>();
     const items: ConversationItem[] = [];
     for (const r of data as any[]) {
@@ -228,22 +229,11 @@ export default function Assistant() {
       items.push({
         conversation_id: cid,
         title: r.conversation_title || r.question?.slice(0, 80) || "Consulta",
-        patient_name: r.patient_id ? null : null, // filled below
+        patient_name: r.patient_id ? pMap.get(r.patient_id) ?? null : null,
         created_at: r.created_at,
       });
     }
-    // attach patient names
-    const pMap = new Map(patients.map((p) => [p.id, `${p.first_name} ${p.last_name}`]));
-    const enriched = await Promise.all(items.map(async (it) => {
-      const { data: row } = await supabase
-        .from("consultations")
-        .select("patient_id")
-        .eq("conversation_id", it.conversation_id)
-        .limit(1)
-        .maybeSingle();
-      return { ...it, patient_name: row?.patient_id ? pMap.get(row.patient_id) ?? null : null };
-    }));
-    setHistory(enriched);
+    setHistory(items);
   }, [patients]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
