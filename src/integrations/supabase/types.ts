@@ -1226,6 +1226,71 @@ export type Database = {
           },
         ]
       }
+      patient_medication_links: {
+        Row: {
+          created_at: string
+          id: string
+          patient_id: string
+          psychologist_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          patient_id: string
+          psychologist_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          patient_id?: string
+          psychologist_id?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      patient_medication_logs: {
+        Row: {
+          created_at: string
+          id: string
+          medication_dose: string | null
+          medication_id: string | null
+          medication_name: string
+          patient_id: string
+          psychologist_id: string
+          taken_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          medication_dose?: string | null
+          medication_id?: string | null
+          medication_name: string
+          patient_id: string
+          psychologist_id: string
+          taken_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          medication_dose?: string | null
+          medication_id?: string | null
+          medication_name?: string
+          patient_id?: string
+          psychologist_id?: string
+          taken_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_medication_logs_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "patient_medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_medications: {
         Row: {
           created_at: string
@@ -2036,6 +2101,50 @@ export type Database = {
           similarity: number
           source_institution: string
         }[]
+      }
+      tracker_create_medication: {
+        Args: { _dose?: string; _name: string; _token: string }
+        Returns: string
+      }
+      tracker_delete_log: {
+        Args: { _log_id: string; _token: string }
+        Returns: undefined
+      }
+      tracker_get_context: {
+        Args: { _token: string }
+        Returns: {
+          patient_first_name: string
+          patient_id: string
+          patient_last_name: string
+          psychologist_id: string
+        }[]
+      }
+      tracker_list_logs: {
+        Args: { _days?: number; _token: string }
+        Returns: {
+          id: string
+          medication_dose: string
+          medication_id: string
+          medication_name: string
+          taken_at: string
+        }[]
+      }
+      tracker_list_medications: {
+        Args: { _token: string }
+        Returns: {
+          dose: string
+          id: string
+          is_active: boolean
+          name: string
+        }[]
+      }
+      tracker_log_intake: {
+        Args: { _medication_id: string; _token: string }
+        Returns: string
+      }
+      tracker_log_intake_by_name: {
+        Args: { _dose?: string; _name: string; _token: string }
+        Returns: string
       }
     }
     Enums: {
