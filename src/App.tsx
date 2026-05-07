@@ -23,6 +23,7 @@ import Claude from "./pages/Claude";
 import Cafe from "./pages/Cafe";
 import Abstracts from "./pages/Abstracts";
 import ProfessionalDevelopment from "./pages/ProfessionalDevelopment";
+import PatientMedicationTracker from "./pages/PatientMedicationTracker";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
