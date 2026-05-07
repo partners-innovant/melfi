@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         "Cache-Control": "no-cache",
         "Connection": "keep-alive",
       } : {
-        "User-Agent": "Mozilla/5.0 (compatible; Psicoasist/1.0)",
+        "User-Agent": "Mozilla/5.0 (compatible; Melfi/1.0)",
         "Accept": "application/pdf,text/html,application/xhtml+xml,*/*;q=0.8",
       };
       console.log("[fetch-url-document] Fetching URL:", parsed.toString(), "isPmc:", isPmc);

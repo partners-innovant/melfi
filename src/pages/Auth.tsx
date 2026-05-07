@@ -71,7 +71,7 @@ export default function Auth() {
         console.error("Whitelist RPC error", chkErr);
       } else if (allowed !== true) {
         toast.error(
-          "Tu cuenta no está autorizada para acceder a Psicoasist. Si eres psicólogo y quieres solicitar acceso, contacta al administrador.",
+          "Tu cuenta no está autorizada para acceder a Melfi. Si eres psicólogo y quieres solicitar acceso, contacta al administrador.",
           { duration: 8000 },
         );
         setLoading(false);
@@ -127,7 +127,7 @@ export default function Auth() {
             <Brain className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Psicoasist</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Melfi</h1>
             <p className="text-sm text-muted-foreground -mt-0.5">Asistente clínico para psicólogos</p>
           </div>
         </div>

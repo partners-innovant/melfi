@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Not allowed — sign out and notify
       await supabase.auth.signOut();
       toast.error(
-        "Tu cuenta no está autorizada para acceder a Psicoasist. Si eres psicólogo y quieres solicitar acceso, contacta al administrador.",
+        "Tu cuenta no está autorizada para acceder a Melfi. Si eres psicólogo y quieres solicitar acceso, contacta al administrador.",
         { duration: 8000 },
       );
       return false;

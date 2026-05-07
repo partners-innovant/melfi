@@ -444,7 +444,7 @@ function ArticleCard({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[260px]">
-              Abre el PDF — luego usa "⬆️ Subir a Psicoasist" para indexarlo
+              Abre el PDF — luego usa "⬆️ Subir a Melfi" para indexarlo
             </TooltipContent>
           </Tooltip>
         )}
@@ -458,7 +458,7 @@ function ArticleCard({
             onClick={onUploadClick}
             className="h-7 px-3 text-xs gap-1 bg-teal-600 hover:bg-teal-700 text-white"
           >
-            <Upload className="h-3 w-3" /> ⬆️ Subir a Psicoasist
+            <Upload className="h-3 w-3" /> ⬆️ Subir a Melfi
           </Button>
         ) : null}
       </div>

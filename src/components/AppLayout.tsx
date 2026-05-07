@@ -91,7 +91,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <div className="font-semibold text-sidebar-foreground tracking-tight truncate">Psicoasist</div>
+                <div className="font-semibold text-sidebar-foreground tracking-tight truncate">Melfi</div>
                 <div className="text-xs text-muted-foreground -mt-0.5 truncate">Asistente clínico</div>
               </div>
             )}

@@ -1285,7 +1285,7 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
   container.style.cssText = "width:794px; padding:60px; font-family:Inter,sans-serif; font-size:13px; line-height:1.7; background:white; color:#1a1a1a; box-sizing:border-box; visibility:hidden; position:absolute; left:-9999px; top:0;";
   container.innerHTML = `
     <div style="display:flex; justify-content:space-between; margin-bottom:24px">
-      <span style="color:${TEAL}; font-size:20px; font-weight:700">Psicoasist</span>
+      <span style="color:${TEAL}; font-size:20px; font-weight:700">Melfi</span>
       <span style="color:${GRAY}; font-size:11px">${escapeHtml(dateStr)}</span>
     </div>
     ${patientName ? `<div style="font-size:12px; color:#444; margin-bottom:16px">Consulta sobre: <strong>${escapeHtml(patientName)}</strong></div>` : ""}
@@ -1301,7 +1301,7 @@ async function exportConversationPdf(messages: ChatMessage[], assistantIdx: numb
     </div>
     ${citationsBlock}
     <div style="margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between">
-      <span style="color:${TEAL}; font-weight:600; font-size:11px">Generado por Psicoasist</span>
+      <span style="color:${TEAL}; font-weight:600; font-size:11px">Generado por Melfi</span>
       <span style="color:#999; font-size:10px">Las respuestas se basan únicamente en documentos clínicos verificados</span>
     </div>
   `;
@@ -1588,7 +1588,7 @@ function ImportSourceButton({ url }: { url: string }) {
         </>
       ) : (
         <>
-          <PlusIcon className="h-3 w-3" /> Importar a Psicoasist
+          <PlusIcon className="h-3 w-3" /> Importar a Melfi
         </>
       )}
     </Button>

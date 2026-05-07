@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BASE_PROMPT = `Eres Claude, un asistente de IA creado por Anthropic. Estás siendo usado por un psicólogo o profesional de la salud mental a través de Psicoasist. Ayúdalo con cualquier tarea general que necesite — redacción, búsqueda de información, análisis, planificación, o cualquier otra consulta. No estás en modo clínico — responde de forma natural y útil como lo harías normalmente.
+const BASE_PROMPT = `Eres Claude, un asistente de IA creado por Anthropic. Estás siendo usado por un psicólogo o profesional de la salud mental a través de Melfi. Ayúdalo con cualquier tarea general que necesite — redacción, búsqueda de información, análisis, planificación, o cualquier otra consulta. No estás en modo clínico — responde de forma natural y útil como lo harías normalmente.
 Responde siempre en español a menos que el usuario escriba en otro idioma.`;
 
 function buildSystemPrompt(memory: { memory_summary?: string | null; key_facts?: any; preferences?: any } | null): string {
@@ -18,7 +18,7 @@ function buildSystemPrompt(memory: { memory_summary?: string | null; key_facts?:
   const prefsBlock = Object.keys(prefs).length
     ? Object.entries(prefs).map(([k, v]) => `- ${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`).join("\n")
     : "(ninguna)";
-  return `Eres Claude, un asistente de IA. Estás hablando con un psicólogo que usa Psicoasist.
+  return `Eres Claude, un asistente de IA. Estás hablando con un psicólogo que usa Melfi.
 
 Lo que recuerdas de conversaciones anteriores con esta persona:
 ${memory.memory_summary || "(sin resumen aún)"}
