@@ -1,38 +1,26 @@
 // Definitive clinical areas + source institutions catalog.
 // Used in upload modal, filters, citation panels, and AI auto-classification.
 
+// Main (principales) clinical categories — evidence-based 8-category system
 export const CLINICAL_AREAS_NICE = [
-  "addiction",
-  "alcohol_use_disorders",
-  "anxiety",
-  "attention_deficit_disorder",
-  "autism",
-  "bipolar_disorder",
-  "delirium",
-  "dementia",
-  "depression",
-  "drug_misuse",
-  "eating_disorders",
-  "mental_health_services",
-  "personality_disorders",
-  "psychosis_and_schizophrenia",
-  "self_harm",
-  "suicide_prevention",
+  "regulacion_emocional_afectivos",
+  "neurodesarrollo_cognitivo",
+  "identidad_personalidad_self",
+  "juicio_realidad_pensamiento",
+  "adaptativos_crisis_vitales",
+  "alimentarios_imagen_corporal",
+  "sustancias_conductas_adictivas",
+  "somaticos_psicosomaticos",
 ] as const;
 
+// Transversal categories
 export const CLINICAL_AREAS_TRANSVERSAL = [
   "intervenciones_psicoterapias",
   "neuropsicologia_evaluacion",
   "psicologia_desarrollo",
   "salud_mental_perinatal",
   "salud_mental_laboral",
-  "psicologia_salud",
   "etica_deontologia",
-  "trauma_estres",
-  "trastornos_disociativos",
-  "disfunciones_sexuales",
-  "trastornos_sueno",
-  "trastornos_neurocognitivos",
   "otro",
 ] as const;
 
@@ -44,35 +32,47 @@ export const CLINICAL_AREAS = [
 export type ClinicalArea = (typeof CLINICAL_AREAS)[number];
 
 export const CLINICAL_AREA_LABELS: Record<ClinicalArea, string> = {
-  addiction: "Adicción",
-  alcohol_use_disorders: "Trastornos por uso de alcohol",
-  anxiety: "Ansiedad",
-  attention_deficit_disorder: "Trastorno por déficit de atención",
-  autism: "Autismo",
-  bipolar_disorder: "Trastorno bipolar",
-  delirium: "Delirium",
-  dementia: "Demencia",
-  depression: "Depresión",
-  drug_misuse: "Abuso de drogas",
-  eating_disorders: "Trastornos alimentarios",
-  mental_health_services: "Servicios de salud mental",
-  personality_disorders: "Trastornos de personalidad",
-  psychosis_and_schizophrenia: "Psicosis y esquizofrenia",
-  self_harm: "Autolesión",
-  suicide_prevention: "Prevención del suicidio",
+  regulacion_emocional_afectivos: "Regulación emocional y afectivos",
+  neurodesarrollo_cognitivo: "Neurodesarrollo y cognitivo",
+  identidad_personalidad_self: "Identidad, personalidad y self",
+  juicio_realidad_pensamiento: "Juicio de realidad y pensamiento",
+  adaptativos_crisis_vitales: "Adaptativos y crisis vitales",
+  alimentarios_imagen_corporal: "Alimentarios e imagen corporal",
+  sustancias_conductas_adictivas: "Sustancias y conductas adictivas",
+  somaticos_psicosomaticos: "Somáticos y psicosomáticos",
   intervenciones_psicoterapias: "Intervenciones y psicoterapias",
   neuropsicologia_evaluacion: "Neuropsicología y evaluación",
   psicologia_desarrollo: "Psicología del desarrollo",
   salud_mental_perinatal: "Salud mental perinatal",
   salud_mental_laboral: "Salud mental laboral",
-  psicologia_salud: "Psicología de la salud",
   etica_deontologia: "Ética y deontología",
-  trauma_estres: "Trauma y estrés",
-  trastornos_disociativos: "Trastornos disociativos",
-  disfunciones_sexuales: "Disfunciones sexuales",
-  trastornos_sueno: "Trastornos del sueño",
-  trastornos_neurocognitivos: "Trastornos neurocognitivos",
   otro: "Otro",
+};
+
+// Map old category keys → new keys (for legacy data display compatibility)
+export const LEGACY_CLINICAL_AREA_MAP: Record<string, ClinicalArea> = {
+  anxiety: "regulacion_emocional_afectivos",
+  depression: "regulacion_emocional_afectivos",
+  bipolar_disorder: "regulacion_emocional_afectivos",
+  trauma_estres: "regulacion_emocional_afectivos",
+  self_harm: "regulacion_emocional_afectivos",
+  suicide_prevention: "regulacion_emocional_afectivos",
+  attention_deficit_disorder: "neurodesarrollo_cognitivo",
+  autism: "neurodesarrollo_cognitivo",
+  delirium: "neurodesarrollo_cognitivo",
+  dementia: "neurodesarrollo_cognitivo",
+  trastornos_neurocognitivos: "neurodesarrollo_cognitivo",
+  personality_disorders: "identidad_personalidad_self",
+  trastornos_disociativos: "identidad_personalidad_self",
+  psychosis_and_schizophrenia: "juicio_realidad_pensamiento",
+  mental_health_services: "adaptativos_crisis_vitales",
+  psicologia_salud: "adaptativos_crisis_vitales",
+  eating_disorders: "alimentarios_imagen_corporal",
+  addiction: "sustancias_conductas_adictivas",
+  alcohol_use_disorders: "sustancias_conductas_adictivas",
+  drug_misuse: "sustancias_conductas_adictivas",
+  disfunciones_sexuales: "somaticos_psicosomaticos",
+  trastornos_sueno: "somaticos_psicosomaticos",
 };
 
 export const MAX_CLINICAL_AREAS = 5;
