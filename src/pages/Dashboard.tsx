@@ -185,7 +185,7 @@ function AddNoteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 }
 
 function ActionCard({ icon, label, onClick, to }: { icon: React.ReactNode; label: string; onClick?: () => void; to?: string }) {
-  const cls = "h-[80px] rounded-xl bg-teal-600 hover:bg-teal-700 text-white px-4 flex items-center gap-3 transition-colors text-left shadow-sm";
+  const cls = "h-[80px] rounded-xl bg-[#2C3E35] hover:bg-[#1f2d26] text-white px-4 flex items-center gap-3 transition-colors text-left shadow-sm";
   const content = (
     <>
       <div className="h-10 w-10 rounded-full bg-white/15 flex items-center justify-center text-lg">{icon}</div>
@@ -217,8 +217,6 @@ export default function Dashboard() {
         <p className="text-muted-foreground mt-1 text-sm">¿En qué quieres trabajar hoy?</p>
       </header>
 
-      <DashboardEthicalDisclaimer />
-
       <div className="space-y-5 mt-4">
         {/* Acciones rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -235,6 +233,10 @@ export default function Dashboard() {
 
       <PatientSelectorDialog open={pickerOpen} onOpenChange={setPickerOpen} onPick={startSession} title="Selecciona un paciente" />
       <AddNoteDialog open={noteOpen} onOpenChange={setNoteOpen} />
+
+      <div className="mt-8">
+        <DashboardEthicalDisclaimer />
+      </div>
     </div>
   );
 }
