@@ -41,6 +41,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/m/:token" element={<PatientMedicationTracker />} />
             <Route path="/" element={<Shell><Dashboard /></Shell>} />
             <Route path="/patients" element={<Shell><Patients /></Shell>} />
             <Route path="/patients/:id" element={<Shell><PatientDetail /></Shell>} />
