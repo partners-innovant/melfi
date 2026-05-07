@@ -142,6 +142,7 @@ export default function Assistant() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const patientsMap = useMemo(
     () => new Map(patients.map((p) => [p.id, `${p.first_name} ${p.last_name}`])),
@@ -237,6 +238,9 @@ export default function Assistant() {
   }, [patients]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  // Abort any in-flight stream when the component unmounts.
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -335,6 +339,12 @@ export default function Assistant() {
   async function send(textOverride?: string, opts?: { mode?: string }) {
     const q = (textOverride ?? input).trim();
     if (!q || busy) return;
+
+    // Abort any in-flight stream before starting a new one.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setInput("");
     setMessages((m) => [...m, { role: "user", content: q }, { role: "assistant", content: "", streaming: true }]);
     setBusy(true);
@@ -372,6 +382,7 @@ export default function Assistant() {
           conversation_id: conversationId,
           mode: opts?.mode,
         }),
+        signal: controller.signal,
       });
 
       if (!resp.ok || !resp.body) {
@@ -452,6 +463,7 @@ export default function Assistant() {
       void loadHistory();
       void lastEvent; void finalCitations;
     } catch (e: any) {
+      if (controller.signal.aborted) return;
       const msg = e?.message ?? String(e);
       console.error("[assistant]", e);
       toast.error(msg);
@@ -466,7 +478,12 @@ export default function Assistant() {
         return copy;
       });
     } finally {
-      setBusy(false);
+      // Only clear busy / ref if we're still the active send.
+      // If a newer send replaced us (or unmount aborted us), let the new owner manage state.
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setBusy(false);
+      }
     }
   }
 
