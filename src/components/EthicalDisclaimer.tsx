@@ -49,35 +49,23 @@ export function AuthEthicalDisclaimer({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="mt-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 p-3">
-      <div className="flex items-start gap-2 text-amber-900 dark:text-amber-100" style={{ fontSize: 12 }}>
-        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-        <div className="leading-relaxed space-y-1.5">
-          <div className="font-semibold">⚠️ Aviso importante sobre el uso de esta plataforma</div>
-          <p>
-            La información generada por Melfi es una construcción basada en los datos que tú ingresas —
-            percepciones, ideas y observaciones clínicas. No representa la realidad del paciente ni debe tratarse
-            como verdad absoluta.
-          </p>
-          <p>
-            Todo el contenido generado debe pasar por tu criterio profesional antes de ser utilizado. El perfil de
-            un paciente es una hipótesis de trabajo, no una certeza.
-          </p>
-          <p>
-            Melfi es una herramienta de apoyo clínico — la responsabilidad profesional y ética siempre es tuya.
-          </p>
-        </div>
-      </div>
-      <label className="mt-3 flex items-start gap-2 cursor-pointer text-amber-900 dark:text-amber-100" style={{ fontSize: 12 }}>
+    <div
+      className="mt-4 rounded-lg border p-4"
+      style={{ backgroundColor: "#F8F6F1", color: "#1A1A1A", borderColor: "rgba(26,26,26,0.12)" }}
+    >
+      <p className="leading-relaxed" style={{ fontSize: 13, fontFamily: 'Georgia, "Times New Roman", serif' }}>
+        Melfi amplifica tu criterio clínico y tu conocimiento, no los reemplaza. El contenido generado refleja tus
+        observaciones procesadas por IA — úsalo como punto de partida, no como verdad absoluta. La responsabilidad
+        profesional siempre es tuya.
+      </p>
+      <label className="mt-3 flex items-center gap-2 cursor-pointer" style={{ fontSize: 13, color: "#1A1A1A" }}>
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+          className="h-4 w-4 rounded border-border"
         />
-        <span>
-          Entiendo que la información generada es una construcción y debe pasar por mi criterio profesional.
-        </span>
+        <span>Entendido</span>
       </label>
     </div>
   );
