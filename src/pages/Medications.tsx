@@ -16,12 +16,11 @@ interface Medication {
   dose: string | null;
   therapeutic_class: string | null;
   composition: string | null;
-  mechanism_of_action: string | null;
   indications: string | null;
   contraindications: string | null;
   adverse_effects: string | null;
   interactions: string | null;
-  posology: string | null;
+  dosage: string | null;
   precautions: string | null;
   source_url: string | null;
 }
@@ -45,12 +44,11 @@ function therapeuticClassColor(c: string): string {
 
 const DETAIL_FIELDS = [
   ["composition", "Composición"],
-  ["mechanism_of_action", "Mecanismo de acción"],
   ["indications", "Indicaciones"],
   ["contraindications", "Contraindicaciones"],
   ["adverse_effects", "Efectos adversos"],
   ["interactions", "Interacciones"],
-  ["posology", "Posología"],
+  ["dosage", "Posología"],
   ["precautions", "Precauciones"],
 ] as const;
 
@@ -65,7 +63,7 @@ export default function Medications() {
       const { data, error } = await supabase
         .from("medications" as any)
         .select(
-          "id, name, active_ingredient, laboratory, dose, therapeutic_class, composition, mechanism_of_action, indications, contraindications, adverse_effects, interactions, posology, precautions, source_url",
+          "id, name, active_ingredient, laboratory, dose, therapeutic_class, composition, indications, contraindications, adverse_effects, interactions, dosage, precautions, source_url",
         )
         .order("name");
       if (error) toast.error(error.message);
