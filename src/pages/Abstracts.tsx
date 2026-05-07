@@ -764,18 +764,14 @@ function detectEvidenceLevel(types: string[]): string {
 function detectClinicalAreas(mesh: string[]): string[] {
   const t = mesh.map((m) => m.toLowerCase());
   const areas: string[] = [];
-  if (t.some((x) => x.includes("anxiety"))) areas.push("anxiety");
-  if (t.some((x) => x.includes("depress"))) areas.push("depression");
-  if (t.some((x) => x.includes("attention deficit"))) areas.push("attention_deficit_disorder");
-  if (t.some((x) => x.includes("bipolar"))) areas.push("bipolar_disorder");
-  if (t.some((x) => x.includes("schizophrenia") || x.includes("psychosis"))) areas.push("psychosis_and_schizophrenia");
-  if (t.some((x) => x.includes("eating disorder"))) areas.push("eating_disorders");
-  if (t.some((x) => x.includes("personality disorder"))) areas.push("personality_disorders");
-  if (t.some((x) => x.includes("substance") || x.includes("addiction"))) areas.push("addiction");
-  if (t.some((x) => x.includes("autism"))) areas.push("autism");
-  if (t.some((x) => x.includes("trauma") || x.includes("ptsd"))) areas.push("trauma_estres");
-  if (t.some((x) => x.includes("suicide"))) areas.push("suicide_prevention");
-  if (t.some((x) => x.includes("self-harm"))) areas.push("self_harm");
+  if (t.some((x) => x.includes("anxiety") || x.includes("depress") || x.includes("bipolar") || x.includes("trauma") || x.includes("ptsd") || x.includes("suicide") || x.includes("self-harm") || x.includes("mood"))) areas.push("regulacion_emocional_afectivos");
+  if (t.some((x) => x.includes("attention deficit") || x.includes("autism") || x.includes("dementia") || x.includes("delirium") || x.includes("neurocognitive") || x.includes("neurodevelopment"))) areas.push("neurodesarrollo_cognitivo");
+  if (t.some((x) => x.includes("personality disorder") || x.includes("dissociative") || x.includes("identity"))) areas.push("identidad_personalidad_self");
+  if (t.some((x) => x.includes("schizophrenia") || x.includes("psychosis") || x.includes("psychotic"))) areas.push("juicio_realidad_pensamiento");
+  if (t.some((x) => x.includes("adjustment") || x.includes("crisis") || x.includes("life event"))) areas.push("adaptativos_crisis_vitales");
+  if (t.some((x) => x.includes("eating disorder") || x.includes("anorexia") || x.includes("bulimia") || x.includes("body image"))) areas.push("alimentarios_imagen_corporal");
+  if (t.some((x) => x.includes("substance") || x.includes("addiction") || x.includes("alcohol") || x.includes("drug"))) areas.push("sustancias_conductas_adictivas");
+  if (t.some((x) => x.includes("somatic") || x.includes("psychosomatic") || x.includes("sleep") || x.includes("sexual dysfunction"))) areas.push("somaticos_psicosomaticos");
   if (areas.length === 0) areas.push("intervenciones_psicoterapias");
   return areas.slice(0, 3);
 }

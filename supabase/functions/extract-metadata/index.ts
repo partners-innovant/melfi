@@ -4,13 +4,11 @@ const corsHeaders = {
 };
 
 const CLINICAL_AREAS = [
-  "addiction","alcohol_use_disorders","anxiety","attention_deficit_disorder","autism",
-  "bipolar_disorder","delirium","dementia","depression","drug_misuse","eating_disorders",
-  "mental_health_services","personality_disorders","psychosis_and_schizophrenia",
-  "self_harm","suicide_prevention","intervenciones_psicoterapias","neuropsicologia_evaluacion",
-  "psicologia_desarrollo","salud_mental_perinatal","salud_mental_laboral","psicologia_salud",
-  "etica_deontologia","trauma_estres","trastornos_disociativos","disfunciones_sexuales",
-  "trastornos_sueno","trastornos_neurocognitivos","otro",
+  "regulacion_emocional_afectivos","neurodesarrollo_cognitivo","identidad_personalidad_self",
+  "juicio_realidad_pensamiento","adaptativos_crisis_vitales","alimentarios_imagen_corporal",
+  "sustancias_conductas_adictivas","somaticos_psicosomaticos",
+  "intervenciones_psicoterapias","neuropsicologia_evaluacion","psicologia_desarrollo",
+  "salud_mental_perinatal","salud_mental_laboral","etica_deontologia","otro",
 ];
 
 const DOC_TYPES = [
