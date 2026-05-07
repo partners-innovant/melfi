@@ -2,59 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Psicoasist — clean clinical design system. All colors HSL. */
+/* Melfi — warm clinical design system. All colors HSL. */
+/* Palette: cream #F8F6F1 / deep green #2C3E35 / sage #8B9E98 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 25% 12%;
+    --background: 42 27% 96%;        /* #F8F6F1 cream */
+    --foreground: 0 0% 10%;          /* #1A1A1A */
 
-    --surface: 210 20% 98%;
-    --surface-foreground: 222 25% 12%;
+    --surface: 42 27% 96%;
+    --surface-foreground: 0 0% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 25% 12%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 25% 12%;
+    --popover-foreground: 0 0% 10%;
 
-    /* Teal primary */
-    --primary: 174 72% 36%;
-    --primary-foreground: 0 0% 100%;
-    --primary-soft: 174 60% 95%;
+    /* Deep green primary */
+    --primary: 146 14% 21%;          /* #2C3E35 */
+    --primary-foreground: 42 27% 96%;
+    --primary-soft: 150 12% 88%;
 
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 222 25% 18%;
+    --secondary: 42 20% 92%;
+    --secondary-foreground: 146 14% 21%;
 
-    --muted: 210 16% 95%;
-    --muted-foreground: 215 14% 45%;
+    --muted: 42 18% 90%;
+    --muted-foreground: 150 8% 40%;
 
-    --accent: 174 60% 95%;
-    --accent-foreground: 174 72% 28%;
+    --accent: 158 9% 58%;            /* #8B9E98 sage */
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 60% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 38 80% 45%;
 
     /* Citation highlight */
-    --citation: 48 96% 89%;
-    --citation-strong: 45 93% 47%;
+    --citation: 45 50% 85%;
+    --citation-strong: 146 14% 25%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 174 72% 36%;
+    --border: 42 15% 86%;
+    --input: 42 15% 86%;
+    --ring: 146 14% 21%;
 
     --radius: 0.625rem;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222 20% 25%;
-    --sidebar-primary: 174 72% 36%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 174 60% 95%;
-    --sidebar-accent-foreground: 174 72% 28%;
-    --sidebar-border: 214 20% 92%;
-    --sidebar-ring: 174 72% 36%;
+    --sidebar-background: 42 27% 96%;
+    --sidebar-foreground: 146 14% 18%;
+    --sidebar-primary: 146 14% 21%;
+    --sidebar-primary-foreground: 42 27% 96%;
+    --sidebar-accent: 150 12% 88%;
+    --sidebar-accent-foreground: 146 14% 21%;
+    --sidebar-border: 42 15% 86%;
+    --sidebar-ring: 146 14% 21%;
   }
 
   .dark {

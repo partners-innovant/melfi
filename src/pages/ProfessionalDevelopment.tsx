@@ -231,7 +231,7 @@ export default function ProfessionalDevelopment() {
       .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;background:#e6fffa;color:#0f766e}
       .quote{border-left:3px solid #ccc;padding-left:8px;color:#555;font-style:italic;margin:6px 0}
       ul{margin:6px 0 14px 18px}</style></head><body>
-      <h1>📈 Psicoasist · Desarrollo profesional</h1>
+      <h1>📈 Melfi · Desarrollo profesional</h1>
       <p><strong>Tipo:</strong> ${type} · <strong>Fecha:</strong> ${new Date().toLocaleDateString("es-CL")}</p>
       <h2>Resumen general</h2><p>${feedback?.overall_summary ?? ""}</p>
       ${feedback?.dimensions.map((d) => `

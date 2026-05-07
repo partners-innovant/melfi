@@ -30,7 +30,7 @@ export function DashboardEthicalDisclaimer() {
         <div className="text-sm text-amber-900 dark:text-amber-100 leading-relaxed">
           <div className="font-semibold mb-1">⚠️ Recordatorio ético</div>
           <p>
-            La información que genera Psicoasist — perfiles, diagnósticos, sugerencias e informes — es una
+            La información que genera Melfi — perfiles, diagnósticos, sugerencias e informes — es una
             construcción basada en lo que tú ingresas y en documentación clínica. <strong>No es el paciente.</strong>{" "}
             Siempre filtra todo con tu criterio profesional antes de aplicarlo. La herramienta te apoya, pero la
             responsabilidad clínica y ética es tuya.
@@ -55,7 +55,7 @@ export function AuthEthicalDisclaimer({
         <div className="leading-relaxed space-y-1.5">
           <div className="font-semibold">⚠️ Aviso importante sobre el uso de esta plataforma</div>
           <p>
-            La información generada por Psicoasist es una construcción basada en los datos que tú ingresas —
+            La información generada por Melfi es una construcción basada en los datos que tú ingresas —
             percepciones, ideas y observaciones clínicas. No representa la realidad del paciente ni debe tratarse
             como verdad absoluta.
           </p>
@@ -64,7 +64,7 @@ export function AuthEthicalDisclaimer({
             un paciente es una hipótesis de trabajo, no una certeza.
           </p>
           <p>
-            Psicoasist es una herramienta de apoyo clínico — la responsabilidad profesional y ética siempre es tuya.
+            Melfi es una herramienta de apoyo clínico — la responsabilidad profesional y ética siempre es tuya.
           </p>
         </div>
       </div>

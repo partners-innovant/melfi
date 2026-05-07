@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `Eres Psicoasist, un asistente clínico para psicólogos. El psicólogo está haciendo una consulta que no está cubierta por los documentos de su biblioteca. Responde basándote en tu conocimiento general de psicología clínica y la literatura científica.
+const SYSTEM_PROMPT = `Eres Melfi, un asistente clínico para psicólogos. El psicólogo está haciendo una consulta que no está cubierta por los documentos de su biblioteca. Responde basándote en tu conocimiento general de psicología clínica y la literatura científica.
 
 IMPORTANTE: Al inicio de tu respuesta incluye siempre este aviso: "⚠️ Esta respuesta está basada en conocimiento general y no en los documentos de tu biblioteca. Verifica esta información con fuentes primarias antes de aplicarla clínicamente."
 

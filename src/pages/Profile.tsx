@@ -176,7 +176,7 @@ export default function Profile() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Mi perfil</h1>
         <p className="text-sm text-muted-foreground">
-          Completa tu perfil para que Psicoasist personalice mejor tu experiencia.
+          Completa tu perfil para que Melfi personalice mejor tu experiencia.
         </p>
       </div>
 

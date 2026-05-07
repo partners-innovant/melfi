@@ -58,7 +58,7 @@ export default function ProfileCompletionModal() {
         <DialogHeader>
           <DialogTitle>Completa tu perfil</DialogTitle>
           <DialogDescription>
-            Necesitamos algunos datos adicionales para activar tu cuenta de Psicoasist.
+            Necesitamos algunos datos adicionales para activar tu cuenta de Melfi.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={save} className="space-y-3">

@@ -31,7 +31,7 @@ serve(async (req) => {
     const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(q)}&format=json&pageSize=20&resultType=core`;
     console.log("[search-pubmed]", url);
 
-    const res = await fetch(url, { headers: { "User-Agent": "Psicoasist/1.0" } });
+    const res = await fetch(url, { headers: { "User-Agent": "Melfi/1.0" } });
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
       console.error("[search-pubmed] EuropePMC error", res.status, txt.slice(0, 300));

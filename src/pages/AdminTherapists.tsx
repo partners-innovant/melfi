@@ -401,7 +401,7 @@ export default function AdminTherapists() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Terapeutas</h1>
           <p className="text-sm text-muted-foreground">
-            Psicólogos registrados y lista de acceso a Psicoasist.
+            Psicólogos registrados y lista de acceso a Melfi.
           </p>
         </div>
         <div className="flex gap-2">
@@ -721,7 +721,7 @@ export default function AdminTherapists() {
           <DialogHeader>
             <DialogTitle>Agregar a la lista de acceso</DialogTitle>
             <DialogDescription>
-              Autoriza un email para que pueda registrarse en Psicoasist. El terapeuta aparecerá
+              Autoriza un email para que pueda registrarse en Melfi. El terapeuta aparecerá
               en "Pendientes" hasta que cree su cuenta.
             </DialogDescription>
           </DialogHeader>

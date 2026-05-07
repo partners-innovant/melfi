@@ -23,7 +23,7 @@ const FEATURES: Feature[] = [
   { emoji: "🧒", title: "Infanto-Juvenil", description: "Fichas especializadas con tests, informes y seguimiento.", cta: "Ver pacientes", to: "/children" },
   { emoji: "📚", title: "Base de conocimiento", description: "Documentos, abstracts y guías clínicas indexadas para tu IA.", cta: "Ver biblioteca", to: "/documents" },
   { emoji: "📅", title: "Calendario", description: "Agenda y sincroniza sesiones con Google Calendar.", cta: "Ver calendario", to: "/calendar" },
-  { emoji: "💬", title: "Sugerencias", description: "Comparte ideas o reporta errores para mejorar Psicoasist.", cta: "Enviar feedback", feedback: true },
+  { emoji: "💬", title: "Sugerencias", description: "Comparte ideas o reporta errores para mejorar Melfi.", cta: "Enviar feedback", feedback: true },
 ];
 
 function FeatureCard({ f }: { f: Feature }) {

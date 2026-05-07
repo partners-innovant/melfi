@@ -403,7 +403,7 @@ export default function Calendar() {
               </DialogHeader>
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline">{activeSession.status}</Badge>
-                <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-300 border-0">Psicoasist</Badge>
+                <Badge className="bg-teal-500/15 text-teal-700 dark:text-teal-300 border-0">Melfi</Badge>
                 {activeSession.google_event_id && (
                   <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-0">Google ✓</Badge>
                 )}

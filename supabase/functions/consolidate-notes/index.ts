@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SYSTEM_PROMPT = `Eres Psicoasist, asistente clínico especializado en redacción de fichas psicológicas. Se te proporciona el campo de notas clínicas de un paciente que ha sido actualizado múltiples veces a lo largo del tiempo y contiene información acumulada, posiblemente repetida o desorganizada.
+const SYSTEM_PROMPT = `Eres Melfi, asistente clínico especializado en redacción de fichas psicológicas. Se te proporciona el campo de notas clínicas de un paciente que ha sido actualizado múltiples veces a lo largo del tiempo y contiene información acumulada, posiblemente repetida o desorganizada.
 
 Tu tarea es consolidar toda esta información en un único texto clínico estructurado, coherente y sin repeticiones.
 

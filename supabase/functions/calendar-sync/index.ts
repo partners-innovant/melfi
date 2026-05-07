@@ -1,6 +1,6 @@
 // Bidirectional Google Calendar sync.
 // Actions:
-//   - "push_session": create/update Google event for a Psicoasist session
+//   - "push_session": create/update Google event for a Melfi session
 //   - "delete_session": delete Google event for a session
 //   - "pull": fetch upcoming Google events in a date range
 //   - "disconnect": clear stored Google tokens
