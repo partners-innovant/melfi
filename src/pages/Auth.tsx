@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Brain } from "lucide-react";
+import melfiLogo from "@/assets/melfi-logo.svg";
 import { lovable } from "@/integrations/lovable";
 import { AuthEthicalDisclaimer } from "@/components/EthicalDisclaimer";
 import { RutInput } from "@/components/RutInput";

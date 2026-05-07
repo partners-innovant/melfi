@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Users, Baby, FileText, FileType, MessageSquare, Calendar, LogOut, Inbox, ChevronLeft, ChevronRight, Database, UserCog, Coffee, TrendingUp } from "lucide-react";
 import claudeLogo from "@/assets/claude-logo.png";
+import melfiLogo from "@/assets/melfi-logo.svg";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,13 +87,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               collapsed ? "justify-center px-2" : "gap-2 px-6",
             )}
           >
-            <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-              <span className="text-primary-foreground font-bold">P</span>
+            <div className="h-9 w-9 rounded-lg bg-background flex items-center justify-center flex-shrink-0 border border-sidebar-border">
+              <img src={melfiLogo} alt="Melfi" className="h-7 w-7" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <div className="font-semibold text-sidebar-foreground tracking-tight truncate">Melfi</div>
-                <div className="text-xs text-muted-foreground -mt-0.5 truncate">Asistente clínico</div>
+                <div className="font-serif text-lg text-sidebar-foreground tracking-tight truncate" style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}>Melfi</div>
+                <div className="text-[11px] text-muted-foreground -mt-0.5 truncate">IA para psicólogos que ponen al paciente primero.</div>
               </div>
             )}
           </div>
