@@ -153,7 +153,7 @@ export default function AbstractsPage() {
       <header className="flex items-start justify-between mb-6 gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Abstracts</h1>
-          <p className="text-muted-foreground text-sm mt-1">Biblioteca de abstracts científicos</p>
+          <p className="text-muted-foreground text-sm mt-1">Biblioteca de evidencia clínica</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2" onClick={() => setPubmedOpen(true)}>
