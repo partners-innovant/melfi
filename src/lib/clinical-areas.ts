@@ -78,7 +78,8 @@ export const LEGACY_CLINICAL_AREA_MAP: Record<string, ClinicalArea> = {
 export const MAX_CLINICAL_AREAS = 5;
 
 export function clinicalAreaLabel(value: string): string {
-  return (CLINICAL_AREA_LABELS as Record<string, string>)[value] ?? value;
+  const mapped = LEGACY_CLINICAL_AREA_MAP[value] ?? value;
+  return (CLINICAL_AREA_LABELS as Record<string, string>)[mapped] ?? value;
 }
 
 // ---- Source institutions ----
