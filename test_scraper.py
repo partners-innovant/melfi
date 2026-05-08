@@ -46,11 +46,7 @@ FIELD_TO_COLUMN = {
     "presentations": "presentations",
 }
 
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/122.0.0.0 Safari/537.36"
-)
+USER_AGENT = "MelfiBot/1.0 (uso clínico)"
 
 # Map of accent-folded section labels → canonical field key.
 SECTION_MAP = {
@@ -191,9 +187,11 @@ def extract(html_bytes: bytes) -> dict:
     if not name and soup.title:
         name = soup.title.get_text(strip=True) or None
     if name:
-        # Strip trailing pharmaceutical form (e.g. "MELATONINA Comprimidos" → "MELATONINA").
-        # Fallback `or name` guards the unlikely case where stripping leaves an empty string.
-        name = PHARMA_FORM_SUFFIX_RE.sub("", name).strip() or name
+        # Strip de forma farmacéutica DESACTIVADO temporalmente.
+        # Preservamos info cruda para cleanup masivo post-scrape.
+        # Re-activar cuando se decida estrategia final de separación name vs presentations.
+        # name = PHARMA_FORM_SUFFIX_RE.sub("", name).strip() or name
+        pass
 
     # Flatten document to lines and bucket them by section.
     raw = soup.get_text("\n")
