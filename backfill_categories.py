@@ -112,23 +112,52 @@ def main() -> int:
 
     client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-    # In apply mode, refuse to run if the target table already has data.
-    if args.apply:
-        existing = (
+    # Inform on current pivot state (always, both modes — replaces the
+    # previous abort-on-non-empty safeguard with observability).
+    existing_resp = (
+        client.table("medication_categories")
+        .select("id", count="exact", head=True)
+        .execute()
+    )
+    pivot_existing = existing_resp.count or 0
+
+    # IDs already covered by the pivot — used to filter the incremental set.
+    already_in_pivot: set = set()
+    page = 0
+    while True:
+        r = (
             client.table("medication_categories")
-            .select("id", count="exact", head=True)
+            .select("medication_id")
+            .range(page * 1000, page * 1000 + 999)
             .execute()
         )
-        if existing.count and existing.count > 0:
-            print(
-                f"❌ medication_categories ya tiene {existing.count} filas. "
-                "Aborto para no duplicar — limpiá la tabla manualmente o re-ejecutá en dry-run."
-            )
-            return 1
+        if not r.data:
+            break
+        for row in r.data:
+            already_in_pivot.add(row["medication_id"])
+        if len(r.data) < 1000:
+            break
+        page += 1
 
-    # Pull all medications in one call (289 rows fits well under 1000 default).
-    res = client.table("medications").select("id,name,therapeutic_class").execute()
-    meds = res.data or []
+    # Pull all medications, paginated (the table now exceeds 1000 rows).
+    meds_all: List[dict] = []
+    page = 0
+    while True:
+        r = (
+            client.table("medications")
+            .select("id,name,therapeutic_class")
+            .range(page * 1000, page * 1000 + 999)
+            .execute()
+        )
+        if not r.data:
+            break
+        meds_all.extend(r.data)
+        if len(r.data) < 1000:
+            break
+        page += 1
+
+    # Incremental: only meds without rows in the pivot get processed.
+    meds = [m for m in meds_all if m["id"] not in already_in_pivot]
 
     counts = {"single": 0, "multi": 0, "subfamily": 0}
     not_parseable: List[dict] = []
@@ -157,11 +186,19 @@ def main() -> int:
 
     print("=== DRY RUN — backfill_categories ===" if not args.apply else "=== APPLY MODE ===")
     print()
+    print(f"Estado de la pivot:")
+    print(f"  filas existentes:                   {pivot_existing}")
+    print(f"  medications en DB:                  {len(meds_all)}")
+    print(f"    · ya con filas en pivot (skip):   {len(meds_all) - len(meds)}")
+    print(f"    · a procesar (incremental):       {len(meds)}")
+    print()
     print(f"{len(meds)} medicamentos procesados → {total_to_insert} filas a insertar")
     print(f"  · {counts['single']:>3} single-family (1 fila c/u)")
     print(f"  · {counts['multi']:>3} multi-family (varias filas)")
     print(f"  · {counts['subfamily']:>3} con subfamily aplanada (tres niveles)")
     print(f"  · {len(not_parseable):>3} no parseables")
+    print()
+    print(f"Total proyectado en pivot post-backfill: {pivot_existing + total_to_insert}")
 
     if not_parseable:
         print()
