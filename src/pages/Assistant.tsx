@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -62,6 +63,11 @@ interface ConversationItem {
 
 const ALL = "__all__";
 const NONE = "__none__";
+
+// Private Use Area char appended to streaming content so the inline blinking
+// cursor lands at the end of the last paragraph (instead of on a new line
+// below ReactMarkdown's <p> block). renderInlineWithCitations replaces it.
+const STREAM_MARKER = "";
 
 // General clinical suggestions when no patient is selected (organized by clinical moment)
 const GENERAL_SUGGESTIONS: { label: string; question: string }[] = [
@@ -955,24 +961,67 @@ function Message({
     return m;
   }, [message.citations]);
 
-  const parts = useMemo(() => {
+  // Replaces [cita:CHUNK_ID] markers in a text fragment with clickable <sup>N</sup>
+  // citation marks, and STREAM_MARKER (a Private Use Area char appended only
+  // while streaming) with the inline blinking cursor. Markers stay inline so the
+  // cursor appears at the end of the last rendered paragraph instead of on a
+  // new line below the markdown block.
+  const renderInlineWithCitations = useCallback((text: string): any[] => {
     const re = /\s*\[cita:([^\]]+)\]/g;
-    const out: Array<{ type: "text" | "cite"; value: string; cite?: Citation; idx?: number }> = [];
+    const out: any[] = [];
     let last = 0;
-    let match: RegExpExecArray | null;
-    while ((match = re.exec(message.content)) !== null) {
-      if (match.index > last) out.push({ type: "text", value: message.content.slice(last, match.index) });
-      const id = match[1].trim();
+    let m: RegExpExecArray | null;
+    let key = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) out.push(text.slice(last, m.index));
+      const id = m[1].trim();
       const found = citationsMap.get(id);
       if (found) {
-        out.push({ type: "cite", value: id, cite: found.cite, idx: found.idx });
+        out.push(
+          <sup key={`c${key++}`} className="citation-mark" onClick={() => onCite(found.cite)}>
+            {found.idx}
+          </sup>,
+        );
       }
-      // Unknown chunk_id: drop silently — never expose raw markers to the user.
-      last = match.index + match[0].length;
+      last = m.index + m[0].length;
     }
-    if (last < message.content.length) out.push({ type: "text", value: message.content.slice(last) });
-    return out;
-  }, [message.content, citationsMap]);
+    if (last < text.length) out.push(text.slice(last));
+
+    // Final pass: split residual strings on the streaming marker.
+    const withCursor: any[] = [];
+    let curKey = 0;
+    for (const piece of out) {
+      if (typeof piece === "string" && piece.includes(STREAM_MARKER)) {
+        const segs = piece.split(STREAM_MARKER);
+        for (let i = 0; i < segs.length; i++) {
+          if (segs[i]) withCursor.push(segs[i]);
+          if (i < segs.length - 1) {
+            withCursor.push(<span key={`cur${curKey++}`} className="streaming-cursor">▍</span>);
+          }
+        }
+      } else {
+        withCursor.push(piece);
+      }
+    }
+    return withCursor;
+  }, [citationsMap, onCite]);
+
+  // Walks element children recursively; for any text node, splits it on
+  // [cita:xxx] markers and replaces them with citation marks. Preserves nested
+  // markdown elements (strong, em, code, etc.) so ReactMarkdown's output is
+  // unchanged except for citation injection.
+  function transformChildren(children: any): any {
+    return Children.map(children, (child: any) => {
+      if (typeof child === "string") return renderInlineWithCitations(child);
+      if (isValidElement(child)) {
+        const props: any = child.props ?? {};
+        if (props.children !== undefined) {
+          return cloneElement(child, { ...props, children: transformChildren(props.children) });
+        }
+      }
+      return child;
+    });
+  }
 
   async function copyAnswer() {
     const clean = stripCitations(message.content);
@@ -1014,13 +1063,13 @@ function Message({
 
         <div
           className={cn(
-            "prose prose-sm max-w-none",
+            "prose prose-sm dark:prose-invert max-w-none",
             isGeneral &&
               "rounded-lg border-l-4 border-amber-500/60 bg-amber-50/50 dark:bg-amber-900/10 px-3 py-2",
           )}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap m-0">
-            {isEmpty ? (
+          {isEmpty ? (
+            <p className="text-sm leading-relaxed m-0">
               <span className="inline-flex items-center gap-1 text-muted-foreground">
                 {message.generalLoading ? (
                   <>
@@ -1033,21 +1082,23 @@ function Message({
                   </>
                 )}
               </span>
-            ) : (
-              <>
-                {parts.map((p, i) =>
-                  p.type === "text" ? (
-                    <span key={i}>{p.value}</span>
-                  ) : (
-                    <sup key={i} className="citation-mark" onClick={() => onCite(p.cite!)}>
-                      {p.idx}
-                    </sup>
-                  ),
-                )}
-                {message.streaming && <span className="streaming-cursor">▍</span>}
-              </>
-            )}
-          </p>
+            </p>
+          ) : (
+            <>
+              <ReactMarkdown
+                components={{
+                  p: ({ children, ...props }: any) => <p {...props}>{transformChildren(children)}</p>,
+                  li: ({ children, ...props }: any) => <li {...props}>{transformChildren(children)}</li>,
+                  h1: ({ children, ...props }: any) => <h1 {...props}>{transformChildren(children)}</h1>,
+                  h2: ({ children, ...props }: any) => <h2 {...props}>{transformChildren(children)}</h2>,
+                  h3: ({ children, ...props }: any) => <h3 {...props}>{transformChildren(children)}</h3>,
+                  h4: ({ children, ...props }: any) => <h4 {...props}>{transformChildren(children)}</h4>,
+                }}
+              >
+                {message.streaming ? `${message.content}${STREAM_MARKER}` : message.content}
+              </ReactMarkdown>
+            </>
+          )}
         </div>
 
         {!message.streaming && (message.citations?.length ?? 0) > 0 && (
