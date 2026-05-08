@@ -100,7 +100,10 @@ def main() -> int:
             print(f"HTTP {r.status_code}")
             counts["error"] += 1
         else:
-            data = extract(r.content)
+            # Force ISO-8859-1: MFT serves Latin-1 without <meta charset>, so
+            # chardet inside BeautifulSoup misreads accents (produces � or ń).
+            r.encoding = "iso-8859-1"
+            data = extract(r.text.encode("utf-8"))
             if is_empty(data):
                 print("vacío")
                 counts["empty"] += 1

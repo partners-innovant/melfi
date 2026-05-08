@@ -157,6 +157,17 @@ def extract_presentations(*sources: Optional[str]) -> list:
     return out
 
 
+# Pharmaceutical-form suffix that some MFT pages append to the product name
+# inside the <title> tag (e.g. "MELATONINA Comprimidos"). When the page has no
+# <h1>/<h2>/<h3> we fall back to <title>, which leaks the form into `name`.
+# This regex strips a trailing form word so the extracted name is just the brand.
+PHARMA_FORM_SUFFIX_RE = re.compile(
+    r"\s+(Comprimidos?|C[áa]psulas?|Crema|Gel|Jarabe|Suspensi[óo]n|"
+    r"Pomada|Inyectable|Soluci[óo]n|Polvo|Gotas|Aerosol|Spray|Inhalador)\s*$",
+    re.IGNORECASE,
+)
+
+
 def fold(s: str) -> str:
     """Lowercase + strip diacritics. Length-preserving for Latin scripts,
     so positions in the folded string equal positions in the original."""
@@ -179,6 +190,10 @@ def extract(html_bytes: bytes) -> dict:
                 break
     if not name and soup.title:
         name = soup.title.get_text(strip=True) or None
+    if name:
+        # Strip trailing pharmaceutical form (e.g. "MELATONINA Comprimidos" → "MELATONINA").
+        # Fallback `or name` guards the unlikely case where stripping leaves an empty string.
+        name = PHARMA_FORM_SUFFIX_RE.sub("", name).strip() or name
 
     # Flatten document to lines and bucket them by section.
     raw = soup.get_text("\n")
@@ -307,12 +322,17 @@ def main() -> int:
     try:
         r = requests.get(URL, headers=headers, timeout=15)
         r.raise_for_status()
+        # MFT pages are ISO-8859-1 but ship without <meta charset>; chardet
+        # auto-detection (default in requests / BS) is unreliable and produces
+        # mojibake (� or ń). Force the right encoding for clean text.
+        r.encoding = "iso-8859-1"
     except requests.RequestException as e:
         print(f"Error al descargar: {e}", file=sys.stderr)
         return 1
 
-    # Pass bytes so BeautifulSoup can detect encoding from <meta charset>.
-    data = extract(r.content)
+    # We forced r.encoding above; re-encode the decoded text as UTF-8 so
+    # BeautifulSoup parses bytes that match the (now-correct) characters.
+    data = extract(r.text.encode("utf-8"))
 
     print("=" * 72)
     print(f"URL: {URL}")
