@@ -65,7 +65,8 @@ export default function Medications() {
         .select(
           "id, name, active_ingredient, laboratory, dose, therapeutic_class, composition, indications, contraindications, adverse_effects, interactions, dosage, precautions, source_url",
         )
-        .order("name");
+        .order("name")
+        .range(0, 9999);
       if (error) toast.error(error.message);
       setList(((data ?? []) as unknown as Medication[]));
       setLoading(false);
