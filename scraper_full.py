@@ -21,8 +21,8 @@ from test_scraper import (
     extract,
 )
 
-START = 1000
-END = 1050  # inclusive
+START = 1
+END = 1000  # inclusive
 DELAY = 1.0  # seconds between requests
 URL_TEMPLATE = "https://www.colegiofarmaceutico.cl/MFT/PRODUCTO/P{n}.HTM"
 

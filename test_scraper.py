@@ -43,6 +43,7 @@ FIELD_TO_COLUMN = {
     "interacciones": "interactions",
     "posologia": "dosage",
     "precauciones": "precautions",
+    "presentations": "presentations",
 }
 
 USER_AGENT = (
@@ -84,6 +85,9 @@ SECTION_MAP = {
     # laboratory (MFT uses "Laboratorios <name>")
     "laboratorio": "laboratorio",
     "laboratorios": "laboratorio",
+    # presentations section (raw text — parsed separately to populate the
+    # presentations[] array; not written to the DB as-is)
+    "presentaciones": "presentaciones_raw",
 }
 
 # Sub-headers that should close the current bucket without opening a new one.
@@ -97,7 +101,6 @@ DROP_LABELS = {
     "caracteristicas farmacocineticas",
     "informacion farmacologica",
     "sobredosificacion",
-    "presentaciones",
 }
 
 # `\b` after the alternation prevents "laboratorio" from matching "laboratorios"
@@ -107,6 +110,51 @@ HEADER_RE = re.compile(rf"^\s*({_ALT})\b", re.IGNORECASE)
 
 _DROP_ALT = "|".join(re.escape(k) for k in sorted(DROP_LABELS, key=len, reverse=True))
 DROP_RE = re.compile(rf"^\s*({_DROP_ALT})\b", re.IGNORECASE)
+
+# Pharmaceutical forms that mark the start of a presentation line in the
+# Composición section (e.g. "Comprimidos 5 mg:", "Solución oral 20 mg/ml:",
+# "Cápsulas blandas 100 mg:"). Matches the form word at the line start, then
+# any descriptors up to a colon or end-of-line.
+PRESENTATION_RE = re.compile(
+    r"^\s*("
+    r"comprimidos?|c[áa]psulas?|tabletas?|gr[aá]geas?|dr[áa]geas?|"
+    r"jarabe|"
+    r"soluci[óo]n|suspensi[óo]n|emulsi[óo]n|"
+    r"crema|pomada|ung[üu]ento|gel|loci[óo]n|champ[úu]|"
+    r"inyecci[óo]n|ampollas?|vial|frasco[\s-]?ampolla|"
+    r"gotas|polvo|sobres?|supositorios?|[óo]vulos?|parches?|"
+    r"aerosol|spray|inhalador"
+    r")\b[^:\n]*",
+    re.IGNORECASE,
+)
+
+
+def extract_presentations(*sources: Optional[str]) -> list:
+    """Return individual presentation strings deduped, trimmed of trailing
+    colons. Reads from multiple text blocks in priority order — typically
+    the 'Presentaciones' section (most authoritative; lists envases) followed
+    by 'Composición' as a fallback. For SOMNO returns
+    ['Comprimidos 5 mg', 'Comprimidos 10 mg']."""
+    out: list = []
+    seen: set = set()
+    for source in sources:
+        if not source:
+            continue
+        for line in source.split("\n"):
+            m = PRESENTATION_RE.match(line.strip())
+            if not m:
+                continue
+            text = re.sub(r"\s+", " ", m.group(0)).strip().rstrip(":").strip()
+            # Defensive — ignore body sentences that happen to start with a form
+            # word (e.g. "Comprimidos contienen el principio activo...").
+            if not text or "contiene" in text.lower():
+                continue
+            key = text.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(text)
+    return out
 
 
 def fold(s: str) -> str:
@@ -173,12 +221,17 @@ def extract(html_bytes: bytes) -> dict:
         "interacciones": None,
         "posologia": None,
         "precauciones": None,
+        "presentaciones_raw": None,
     }
     for k, v in buckets.items():
         if k in result:
             joined = "\n".join(v).strip()
             result[k] = joined or None
 
+    # Pass `presentaciones_raw` first so the dedicated section wins ties.
+    result["presentations"] = extract_presentations(
+        result.get("presentaciones_raw"), result.get("composicion")
+    )
     result["texto_completo"] = "\n".join(lines)
     return result
 
@@ -188,11 +241,17 @@ def print_section(label: str, value: Optional[str]) -> None:
     print(value if value else "(no encontrado)")
 
 
-def clean_text(s: Optional[str]) -> Optional[str]:
-    """Fix the MFT mojibake where 'ñ' arrives as Latin Extended-A 'ń' (U+0144)."""
-    if not s:
-        return s
-    return s.replace("ń", "ñ").replace("Ń", "Ñ")
+def clean_text(s):
+    """Fix the MFT mojibake where 'ñ' arrives as Latin Extended-A 'ń' (U+0144).
+    Handles strings, lists of strings, and None transparently — needed because
+    `presentations` is a list while everything else is a string."""
+    if s is None:
+        return None
+    if isinstance(s, list):
+        return [clean_text(x) for x in s]
+    if isinstance(s, str):
+        return s.replace("ń", "ñ").replace("Ń", "Ñ")
+    return s
 
 
 def upsert_medication(data: dict, source_url: str) -> None:
@@ -265,6 +324,8 @@ def main() -> int:
     print_section("Droga activa",       data.get("droga_activa"))
     print_section("Clase terapéutica",  data.get("clase_terapeutica"))
     print_section("Composición",        data.get("composicion"))
+    pres = data.get("presentations") or []
+    print_section("Presentaciones",     " · ".join(pres) if pres else None)
     print_section("Indicaciones",       data.get("indicaciones"))
     print_section("Contraindicaciones", data.get("contraindicaciones"))
     print_section("Efectos adversos",   data.get("efectos_adversos"))
