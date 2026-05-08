@@ -65,6 +65,56 @@ def upsert(client: Client, data: dict, source_url: str) -> Tuple[str, str]:
         return ("error", str(e)[:120])
 
 
+class ScrapeAborted(Exception):
+    """Raised by fetch_with_retry when a URL fails too many consecutive times."""
+
+
+# Status codes that trigger backoff retries (transient server-side issues).
+# 404 is intentionally NOT retryable — the MFT vademécum has many gaps in
+# its ID numbering and 404s are normal during a sweep.
+RETRYABLE_STATUSES = {429, 502, 503, 504}
+
+# Sleep schedule (seconds) before each retry of the same URL. Once exhausted,
+# fetch_with_retry raises ScrapeAborted (caller breaks the loop and exits 1).
+BACKOFF_SCHEDULE = [30, 60, 120]
+
+
+def fetch_with_retry(url: str, headers: dict, code: str, timeout: int = 15):
+    """GET `url` with backoff retries on retryable errors.
+
+    Returns the requests.Response on the first non-retryable response (200,
+    404, or any non-retryable status). Raises ScrapeAborted after the
+    BACKOFF_SCHEDULE is exhausted (i.e. on the 4th consecutive failure).
+
+    The caller is expected to have already printed `"{code}... "` (no newline).
+    On retry, this prints the error + wait notice closing that line, then
+    re-emits the `"{code}... "` prefix on the next line for continuity.
+    """
+    retry_count = 0
+    while True:
+        try:
+            r = requests.get(url, headers=headers, timeout=timeout)
+            if r.status_code not in RETRYABLE_STATUSES:
+                return r
+            err_label = str(r.status_code)
+        except requests.RequestException as e:
+            err_label = f"network/{e.__class__.__name__}"
+
+        # Retryable error.
+        if retry_count >= len(BACKOFF_SCHEDULE):
+            print(f"{err_label}, ABORT después de {len(BACKOFF_SCHEDULE)} reintentos")
+            raise ScrapeAborted(
+                f"{code}: {len(BACKOFF_SCHEDULE) + 1} fallos consecutivos retryables"
+            )
+
+        sleep_for = BACKOFF_SCHEDULE[retry_count]
+        print(f"{err_label}, esperando {sleep_for}s... reintentando")
+        time.sleep(sleep_for)
+        # Re-emit the prefix so the next retry's output line is properly labeled.
+        print(f"{code}... ", end="", flush=True)
+        retry_count += 1
+
+
 def main() -> int:
     if not (SUPABASE_URL and SUPABASE_KEY):
         print("Faltan credenciales en .env", file=sys.stderr)
@@ -79,19 +129,17 @@ def main() -> int:
 
     counts = {"inserted": 0, "updated": 0, "empty": 0, "404": 0, "error": 0}
 
+    aborted = False
     for n in range(START, END + 1):
         code = f"P{n}"
         url = URL_TEMPLATE.format(n=n)
         print(f"{code}... ", end="", flush=True)
 
         try:
-            r = requests.get(url, headers=headers, timeout=15)
-        except requests.RequestException as e:
-            print(f"error de red ({e.__class__.__name__})")
-            counts["error"] += 1
-            if n < END:
-                time.sleep(DELAY)
-            continue
+            r = fetch_with_retry(url, headers, code)
+        except ScrapeAborted:
+            aborted = True
+            break
 
         if r.status_code == 404:
             print("404")
@@ -125,6 +173,9 @@ def main() -> int:
     print(f"Resumen ({total} URLs): "
           f"{counts['inserted']} insertados · {counts['updated']} actualizados · "
           f"{counts['empty']} vacíos · {counts['404']} 404 · {counts['error']} errores")
+    if aborted:
+        print("⚠️  Scraper abortado por errores consecutivos retryables.")
+        return 1
     return 0
 
 
