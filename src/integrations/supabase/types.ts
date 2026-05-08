@@ -1175,6 +1175,107 @@ export type Database = {
           },
         ]
       }
+      medication_categories: {
+        Row: {
+          created_at: string
+          family: string
+          id: string
+          is_primary: boolean
+          medication_id: string
+          subgroup: string | null
+        }
+        Insert: {
+          created_at?: string
+          family: string
+          id?: string
+          is_primary?: boolean
+          medication_id: string
+          subgroup?: string | null
+        }
+        Update: {
+          created_at?: string
+          family?: string
+          id?: string
+          is_primary?: boolean
+          medication_id?: string
+          subgroup?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_categories_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medications: {
+        Row: {
+          active_ingredient: string | null
+          adverse_effects: string | null
+          composition: string | null
+          contraindications: string | null
+          created_at: string | null
+          dosage: string | null
+          dose: string | null
+          full_text: string | null
+          id: string
+          indications: string | null
+          interactions: string | null
+          laboratory: string | null
+          mechanism: string | null
+          name: string
+          precautions: string | null
+          presentations: string[] | null
+          source: string | null
+          source_url: string | null
+          therapeutic_class: string | null
+        }
+        Insert: {
+          active_ingredient?: string | null
+          adverse_effects?: string | null
+          composition?: string | null
+          contraindications?: string | null
+          created_at?: string | null
+          dosage?: string | null
+          dose?: string | null
+          full_text?: string | null
+          id?: string
+          indications?: string | null
+          interactions?: string | null
+          laboratory?: string | null
+          mechanism?: string | null
+          name: string
+          precautions?: string | null
+          presentations?: string[] | null
+          source?: string | null
+          source_url?: string | null
+          therapeutic_class?: string | null
+        }
+        Update: {
+          active_ingredient?: string | null
+          adverse_effects?: string | null
+          composition?: string | null
+          contraindications?: string | null
+          created_at?: string | null
+          dosage?: string | null
+          dose?: string | null
+          full_text?: string | null
+          id?: string
+          indications?: string | null
+          interactions?: string | null
+          laboratory?: string | null
+          mechanism?: string | null
+          name?: string
+          precautions?: string | null
+          presentations?: string[] | null
+          source?: string | null
+          source_url?: string | null
+          therapeutic_class?: string | null
+        }
+        Relationships: []
+      }
       other_evaluations: {
         Row: {
           child_patient_id: string
