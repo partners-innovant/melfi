@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -80,6 +81,28 @@ type SortKey = "name_asc" | "name_desc" | "family_sub_name" | "lab_name";
 
 type FilterCol = "name" | "active_ingredient" | "laboratory" | "dose" | "family" | "subgroup";
 
+const FETCH_PAGE_SIZE = 1000;
+const FETCH_MAX_PAGES = 50;
+
+async function fetchAllRows<T>(
+  build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: PostgrestError | null }>,
+): Promise<{ data: T[]; error: PostgrestError | null }> {
+  const all: T[] = [];
+  let from = 0;
+  for (let page = 0; page < FETCH_MAX_PAGES; page++) {
+    const { data, error } = await build(from, from + FETCH_PAGE_SIZE - 1);
+    if (error) return { data: all, error };
+    const rows = data ?? [];
+    all.push(...rows);
+    if (rows.length < FETCH_PAGE_SIZE) return { data: all, error: null };
+    from += FETCH_PAGE_SIZE;
+  }
+  console.warn(
+    `fetchAllRows: alcanzado el tope de ${FETCH_MAX_PAGES} páginas (${FETCH_MAX_PAGES * FETCH_PAGE_SIZE} filas); resultados pueden estar truncados`,
+  );
+  return { data: all, error: null };
+}
+
 export default function Medications() {
   const [list, setList] = useState<EnrichedMed[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,17 +121,21 @@ export default function Medications() {
   useEffect(() => {
     (async () => {
       const [medsRes, catsRes] = await Promise.all([
-        supabase
-          .from("medications" as any)
-          .select(
-            "id, name, active_ingredient, laboratory, dose, therapeutic_class, composition, indications, contraindications, adverse_effects, interactions, dosage, precautions, source_url",
-          )
-          .order("name")
-          .range(0, 9999),
-        supabase
-          .from("medication_categories" as any)
-          .select("medication_id, family, subgroup, is_primary")
-          .range(0, 9999),
+        fetchAllRows<Medication>((from, to) =>
+          supabase
+            .from("medications" as any)
+            .select(
+              "id, name, active_ingredient, laboratory, dose, therapeutic_class, composition, indications, contraindications, adverse_effects, interactions, dosage, precautions, source_url",
+            )
+            .order("name")
+            .range(from, to) as unknown as PromiseLike<{ data: Medication[] | null; error: PostgrestError | null }>,
+        ),
+        fetchAllRows<MedCategory>((from, to) =>
+          supabase
+            .from("medication_categories" as any)
+            .select("medication_id, family, subgroup, is_primary")
+            .range(from, to) as unknown as PromiseLike<{ data: MedCategory[] | null; error: PostgrestError | null }>,
+        ),
       ]);
       if (medsRes.error) toast.error(medsRes.error.message);
       if (catsRes.error) toast.error(catsRes.error.message);
